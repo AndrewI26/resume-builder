@@ -1,0 +1,25 @@
+# Binaries
+/resume-builder
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/dist/
+
+# Go build & test
+*.test
+*.out
+coverage.out
+*.coverprofile
+
+# Dependency directories
+vendor/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
