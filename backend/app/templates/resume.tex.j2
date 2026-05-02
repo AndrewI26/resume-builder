@@ -1,0 +1,231 @@
+{% raw -%}
+%-------------------------
+% Resume in Latex
+% Author : Jake Gutierrez
+% Based off of: https://github.com/sb2nov/resume
+% License : MIT
+%------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{fontawesome5}
+\usepackage{multicol}
+\setlength{\multicolsep}{-3.0pt}
+\setlength{\columnsep}{-1pt}
+\input{glyphtounicode}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fontawesome5}
+
+
+
+%----------FONT OPTIONS----------
+% sans-serif
+% \usepackage[sfdefault]{FiraSans}
+% \usepackage[sfdefault]{roboto}
+% \usepackage[sfdefault]{noto-sans}
+% \usepackage[default]{sourcesanspro}
+
+% serif
+% \usepackage{CormorantGaramond}
+% \usepackage{charter}
+
+
+\pagestyle{fancy}
+\fancyhf{} % clear all header and footer fields
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Adjust margins
+\addtolength{\oddsidemargin}{-0.6in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1.19in}
+\addtolength{\topmargin}{-.7in}
+\addtolength{\textheight}{1.4in}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large\bfseries
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+% Ensure that generate pdf is machine readable/ATS parsable
+\pdfgentounicode=1
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\classesList}[4]{
+    \item\small{
+        {#1 #2 #3 #4 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & \textbf{\small #2} \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubSubheading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{1.001\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & \textbf{\small #2}\\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemi{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.0in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
+%%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage[top=.5cm, bottom=0cm, left=1cm, right=1cm]{geometry}
+\begin{document}
+{%- endraw %}
+
+%----------HEADING----------
+\begin{center}
+    {\Huge \scshape {{ basics.full_name | latex_escape }}} \\ \vspace{1pt}
+    {%- if basics.email %}
+    \href{mailto:{{ basics.email }}}{\raisebox{-0.2\height}\faEnvelope\  \underline{{ basics.email | latex_escape }}} ~
+    {%- endif %}
+    {%- if basics.linkedin_url %}
+    \href{ {{- basics.linkedin_url -}} }{\raisebox{-0.2\height}\faLinkedin\ \underline{{ basics.linkedin_text | latex_escape }}} ~
+    {%- endif %}
+    {%- if basics.github_url %}
+    \href{ {{- basics.github_url -}} }{\raisebox{-0.2\height}\faGithub\ \underline{{ basics.github_text | latex_escape }}} ~
+    {%- endif %}
+    {%- if basics.website_url %}
+    \href{ {{- basics.website_url -}} }{\raisebox{-0.2\height}\faInternetExplorer\ \underline{{ basics.website_text | latex_escape }}} ~
+    {%- endif %}
+\end{center}
+
+{%- if skills and skills.categories %}
+%-----------PROGRAMMING SKILLS-----------
+\section{Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+    {%- for cat in skills.categories %}
+      \textbf{ {{ cat.label | latex_escape }} }{: {{ cat.items | latex_escape }} } \\
+    {%- endfor %}
+    }}
+ \end{itemize}
+ \vspace{-20pt}
+{%- endif %}
+
+{%- if experience %}
+%-----------EXPERIENCE-----------
+\section{Experience}
+  \resumeSubHeadingListStart
+    {%- for job in experience %}
+    \resumeSubheading
+      { {%- if job.company_url %}\textbf{\href{ {{- job.company_url -}} }{ {{ job.company | latex_escape }} }}{% else %}{{ job.company | latex_escape }}{% endif %} }{ {{ job.date_range | latex_escape }} }
+      { {{ job.role | latex_escape }} }{ {{ job.location | latex_escape }} }
+      {%- if job.highlights %}
+      \resumeItemListStart
+        {%- for h in job.highlights %}
+        \resumeItem{ {{ h | latex_escape }} }
+        {%- endfor %}
+      \resumeItemListEnd
+      {%- endif %}
+    {%- endfor %}
+  \resumeSubHeadingListEnd
+\vspace{-16pt}
+{%- endif %}
+
+{%- if projects %}
+%-----------PROJECTS-----------
+\section{Projects}
+    \vspace{-5pt}
+    \resumeSubHeadingListStart
+      {%- for proj in projects %}
+      \resumeProjectHeading
+        { {%- if proj.url %}\href{ {{- proj.url -}} }{\faLink} {% endif %}\textbf{ {{ proj.name | latex_escape }} } {%- if proj.tech_stack %} $|$ \emph{ {{ proj.tech_stack | latex_escape }} }{% endif %} }{ {{ proj.date_range | latex_escape }} }
+      {%- if proj.highlights %}
+      \resumeItemListStart
+        {%- for h in proj.highlights %}
+        \resumeItem{ {{ h | latex_escape }} }
+        {%- endfor %}
+      \resumeItemListEnd
+      {%- endif %}
+      \vspace{-16pt}
+      {%- endfor %}
+    \resumeSubHeadingListEnd
+{%- endif %}
+
+{%- if education %}
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    {%- for edu in education %}
+    \resumeSubheading
+      { {{ edu.institution | latex_escape }} }{ {{ edu.date_range | latex_escape }} }
+      { {{ edu.program | latex_escape }} }{ {{ edu.location | latex_escape }} }
+    {%- if edu.awards_left or edu.awards_right %}
+    \begin{tabularx}{1\textwidth}{
+      >{\raggedright\arraybackslash}X
+      >{\raggedright\arraybackslash}X }
+      \vspace{-15pt}
+      {%- if edu.awards_left %}
+      \resumeItemListStart
+        {%- for award in edu.awards_left %}
+        \resumeItem{ {{ award | latex_escape }} }
+        {%- endfor %}
+      \resumeItemListEnd
+      {%- endif %}
+      &
+      \vspace{-15pt}
+      {%- if edu.awards_right %}
+      \resumeItemListStart
+        {%- for award in edu.awards_right %}
+        \resumeItem{ {{ award | latex_escape }} }
+        {%- endfor %}
+      \resumeItemListEnd
+      {%- endif %}
+    \end{tabularx}
+    \vspace{-25pt}
+    {%- endif %}
+    {%- endfor %}
+  \resumeSubHeadingListEnd
+{%- endif %}
+
+\end{document}

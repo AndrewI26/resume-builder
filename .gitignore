@@ -17,12 +17,18 @@ coverage.out
 # Dependency directories
 vendor/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Node
+node_modules/
+
 # IDE / OS
 .DS_Store
 .idea/
 .vscode/
 *.swp
 *~
-
-.venv
-venv
