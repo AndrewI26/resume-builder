@@ -1,0 +1,2 @@
+bun run verify
+git add -u

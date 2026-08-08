@@ -2,12 +2,12 @@ import importlib
 import pkgutil
 from logging.config import fileConfig
 
-from alembic import context
-from deps.db import Base
-from settings import get_settings
 from sqlalchemy import engine_from_config, pool
 
 import models
+from alembic import context
+from db import Base
+from settings import get_settings
 
 # auto-import every module in models/ so they register their tables on
 # Base.metadata without needing to be listed here by hand

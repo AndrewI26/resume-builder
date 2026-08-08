@@ -3,17 +3,30 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "dev:web": "bun run --filter apps-web dev",
     "build:web": "bun run --filter apps-web build",
     "docker:dev": "docker compose -f docker-compose.dev.yml up --remove-orphans",
     "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
     "db:revision": "docker compose -f docker-compose.dev.yml exec api uv run alembic revision --autogenerate -m",
-    "db:upgrade": "docker compose -f docker-compose.dev.yml exec api uv run alembic upgrade head"
+    "db:upgrade": "docker compose -f docker-compose.dev.yml exec api uv run alembic upgrade head",
+    "format:web": "bun run --filter apps-web format",
+    "lint:web": "bun run --filter apps-web lint",
+    "typecheck:web": "bun run --filter apps-web typecheck",
+    "format:api": "uv run --directory apps/api ruff format .",
+    "lint:api": "uv run --directory apps/api ruff check --fix .",
+    "typecheck:api": "uv run --directory apps/api mypy .",
+    "verify": "bun run format:web && bun run lint:web && bun run typecheck:web && bun run format:api && bun run lint:api && bun run typecheck:api",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@biomejs/biome": "^2.5.7",
+    "@types/bun": "latest",
+    "apps-web": "workspace:*",
+    "husky": "^9.1.7"
   },
   "peerDependencies": {
     "typescript": "^5"
