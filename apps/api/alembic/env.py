@@ -1,3 +1,5 @@
+import importlib
+import pkgutil
 from logging.config import fileConfig
 
 from alembic import context
@@ -5,8 +7,12 @@ from deps.db import Base
 from settings import get_settings
 from sqlalchemy import engine_from_config, pool
 
-# import model modules here so they register their tables on Base.metadata
-# e.g. import models.resume
+import models
+
+# auto-import every module in models/ so they register their tables on
+# Base.metadata without needing to be listed here by hand
+for module_info in pkgutil.iter_modules(models.__path__):
+    importlib.import_module(f"models.{module_info.name}")
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

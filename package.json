@@ -8,7 +8,9 @@
     "dev:web": "bun run --filter apps-web dev",
     "build:web": "bun run --filter apps-web build",
     "docker:dev": "docker compose -f docker-compose.dev.yml up --remove-orphans",
-    "docker:dev:down": "docker compose -f docker-compose.dev.yml down"
+    "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
+    "db:revision": "docker compose -f docker-compose.dev.yml exec api uv run alembic revision --autogenerate -m",
+    "db:upgrade": "docker compose -f docker-compose.dev.yml exec api uv run alembic upgrade head"
   },
   "devDependencies": {
     "@types/bun": "latest"
