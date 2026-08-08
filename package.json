@@ -1,0 +1,17 @@
+{
+  "name": "resume-builder",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev:web": "bun run --filter apps-web dev",
+    "build:web": "bun run --filter apps-web build"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
