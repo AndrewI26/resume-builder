@@ -51,7 +51,11 @@ from main import app
 from models.bullet_points import BulletPoint
 from models.expirence import Expirence
 from models.user import User
-from security import ACCESS_TOKEN_COOKIE_NAME, create_access_token
+from security import (
+    ACCESS_TOKEN_COOKIE_NAME,
+    create_access_token,
+    hash_password,
+)
 
 
 def _create_database_if_missing(url: str) -> None:
@@ -119,8 +123,19 @@ def client(db: Session) -> Iterator[TestClient]:
 
 @pytest.fixture
 def make_user(db: Session):
-    def _make_user(email: str = "user@example.com") -> User:
-        user = User(email=email, hashed_password="not-a-real-hash")
+    """Insert a user directly.
+
+    ``password`` is only hashed when a test actually needs to log in, since
+    bcrypt is deliberately slow.
+    """
+
+    def _make_user(
+        email: str = "user@example.com", password: str | None = None
+    ) -> User:
+        hashed_password = (
+            hash_password(password) if password is not None else "not-a-real-hash"
+        )
+        user = User(email=email, hashed_password=hashed_password)
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -174,7 +189,13 @@ def make_expirence(db: Session):
 
 @pytest.fixture
 def auth(client: TestClient):
-    """Sign the client in as a given user for subsequent requests."""
+    """Sign the client in as a given user for subsequent requests.
+
+    The cookie is injected without a domain, which httpx sends on every
+    request but which the server's ``delete_cookie`` header cannot match. Tests
+    that care about the cookie being *cleared* should log in through
+    ``/auth/login`` instead.
+    """
 
     def _auth(user: User) -> TestClient:
         client.cookies.set(ACCESS_TOKEN_COOKIE_NAME, create_access_token(user.id))
