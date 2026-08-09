@@ -20,8 +20,6 @@ class ExpirenceRead(ExpirenceCreate):
 
 
 class ExpirenceEdit(BaseModel):
-    id: UUID
-
     company: str | None = Field(default=None, max_length=255)
     position: str | None = Field(default=None, max_length=255)
 
@@ -29,7 +27,3 @@ class ExpirenceEdit(BaseModel):
     location: str | None = Field(default=None, max_length=255)
 
     bullet_points: list[BulletPoint] | None = None
-
-
-class ExpirenceDelete(BaseModel):
-    id: UUID

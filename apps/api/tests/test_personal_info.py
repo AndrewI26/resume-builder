@@ -34,16 +34,17 @@ def get_personal_info(db: Session, personal_info_id: UUID) -> PersonalInfo | Non
 
 class TestAuthentication:
     @pytest.mark.parametrize(
-        ("method", "body"),
+        ("method", "path", "body"),
         [
-            ("GET", None),
-            ("POST", payload()),
-            ("PUT", {"id": str(uuid4()), "email": "me@example.com"}),
-            ("DELETE", {"id": str(uuid4())}),
+            ("GET", "/personal-info/", None),
+            ("POST", "/personal-info/", payload()),
+            ("GET", f"/personal-info/{uuid4()}", None),
+            ("PUT", f"/personal-info/{uuid4()}", {"email": "me@example.com"}),
+            ("DELETE", f"/personal-info/{uuid4()}", None),
         ],
     )
-    def test_requires_a_session_cookie(self, client: TestClient, method, body):
-        response = client.request(method, "/personal-info/", json=body)
+    def test_requires_a_session_cookie(self, client: TestClient, method, path, body):
+        response = client.request(method, path, json=body)
 
         assert response.status_code == 401
 
@@ -205,8 +206,7 @@ class TestEdit:
         personal_info = make_personal_info(user, email="old@example.com")
 
         response = auth(user).put(
-            "/personal-info/",
-            json={"id": str(personal_info.id), "email": "new@example.com"},
+            f"/personal-info/{personal_info.id}", json={"email": "new@example.com"}
         )
 
         assert response.status_code == 200
@@ -224,8 +224,7 @@ class TestEdit:
         bystander = make_personal_info(user, email="bystander@example.com")
 
         auth(user).put(
-            "/personal-info/",
-            json={"id": str(target.id), "email": "changed@example.com"},
+            f"/personal-info/{target.id}", json={"email": "changed@example.com"}
         )
 
         untouched = get_personal_info(db, bystander.id)
@@ -239,7 +238,7 @@ class TestEdit:
         personal_info = make_personal_info(user)
 
         response = auth(user).put(
-            "/personal-info/", json={"id": str(personal_info.id), field: None}
+            f"/personal-info/{personal_info.id}", json={field: None}
         )
 
         assert response.status_code == 200
@@ -253,7 +252,7 @@ class TestEdit:
         personal_info = make_personal_info(user)
 
         response = auth(user).put(
-            "/personal-info/", json={"id": str(personal_info.id), "phone_number": None}
+            f"/personal-info/{personal_info.id}", json={"phone_number": None}
         )
 
         assert response.json()["phone_number"] is None
@@ -270,9 +269,7 @@ class TestEdit:
             portfolio="https://other.example.com",
         )
 
-        response = auth(user).put(
-            "/personal-info/", json={"id": str(personal_info.id)} | changes
-        )
+        response = auth(user).put(f"/personal-info/{personal_info.id}", json=changes)
 
         assert response.status_code == 200
         for field, value in changes.items():
@@ -281,13 +278,13 @@ class TestEdit:
     def test_rejects_an_update_with_no_fields(self, auth, user, make_personal_info):
         personal_info = make_personal_info(user)
 
-        response = auth(user).put("/personal-info/", json={"id": str(personal_info.id)})
+        response = auth(user).put(f"/personal-info/{personal_info.id}", json={})
 
         assert response.status_code == 400
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
         response = auth(user).put(
-            "/personal-info/", json={"id": str(uuid4()), "email": "ghost@example.com"}
+            f"/personal-info/{uuid4()}", json={"email": "ghost@example.com"}
         )
 
         assert response.status_code == 404
@@ -298,8 +295,7 @@ class TestEdit:
         theirs = make_personal_info(other_user, email="theirs@example.com")
 
         response = auth(user).put(
-            "/personal-info/",
-            json={"id": str(theirs.id), "email": "hijacked@example.com"},
+            f"/personal-info/{theirs.id}", json={"email": "hijacked@example.com"}
         )
 
         assert response.status_code == 404
@@ -313,9 +309,7 @@ class TestDelete:
     def test_deletes_the_personal_info(self, auth, user, make_personal_info, db):
         personal_info = make_personal_info(user)
 
-        response = auth(user).request(
-            "DELETE", "/personal-info/", json={"id": str(personal_info.id)}
-        )
+        response = auth(user).delete(f"/personal-info/{personal_info.id}")
 
         assert response.status_code == 200
         assert response.json()["email"] == "me@example.com"
@@ -325,14 +319,12 @@ class TestDelete:
         doomed = make_personal_info(user, email="doomed@example.com")
         survivor = make_personal_info(user, email="survivor@example.com")
 
-        auth(user).request("DELETE", "/personal-info/", json={"id": str(doomed.id)})
+        auth(user).delete(f"/personal-info/{doomed.id}")
 
         assert get_personal_info(db, survivor.id) is not None
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).request(
-            "DELETE", "/personal-info/", json={"id": str(uuid4())}
-        )
+        response = auth(user).delete(f"/personal-info/{uuid4()}")
 
         assert response.status_code == 404
 
@@ -341,9 +333,7 @@ class TestDelete:
     ):
         theirs = make_personal_info(other_user)
 
-        response = auth(user).request(
-            "DELETE", "/personal-info/", json={"id": str(theirs.id)}
-        )
+        response = auth(user).delete(f"/personal-info/{theirs.id}")
 
         assert response.status_code == 404
         assert get_personal_info(db, theirs.id) is not None

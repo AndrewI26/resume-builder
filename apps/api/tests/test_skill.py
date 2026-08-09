@@ -37,16 +37,17 @@ def get_skill(db: Session, skill_id: UUID) -> Skill | None:
 
 class TestAuthentication:
     @pytest.mark.parametrize(
-        ("method", "body"),
+        ("method", "path", "body"),
         [
-            ("GET", None),
-            ("POST", payload()),
-            ("PUT", {"id": str(uuid4()), "name": "Renamed"}),
-            ("DELETE", {"id": str(uuid4())}),
+            ("GET", "/skill/", None),
+            ("POST", "/skill/", payload()),
+            ("GET", f"/skill/{uuid4()}", None),
+            ("PUT", f"/skill/{uuid4()}", {"name": "Renamed"}),
+            ("DELETE", f"/skill/{uuid4()}", None),
         ],
     )
-    def test_requires_a_session_cookie(self, client: TestClient, method, body):
-        response = client.request(method, "/skill/", json=body)
+    def test_requires_a_session_cookie(self, client: TestClient, method, path, body):
+        response = client.request(method, path, json=body)
 
         assert response.status_code == 401
 
@@ -198,7 +199,7 @@ class TestEdit:
         skill = make_skill(user, name="Languages", items=["Python"])
 
         response = auth(user).put(
-            "/skill/", json={"id": str(skill.id), "name": "Programming Languages"}
+            f"/skill/{skill.id}", json={"name": "Programming Languages"}
         )
 
         assert response.status_code == 200
@@ -214,7 +215,7 @@ class TestEdit:
         skill = make_skill(user, items=["Python", "Go"])
 
         response = auth(user).put(
-            "/skill/", json={"id": str(skill.id), "items": ["Rust", "Zig", "C"]}
+            f"/skill/{skill.id}", json={"items": ["Rust", "Zig", "C"]}
         )
 
         assert response.json()["items"] == ["Rust", "Zig", "C"]
@@ -227,16 +228,14 @@ class TestEdit:
         skill = make_skill(user, items=["Python", "Go", "SQL"])
         reordered = ["SQL", "Python", "Go"]
 
-        response = auth(user).put(
-            "/skill/", json={"id": str(skill.id), "items": reordered}
-        )
+        response = auth(user).put(f"/skill/{skill.id}", json={"items": reordered})
 
         assert response.json()["items"] == reordered
 
     def test_can_empty_the_items(self, auth, user, make_skill):
         skill = make_skill(user, items=["Python"])
 
-        response = auth(user).put("/skill/", json={"id": str(skill.id), "items": []})
+        response = auth(user).put(f"/skill/{skill.id}", json={"items": []})
 
         assert response.json()["items"] == []
 
@@ -245,8 +244,8 @@ class TestEdit:
         frameworks = make_skill(user, name="Technologies/Frameworks", position=1)
 
         client = auth(user)
-        client.put("/skill/", json={"id": str(languages.id), "position": 1})
-        client.put("/skill/", json={"id": str(frameworks.id), "position": 0})
+        client.put(f"/skill/{languages.id}", json={"position": 1})
+        client.put(f"/skill/{frameworks.id}", json={"position": 0})
 
         assert [row["name"] for row in client.get("/skill/").json()] == [
             "Technologies/Frameworks",
@@ -259,7 +258,7 @@ class TestEdit:
         # reach the database as an IntegrityError.
         skill = make_skill(user)
 
-        response = auth(user).put("/skill/", json={"id": str(skill.id), field: None})
+        response = auth(user).put(f"/skill/{skill.id}", json={field: None})
 
         assert response.status_code == 422
 
@@ -270,14 +269,14 @@ class TestEdit:
     def test_rejects_a_negative_position(self, auth, user, make_skill):
         skill = make_skill(user, position=3)
 
-        response = auth(user).put("/skill/", json={"id": str(skill.id), "position": -1})
+        response = auth(user).put(f"/skill/{skill.id}", json={"position": -1})
 
         assert response.status_code == 422
 
     def test_rejects_an_update_with_no_fields(self, auth, user, make_skill):
         skill = make_skill(user)
 
-        response = auth(user).put("/skill/", json={"id": str(skill.id)})
+        response = auth(user).put(f"/skill/{skill.id}", json={})
 
         assert response.status_code == 400
 
@@ -286,9 +285,7 @@ class TestEdit:
     ):
         skill = make_skill(other_user, name="Theirs")
 
-        response = auth(user).put(
-            "/skill/", json={"id": str(skill.id), "name": "Hijacked"}
-        )
+        response = auth(user).put(f"/skill/{skill.id}", json={"name": "Hijacked"})
 
         assert response.status_code == 404
 
@@ -297,7 +294,7 @@ class TestEdit:
         assert untouched.name == "Theirs"
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).put("/skill/", json={"id": str(uuid4()), "name": "Ghost"})
+        response = auth(user).put(f"/skill/{uuid4()}", json={"name": "Ghost"})
 
         assert response.status_code == 404
 
@@ -306,7 +303,7 @@ class TestDelete:
     def test_deletes_the_skill_list(self, auth, user, make_skill, db):
         skill = make_skill(user, name="Languages")
 
-        response = auth(user).request("DELETE", "/skill/", json={"id": str(skill.id)})
+        response = auth(user).delete(f"/skill/{skill.id}")
 
         assert response.status_code == 200
         assert response.json()["name"] == "Languages"
@@ -315,7 +312,7 @@ class TestDelete:
     def test_returns_the_deleted_items(self, auth, user, make_skill):
         skill = make_skill(user, items=LANGUAGES)
 
-        response = auth(user).request("DELETE", "/skill/", json={"id": str(skill.id)})
+        response = auth(user).delete(f"/skill/{skill.id}")
 
         assert response.json()["items"] == LANGUAGES
 
@@ -323,7 +320,7 @@ class TestDelete:
         doomed = make_skill(user, name="Doomed", position=0)
         survivor = make_skill(user, name="Survivor", position=1)
 
-        auth(user).request("DELETE", "/skill/", json={"id": str(doomed.id)})
+        auth(user).delete(f"/skill/{doomed.id}")
 
         assert get_skill(db, survivor.id) is not None
 
@@ -332,12 +329,12 @@ class TestDelete:
     ):
         skill = make_skill(other_user)
 
-        response = auth(user).request("DELETE", "/skill/", json={"id": str(skill.id)})
+        response = auth(user).delete(f"/skill/{skill.id}")
 
         assert response.status_code == 404
         assert get_skill(db, skill.id) is not None
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).request("DELETE", "/skill/", json={"id": str(uuid4())})
+        response = auth(user).delete(f"/skill/{uuid4()}")
 
         assert response.status_code == 404

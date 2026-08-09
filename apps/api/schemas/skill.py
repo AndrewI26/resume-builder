@@ -27,14 +27,8 @@ class SkillRead(BaseModel):
 
 
 class SkillEdit(BaseModel):
-    id: UUID
-
     # All three columns are NOT NULL, so a field is either a value or left out
     # entirely. See `schemas.fields.omittable`.
     name: str = omittable_str(255)
     items: list[SkillItem] = omittable()
     position: int = omittable(ge=0)
-
-
-class SkillDelete(BaseModel):
-    id: UUID

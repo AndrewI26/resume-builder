@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from deps.auth import CurrentUser
 from deps.db import Db
 from models.skill import Skill
-from schemas.skill import SkillCreate, SkillDelete, SkillEdit, SkillRead
+from schemas.skill import SkillCreate, SkillEdit, SkillRead
 
 router = APIRouter(prefix="/skill", tags=["Skill"])
 
@@ -67,9 +67,9 @@ def create_skill(skill: SkillCreate, current_user: CurrentUser, db: Db):
     return result
 
 
-@router.put("/", response_model=SkillRead)
-def edit_skill(skill: SkillEdit, current_user: CurrentUser, db: Db):
-    values = skill.model_dump(exclude_unset=True, exclude={"id"})
+@router.put("/{skill_id}", response_model=SkillRead)
+def edit_skill(skill_id: UUID, skill: SkillEdit, current_user: CurrentUser, db: Db):
+    values = skill.model_dump(exclude_unset=True)
     if not values:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
@@ -77,7 +77,7 @@ def edit_skill(skill: SkillEdit, current_user: CurrentUser, db: Db):
 
     stmt = (
         update(Skill)
-        .where(Skill.id == skill.id, Skill.user_id == current_user.id)
+        .where(Skill.id == skill_id, Skill.user_id == current_user.id)
         .values(**values)
         .returning(Skill)
     )
@@ -91,11 +91,11 @@ def edit_skill(skill: SkillEdit, current_user: CurrentUser, db: Db):
     return result
 
 
-@router.delete("/", response_model=SkillRead)
-def delete_skill(skill: SkillDelete, current_user: CurrentUser, db: Db):
+@router.delete("/{skill_id}", response_model=SkillRead)
+def delete_skill(skill_id: UUID, current_user: CurrentUser, db: Db):
     stmt = (
         delete(Skill)
-        .where(Skill.id == skill.id, Skill.user_id == current_user.id)
+        .where(Skill.id == skill_id, Skill.user_id == current_user.id)
         .returning(Skill)
     )
     deleted_skill = db.scalars(stmt).one_or_none()

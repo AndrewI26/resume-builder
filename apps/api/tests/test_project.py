@@ -34,16 +34,17 @@ def get_project(db: Session, project_id: UUID) -> Project | None:
 
 class TestAuthentication:
     @pytest.mark.parametrize(
-        ("method", "body"),
+        ("method", "path", "body"),
         [
-            ("GET", None),
-            ("POST", payload()),
-            ("PUT", {"id": str(uuid4()), "name": "Renamed"}),
-            ("DELETE", {"id": str(uuid4())}),
+            ("GET", "/project/", None),
+            ("POST", "/project/", payload()),
+            ("GET", f"/project/{uuid4()}", None),
+            ("PUT", f"/project/{uuid4()}", {"name": "Renamed"}),
+            ("DELETE", f"/project/{uuid4()}", None),
         ],
     )
-    def test_requires_a_session_cookie(self, client: TestClient, method, body):
-        response = client.request(method, "/project/", json=body)
+    def test_requires_a_session_cookie(self, client: TestClient, method, path, body):
+        response = client.request(method, path, json=body)
 
         assert response.status_code == 401
 
@@ -225,9 +226,7 @@ class TestEdit:
     def test_updates_only_the_supplied_fields(self, auth, user, make_project, db):
         project = make_project(user, name="Old name", technologies=("Python",))
 
-        response = auth(user).put(
-            "/project/", json={"id": str(project.id), "name": "New name"}
-        )
+        response = auth(user).put(f"/project/{project.id}", json={"name": "New name"})
 
         assert response.status_code == 200
         body = response.json()
@@ -246,7 +245,7 @@ class TestEdit:
         project = make_project(user, technologies=("Python", "FastAPI"))
 
         response = auth(user).put(
-            "/project/", json={"id": str(project.id), "technologies": ["Go"]}
+            f"/project/{project.id}", json={"technologies": ["Go"]}
         )
 
         assert response.json()["technologies"] == ["Go"]
@@ -254,9 +253,7 @@ class TestEdit:
     def test_rejects_an_explicit_null_link(self, auth, user, make_project, db):
         project = make_project(user, link="https://example.com/project")
 
-        response = auth(user).put(
-            "/project/", json={"id": str(project.id), "link": None}
-        )
+        response = auth(user).put(f"/project/{project.id}", json={"link": None})
 
         assert response.status_code == 422
 
@@ -267,9 +264,7 @@ class TestEdit:
     def test_omitting_the_link_leaves_it_unchanged(self, auth, user, make_project, db):
         project = make_project(user, link="https://example.com/project")
 
-        response = auth(user).put(
-            "/project/", json={"id": str(project.id), "name": "Renamed"}
-        )
+        response = auth(user).put(f"/project/{project.id}", json={"name": "Renamed"})
 
         assert response.status_code == 200
         assert response.json()["link"] == "https://example.com/project"
@@ -282,8 +277,7 @@ class TestEdit:
         project = make_project(user, link="https://example.com/old")
 
         response = auth(user).put(
-            "/project/",
-            json={"id": str(project.id), "link": "https://example.com/new"},
+            f"/project/{project.id}", json={"link": "https://example.com/new"}
         )
 
         assert response.status_code == 200
@@ -300,11 +294,8 @@ class TestEdit:
         stale_ids = list(project.bullet_points)
 
         response = auth(user).put(
-            "/project/",
-            json={
-                "id": str(project.id),
-                "bullet_points": [{"text": "Brand new", "bolded": []}],
-            },
+            f"/project/{project.id}",
+            json={"bullet_points": [{"text": "Brand new", "bolded": []}]},
         )
 
         assert [b["text"] for b in response.json()["bullet_points"]] == ["Brand new"]
@@ -317,7 +308,7 @@ class TestEdit:
     def test_rejects_an_update_with_no_fields(self, auth, user, make_project):
         project = make_project(user)
 
-        response = auth(user).put("/project/", json={"id": str(project.id)})
+        response = auth(user).put(f"/project/{project.id}", json={})
 
         assert response.status_code == 400
 
@@ -326,9 +317,7 @@ class TestEdit:
     ):
         project = make_project(other_user, name="Theirs")
 
-        response = auth(user).put(
-            "/project/", json={"id": str(project.id), "name": "Hijacked"}
-        )
+        response = auth(user).put(f"/project/{project.id}", json={"name": "Hijacked"})
 
         assert response.status_code == 404
 
@@ -337,9 +326,7 @@ class TestEdit:
         assert untouched.name == "Theirs"
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).put(
-            "/project/", json={"id": str(uuid4()), "name": "Ghost"}
-        )
+        response = auth(user).put(f"/project/{uuid4()}", json={"name": "Ghost"})
 
         assert response.status_code == 404
 
@@ -348,9 +335,7 @@ class TestDelete:
     def test_deletes_the_project(self, auth, user, make_project, db):
         project = make_project(user, name="Resume Builder")
 
-        response = auth(user).request(
-            "DELETE", "/project/", json={"id": str(project.id)}
-        )
+        response = auth(user).delete(f"/project/{project.id}")
 
         assert response.status_code == 200
         assert response.json()["name"] == "Resume Builder"
@@ -361,9 +346,7 @@ class TestDelete:
     ):
         project = make_project(user, bullets=("Alpha", "Beta"))
 
-        response = auth(user).request(
-            "DELETE", "/project/", json={"id": str(project.id)}
-        )
+        response = auth(user).delete(f"/project/{project.id}")
 
         assert [b["text"] for b in response.json()["bullet_points"]] == [
             "Alpha",
@@ -374,7 +357,7 @@ class TestDelete:
         project = make_project(user, bullets=("Alpha", "Beta"))
         bullet_ids = list(project.bullet_points)
 
-        auth(user).request("DELETE", "/project/", json={"id": str(project.id)})
+        auth(user).delete(f"/project/{project.id}")
 
         orphans = db.scalars(
             select(BulletPoint).where(BulletPoint.id.in_(bullet_ids))
@@ -386,14 +369,12 @@ class TestDelete:
     ):
         project = make_project(other_user)
 
-        response = auth(user).request(
-            "DELETE", "/project/", json={"id": str(project.id)}
-        )
+        response = auth(user).delete(f"/project/{project.id}")
 
         assert response.status_code == 404
         assert get_project(db, project.id) is not None
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).request("DELETE", "/project/", json={"id": str(uuid4())})
+        response = auth(user).delete(f"/project/{uuid4()}")
 
         assert response.status_code == 404

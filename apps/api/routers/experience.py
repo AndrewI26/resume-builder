@@ -9,7 +9,6 @@ from models.expirence import Expirence
 from schemas.bullet_point import BulletPoint
 from schemas.expirence import (
     ExpirenceCreate,
-    ExpirenceDelete,
     ExpirenceEdit,
     ExpirenceRead,
 )
@@ -82,8 +81,10 @@ def create_experience(expirence: ExpirenceCreate, current_user: CurrentUser, db:
     return result
 
 
-@router.put("/", response_model=ExpirenceRead)
-def edit_expirence(expirence: ExpirenceEdit, current_user: CurrentUser, db: Db):
+@router.put("/{expirence_id}", response_model=ExpirenceRead)
+def edit_expirence(
+    expirence_id: UUID, expirence: ExpirenceEdit, current_user: CurrentUser, db: Db
+):
     values = expirence.model_dump(exclude_unset=True, exclude={"id", "bullet_points"})
 
     stale_bullet_ids: list[UUID] = []
@@ -91,7 +92,7 @@ def edit_expirence(expirence: ExpirenceEdit, current_user: CurrentUser, db: Db):
         stale_bullet_ids = list(
             db.scalars(
                 select(Expirence.bullet_points).where(
-                    Expirence.id == expirence.id,
+                    Expirence.id == expirence_id,
                     Expirence.user_id == current_user.id,
                 )
             ).one_or_none()
@@ -106,7 +107,7 @@ def edit_expirence(expirence: ExpirenceEdit, current_user: CurrentUser, db: Db):
 
     stmt = (
         update(Expirence)
-        .where(Expirence.id == expirence.id, Expirence.user_id == current_user.id)
+        .where(Expirence.id == expirence_id, Expirence.user_id == current_user.id)
         .values(**values)
         .returning(Expirence)
     )
@@ -124,11 +125,11 @@ def edit_expirence(expirence: ExpirenceEdit, current_user: CurrentUser, db: Db):
     return result
 
 
-@router.delete("/", response_model=ExpirenceRead)
-def delete_expirence(expirence: ExpirenceDelete, current_user: CurrentUser, db: Db):
+@router.delete("/{expirence_id}", response_model=ExpirenceRead)
+def delete_expirence(expirence_id: UUID, current_user: CurrentUser, db: Db):
     stmt = (
         delete(Expirence)
-        .where(Expirence.id == expirence.id, Expirence.user_id == current_user.id)
+        .where(Expirence.id == expirence_id, Expirence.user_id == current_user.id)
         .returning(Expirence)
     )
     deleted_expirence = db.scalars(stmt).one_or_none()

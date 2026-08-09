@@ -30,9 +30,3 @@ class PersonalInfoEdit(PersonalInfoBase):
     a meaningful value here: omit a field to leave it alone, or send null to
     clear it.
     """
-
-    id: UUID
-
-
-class PersonalInfoDelete(BaseModel):
-    id: UUID

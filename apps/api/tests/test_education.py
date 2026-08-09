@@ -32,16 +32,17 @@ def get_education(db: Session, education_id: UUID) -> Education | None:
 
 class TestAuthentication:
     @pytest.mark.parametrize(
-        ("method", "body"),
+        ("method", "path", "body"),
         [
-            ("GET", None),
-            ("POST", payload()),
-            ("PUT", {"id": str(uuid4()), "name": "Renamed"}),
-            ("DELETE", {"id": str(uuid4())}),
+            ("GET", "/education/", None),
+            ("POST", "/education/", payload()),
+            ("GET", f"/education/{uuid4()}", None),
+            ("PUT", f"/education/{uuid4()}", {"name": "Renamed"}),
+            ("DELETE", f"/education/{uuid4()}", None),
         ],
     )
-    def test_requires_a_session_cookie(self, client: TestClient, method, body):
-        response = client.request(method, "/education/", json=body)
+    def test_requires_a_session_cookie(self, client: TestClient, method, path, body):
+        response = client.request(method, path, json=body)
 
         assert response.status_code == 401
 
@@ -173,7 +174,7 @@ class TestEdit:
         education = make_education(user, name="Old name", location="Boston, MA")
 
         response = auth(user).put(
-            "/education/", json={"id": str(education.id), "name": "New name"}
+            f"/education/{education.id}", json={"name": "New name"}
         )
 
         assert response.status_code == 200
@@ -195,9 +196,7 @@ class TestEdit:
             location="Seattle, WA",
         )
 
-        response = auth(user).put(
-            "/education/", json={"id": str(education.id)} | changes
-        )
+        response = auth(user).put(f"/education/{education.id}", json=changes)
 
         assert response.status_code == 200
         for field, value in changes.items():
@@ -213,9 +212,7 @@ class TestEdit:
         # reach the database and blow up as an IntegrityError.
         education = make_education(user)
 
-        response = auth(user).put(
-            "/education/", json={"id": str(education.id), field: None}
-        )
+        response = auth(user).put(f"/education/{education.id}", json={field: None})
 
         assert response.status_code == 422
 
@@ -226,7 +223,7 @@ class TestEdit:
     def test_rejects_an_update_with_no_fields(self, auth, user, make_education):
         education = make_education(user)
 
-        response = auth(user).put("/education/", json={"id": str(education.id)})
+        response = auth(user).put(f"/education/{education.id}", json={})
 
         assert response.status_code == 400
 
@@ -236,7 +233,7 @@ class TestEdit:
         education = make_education(other_user, name="Theirs")
 
         response = auth(user).put(
-            "/education/", json={"id": str(education.id), "name": "Hijacked"}
+            f"/education/{education.id}", json={"name": "Hijacked"}
         )
 
         assert response.status_code == 404
@@ -246,9 +243,7 @@ class TestEdit:
         assert untouched.name == "Theirs"
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).put(
-            "/education/", json={"id": str(uuid4()), "name": "Ghost"}
-        )
+        response = auth(user).put(f"/education/{uuid4()}", json={"name": "Ghost"})
 
         assert response.status_code == 404
 
@@ -257,9 +252,7 @@ class TestDelete:
     def test_deletes_the_education(self, auth, user, make_education, db):
         education = make_education(user, name="State University")
 
-        response = auth(user).request(
-            "DELETE", "/education/", json={"id": str(education.id)}
-        )
+        response = auth(user).delete(f"/education/{education.id}")
 
         assert response.status_code == 200
         assert response.json()["name"] == "State University"
@@ -269,7 +262,7 @@ class TestDelete:
         education = make_education(user, name="Doomed")
         survivor = make_education(user, name="Survivor")
 
-        auth(user).request("DELETE", "/education/", json={"id": str(education.id)})
+        auth(user).delete(f"/education/{education.id}")
 
         assert get_education(db, survivor.id) is not None
 
@@ -278,16 +271,12 @@ class TestDelete:
     ):
         education = make_education(other_user)
 
-        response = auth(user).request(
-            "DELETE", "/education/", json={"id": str(education.id)}
-        )
+        response = auth(user).delete(f"/education/{education.id}")
 
         assert response.status_code == 404
         assert get_education(db, education.id) is not None
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).request(
-            "DELETE", "/education/", json={"id": str(uuid4())}
-        )
+        response = auth(user).delete(f"/education/{uuid4()}")
 
         assert response.status_code == 404

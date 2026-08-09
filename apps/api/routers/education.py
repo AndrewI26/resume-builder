@@ -8,7 +8,6 @@ from deps.db import Db
 from models.education import Education
 from schemas.education import (
     EducationCreate,
-    EducationDelete,
     EducationEdit,
     EducationRead,
 )
@@ -55,9 +54,11 @@ def create_education(education: EducationCreate, current_user: CurrentUser, db: 
     return result
 
 
-@router.put("/", response_model=EducationRead)
-def edit_education(education: EducationEdit, current_user: CurrentUser, db: Db):
-    values = education.model_dump(exclude_unset=True, exclude={"id"})
+@router.put("/{education_id}", response_model=EducationRead)
+def edit_education(
+    education_id: UUID, education: EducationEdit, current_user: CurrentUser, db: Db
+):
+    values = education.model_dump(exclude_unset=True)
     if not values:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
@@ -65,7 +66,7 @@ def edit_education(education: EducationEdit, current_user: CurrentUser, db: Db):
 
     stmt = (
         update(Education)
-        .where(Education.id == education.id, Education.user_id == current_user.id)
+        .where(Education.id == education_id, Education.user_id == current_user.id)
         .values(**values)
         .returning(Education)
     )
@@ -79,11 +80,11 @@ def edit_education(education: EducationEdit, current_user: CurrentUser, db: Db):
     return result
 
 
-@router.delete("/", response_model=EducationRead)
-def delete_education(education: EducationDelete, current_user: CurrentUser, db: Db):
+@router.delete("/{education_id}", response_model=EducationRead)
+def delete_education(education_id: UUID, current_user: CurrentUser, db: Db):
     stmt = (
         delete(Education)
-        .where(Education.id == education.id, Education.user_id == current_user.id)
+        .where(Education.id == education_id, Education.user_id == current_user.id)
         .returning(Education)
     )
     deleted_education = db.scalars(stmt).one_or_none()

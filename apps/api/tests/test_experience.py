@@ -35,16 +35,17 @@ def get_expirence(db: Session, expirence_id: UUID) -> Expirence | None:
 
 class TestAuthentication:
     @pytest.mark.parametrize(
-        ("method", "body"),
+        ("method", "path", "body"),
         [
-            ("GET", None),
-            ("POST", payload()),
-            ("PUT", {"id": str(uuid4()), "company": "Acme"}),
-            ("DELETE", {"id": str(uuid4())}),
+            ("GET", "/experience/", None),
+            ("POST", "/experience/", payload()),
+            ("GET", f"/experience/{uuid4()}", None),
+            ("PUT", f"/experience/{uuid4()}", {"company": "Acme"}),
+            ("DELETE", f"/experience/{uuid4()}", None),
         ],
     )
-    def test_requires_a_session_cookie(self, client: TestClient, method, body):
-        response = client.request(method, "/experience/", json=body)
+    def test_requires_a_session_cookie(self, client: TestClient, method, path, body):
+        response = client.request(method, path, json=body)
 
         assert response.status_code == 401
 
@@ -212,7 +213,7 @@ class TestEdit:
         expirence = make_expirence(user, company="Acme", position="Engineer")
 
         response = auth(user).put(
-            "/experience/", json={"id": str(expirence.id), "company": "Globex"}
+            f"/experience/{expirence.id}", json={"company": "Globex"}
         )
 
         assert response.status_code == 200
@@ -235,11 +236,8 @@ class TestEdit:
         stale_ids = list(expirence.bullet_points)
 
         response = auth(user).put(
-            "/experience/",
-            json={
-                "id": str(expirence.id),
-                "bullet_points": [{"text": "Brand new", "bolded": []}],
-            },
+            f"/experience/{expirence.id}",
+            json={"bullet_points": [{"text": "Brand new", "bolded": []}]},
         )
 
         assert response.status_code == 200
@@ -253,7 +251,7 @@ class TestEdit:
     def test_rejects_an_update_with_no_fields(self, auth, user, make_expirence):
         expirence = make_expirence(user)
 
-        response = auth(user).put("/experience/", json={"id": str(expirence.id)})
+        response = auth(user).put(f"/experience/{expirence.id}", json={})
 
         assert response.status_code == 400
 
@@ -263,7 +261,7 @@ class TestEdit:
         expirence = make_expirence(other_user, company="Theirs")
 
         response = auth(user).put(
-            "/experience/", json={"id": str(expirence.id), "company": "Hijacked"}
+            f"/experience/{expirence.id}", json={"company": "Hijacked"}
         )
 
         assert response.status_code == 404
@@ -273,9 +271,7 @@ class TestEdit:
         assert untouched.company == "Theirs"
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).put(
-            "/experience/", json={"id": str(uuid4()), "company": "Ghost"}
-        )
+        response = auth(user).put(f"/experience/{uuid4()}", json={"company": "Ghost"})
 
         assert response.status_code == 404
 
@@ -284,9 +280,7 @@ class TestDelete:
     def test_deletes_the_experience(self, auth, user, make_expirence, db):
         expirence = make_expirence(user, company="Acme")
 
-        response = auth(user).request(
-            "DELETE", "/experience/", json={"id": str(expirence.id)}
-        )
+        response = auth(user).delete(f"/experience/{expirence.id}")
 
         assert response.status_code == 200
         assert response.json()["company"] == "Acme"
@@ -297,9 +291,7 @@ class TestDelete:
     ):
         expirence = make_expirence(user, bullets=("Alpha", "Beta"))
 
-        response = auth(user).request(
-            "DELETE", "/experience/", json={"id": str(expirence.id)}
-        )
+        response = auth(user).delete(f"/experience/{expirence.id}")
 
         assert [b["text"] for b in response.json()["bullet_points"]] == [
             "Alpha",
@@ -312,7 +304,7 @@ class TestDelete:
         expirence = make_expirence(user, bullets=("Alpha", "Beta"))
         bullet_ids = list(expirence.bullet_points)
 
-        auth(user).request("DELETE", "/experience/", json={"id": str(expirence.id)})
+        auth(user).delete(f"/experience/{expirence.id}")
 
         orphans = db.scalars(
             select(BulletPoint).where(BulletPoint.id.in_(bullet_ids))
@@ -324,16 +316,12 @@ class TestDelete:
     ):
         expirence = make_expirence(other_user)
 
-        response = auth(user).request(
-            "DELETE", "/experience/", json={"id": str(expirence.id)}
-        )
+        response = auth(user).delete(f"/experience/{expirence.id}")
 
         assert response.status_code == 404
         assert get_expirence(db, expirence.id) is not None
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).request(
-            "DELETE", "/experience/", json={"id": str(uuid4())}
-        )
+        response = auth(user).delete(f"/experience/{uuid4()}")
 
         assert response.status_code == 404

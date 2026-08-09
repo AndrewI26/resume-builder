@@ -8,7 +8,6 @@ from deps.db import Db
 from models.personal_info import PersonalInfo
 from schemas.personal_info import (
     PersonalInfoCreate,
-    PersonalInfoDelete,
     PersonalInfoEdit,
     PersonalInfoRead,
 )
@@ -52,11 +51,14 @@ def create_personal_info(
     return result
 
 
-@router.put("/", response_model=PersonalInfoRead)
+@router.put("/{personal_info_id}", response_model=PersonalInfoRead)
 def edit_personal_info(
-    personal_info: PersonalInfoEdit, current_user: CurrentUser, db: Db
+    personal_info_id: UUID,
+    personal_info: PersonalInfoEdit,
+    current_user: CurrentUser,
+    db: Db,
 ):
-    values = personal_info.model_dump(exclude_unset=True, exclude={"id"})
+    values = personal_info.model_dump(exclude_unset=True)
     if not values:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
@@ -65,7 +67,7 @@ def edit_personal_info(
     stmt = (
         update(PersonalInfo)
         .where(
-            PersonalInfo.id == personal_info.id,
+            PersonalInfo.id == personal_info_id,
             PersonalInfo.user_id == current_user.id,
         )
         .values(**values)
@@ -81,14 +83,12 @@ def edit_personal_info(
     return result
 
 
-@router.delete("/", response_model=PersonalInfoRead)
-def delete_personal_info(
-    personal_info: PersonalInfoDelete, current_user: CurrentUser, db: Db
-):
+@router.delete("/{personal_info_id}", response_model=PersonalInfoRead)
+def delete_personal_info(personal_info_id: UUID, current_user: CurrentUser, db: Db):
     stmt = (
         delete(PersonalInfo)
         .where(
-            PersonalInfo.id == personal_info.id,
+            PersonalInfo.id == personal_info_id,
             PersonalInfo.user_id == current_user.id,
         )
         .returning(PersonalInfo)

@@ -9,7 +9,6 @@ from models.project import Project
 from schemas.bullet_point import BulletPoint
 from schemas.project import (
     ProjectCreate,
-    ProjectDelete,
     ProjectEdit,
     ProjectRead,
 )
@@ -79,8 +78,10 @@ def create_project(project: ProjectCreate, current_user: CurrentUser, db: Db):
     return result
 
 
-@router.put("/", response_model=ProjectRead)
-def edit_project(project: ProjectEdit, current_user: CurrentUser, db: Db):
+@router.put("/{project_id}", response_model=ProjectRead)
+def edit_project(
+    project_id: UUID, project: ProjectEdit, current_user: CurrentUser, db: Db
+):
     values = project.model_dump(exclude_unset=True, exclude={"id", "bullet_points"})
 
     stale_bullet_ids: list[UUID] = []
@@ -88,7 +89,7 @@ def edit_project(project: ProjectEdit, current_user: CurrentUser, db: Db):
         stale_bullet_ids = list(
             db.scalars(
                 select(Project.bullet_points).where(
-                    Project.id == project.id,
+                    Project.id == project_id,
                     Project.user_id == current_user.id,
                 )
             ).one_or_none()
@@ -103,7 +104,7 @@ def edit_project(project: ProjectEdit, current_user: CurrentUser, db: Db):
 
     stmt = (
         update(Project)
-        .where(Project.id == project.id, Project.user_id == current_user.id)
+        .where(Project.id == project_id, Project.user_id == current_user.id)
         .values(**values)
         .returning(Project)
     )
@@ -121,11 +122,11 @@ def edit_project(project: ProjectEdit, current_user: CurrentUser, db: Db):
     return result
 
 
-@router.delete("/", response_model=ProjectRead)
-def delete_project(project: ProjectDelete, current_user: CurrentUser, db: Db):
+@router.delete("/{project_id}", response_model=ProjectRead)
+def delete_project(project_id: UUID, current_user: CurrentUser, db: Db):
     stmt = (
         delete(Project)
-        .where(Project.id == project.id, Project.user_id == current_user.id)
+        .where(Project.id == project_id, Project.user_id == current_user.id)
         .returning(Project)
     )
     deleted_project = db.scalars(stmt).one_or_none()

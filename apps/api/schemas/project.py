@@ -21,8 +21,6 @@ class ProjectRead(ProjectCreate):
 
 
 class ProjectEdit(BaseModel):
-    id: UUID
-
     name: str | None = Field(default=None, max_length=255)
     # Deliberately not nullable: send a string to change the link, or leave the
     # field out to keep the current one. An explicit null is rejected.
@@ -34,7 +32,3 @@ class ProjectEdit(BaseModel):
 
     technologies: list[Technology] | None = None
     bullet_points: list[BulletPoint] | None = None
-
-
-class ProjectDelete(BaseModel):
-    id: UUID

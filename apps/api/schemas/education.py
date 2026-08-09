@@ -22,8 +22,6 @@ class EducationRead(EducationCreate):
 
 
 class EducationEdit(BaseModel):
-    id: UUID
-
     # Every column behind these is NOT NULL, so a field is either a string or
     # left out entirely. See `schemas.fields.omittable_str`.
     name: str = omittable_str(255)
@@ -31,7 +29,3 @@ class EducationEdit(BaseModel):
 
     duration: str = omittable_str(255)
     location: str = omittable_str(255)
-
-
-class EducationDelete(BaseModel):
-    id: UUID
