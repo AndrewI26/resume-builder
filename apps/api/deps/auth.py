@@ -1,5 +1,6 @@
+from typing import Annotated
+
 from fastapi import Cookie, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
 from deps.db import Db
 from models.user import User
@@ -12,7 +13,7 @@ CREDENTIALS_EXCEPTION = HTTPException(
 
 
 def get_current_user(
-    db: Session = Db,
+    db: Db,
     access_token: str | None = Cookie(default=None, alias=ACCESS_TOKEN_COOKIE_NAME),
 ) -> User:
     if access_token is None:
@@ -29,4 +30,4 @@ def get_current_user(
     return user
 
 
-CurrentUser = Depends(get_current_user)
+CurrentUser = Annotated[User, Depends(get_current_user)]
