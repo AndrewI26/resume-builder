@@ -14,9 +14,16 @@ class UserLogin(BaseModel):
     password: str
 
 
+class GoogleCredential(BaseModel):
+    """The ID token Google Identity Services hands the frontend."""
+
+    credential: str
+
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     email: EmailStr
+    name: str | None
     created_at: datetime

@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
@@ -9,26 +7,12 @@ from models.user import User
 from schemas.user import UserCreate, UserLogin, UserRead
 from security import (
     ACCESS_TOKEN_COOKIE_NAME,
-    create_access_token,
     hash_password,
+    set_access_token_cookie,
     verify_password,
 )
-from settings import get_settings
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
-
-settings = get_settings()
-
-
-def _set_access_token_cookie(response: Response, user_id: UUID) -> None:
-    token = create_access_token(user_id)
-    response.set_cookie(
-        key=ACCESS_TOKEN_COOKIE_NAME,
-        value=token,
-        httponly=True,
-        samesite="lax",
-        max_age=settings.access_token_expire_minutes * 60,
-    )
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
@@ -45,20 +29,26 @@ def register(payload: UserCreate, response: Response, db: Session = Db):
     db.commit()
     db.refresh(user)
 
-    _set_access_token_cookie(response, user.id)
+    set_access_token_cookie(response, user.id)
     return user
 
 
 @router.post("/login", response_model=UserRead)
 def login(payload: UserLogin, response: Response, db: Session = Db):
     user = db.query(User).filter(User.email == payload.email).first()
-    if user is None or not verify_password(payload.password, user.hashed_password):
+    # a null hash means the account only has an OAuth identity, so there is no
+    # password that could ever match
+    if (
+        user is None
+        or user.hashed_password is None
+        or not verify_password(payload.password, user.hashed_password)
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
 
-    _set_access_token_cookie(response, user.id)
+    set_access_token_cookie(response, user.id)
     return user
 
 
