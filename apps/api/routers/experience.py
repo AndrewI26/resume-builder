@@ -1,13 +1,10 @@
-from collections.abc import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import delete, insert, select, update
-from sqlalchemy.orm import Session
 
 from deps.auth import CurrentUser
 from deps.db import Db
-from models.bullet_points import BulletPoint as BulletPointModel
 from models.expirence import Expirence
 from schemas.bullet_point import BulletPoint
 from schemas.expirence import (
@@ -16,45 +13,14 @@ from schemas.expirence import (
     ExpirenceEdit,
     ExpirenceRead,
 )
+from services.bullet_points import (
+    bullet_points_by_id,
+    delete_bullet_points,
+    hydrate,
+    insert_bullet_points,
+)
 
 router = APIRouter(prefix="/experience", tags=["Experience"])
-
-
-def _insert_bullet_points(
-    db: Session, bullet_points: Sequence[BulletPoint]
-) -> list[UUID]:
-    """Insert bullet point rows and return their ids, in payload order."""
-    if not bullet_points:
-        return []
-
-    stmt = insert(BulletPointModel).returning(
-        BulletPointModel.id, sort_by_parameter_order=True
-    )
-    params = [
-        {"text": bullet.text, "bolded": [[start, end] for start, end in bullet.bolded]}
-        for bullet in bullet_points
-    ]
-    return list(db.scalars(stmt, params))
-
-
-def _delete_bullet_points(db: Session, ids: Sequence[UUID]) -> None:
-    if not ids:
-        return
-
-    db.execute(delete(BulletPointModel).where(BulletPointModel.id.in_(set(ids))))
-
-
-def _bullet_points_by_id(db: Session, ids: Sequence[UUID]) -> dict[UUID, BulletPoint]:
-    if not ids:
-        return {}
-
-    stmt = select(BulletPointModel).where(BulletPointModel.id.in_(set(ids)))
-    return {
-        row.id: BulletPoint(
-            text=row.text, bolded=[(start, end) for start, end in row.bolded]
-        )
-        for row in db.scalars(stmt)
-    }
 
 
 def _to_read(expirence: Expirence, by_id: dict[UUID, BulletPoint]) -> ExpirenceRead:
@@ -65,11 +31,7 @@ def _to_read(expirence: Expirence, by_id: dict[UUID, BulletPoint]) -> ExpirenceR
         position=expirence.position,
         duration=expirence.duration,
         location=expirence.location,
-        bullet_points=[
-            by_id[bullet_id]
-            for bullet_id in expirence.bullet_points
-            if bullet_id in by_id
-        ],
+        bullet_points=hydrate(expirence.bullet_points, by_id),
     )
 
 
@@ -78,7 +40,7 @@ def get_experience(current_user: CurrentUser, db: Db):
     stmt = select(Expirence).where(Expirence.user_id == current_user.id)
     expirences = db.scalars(stmt).all()
 
-    by_id = _bullet_points_by_id(
+    by_id = bullet_points_by_id(
         db, [bullet_id for row in expirences for bullet_id in row.bullet_points]
     )
     return [_to_read(row, by_id) for row in expirences]
@@ -86,7 +48,7 @@ def get_experience(current_user: CurrentUser, db: Db):
 
 @router.post("/", response_model=ExpirenceRead, status_code=status.HTTP_201_CREATED)
 def create_experience(expirence: ExpirenceCreate, current_user: CurrentUser, db: Db):
-    bullet_ids = _insert_bullet_points(db, expirence.bullet_points)
+    bullet_ids = insert_bullet_points(db, expirence.bullet_points)
 
     stmt = (
         insert(Expirence)
@@ -102,7 +64,7 @@ def create_experience(expirence: ExpirenceCreate, current_user: CurrentUser, db:
     )
     new_expirence = db.scalars(stmt).one()
 
-    result = _to_read(new_expirence, _bullet_points_by_id(db, bullet_ids))
+    result = _to_read(new_expirence, bullet_points_by_id(db, bullet_ids))
     db.commit()
 
     return result
@@ -123,7 +85,7 @@ def edit_expirence(expirence: ExpirenceEdit, current_user: CurrentUser, db: Db):
             ).one_or_none()
             or []
         )
-        values["bullet_points"] = _insert_bullet_points(db, expirence.bullet_points)
+        values["bullet_points"] = insert_bullet_points(db, expirence.bullet_points)
 
     if not values:
         raise HTTPException(
@@ -140,10 +102,10 @@ def edit_expirence(expirence: ExpirenceEdit, current_user: CurrentUser, db: Db):
     if edited_expirence is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    _delete_bullet_points(db, stale_bullet_ids)
+    delete_bullet_points(db, stale_bullet_ids)
 
     result = _to_read(
-        edited_expirence, _bullet_points_by_id(db, edited_expirence.bullet_points)
+        edited_expirence, bullet_points_by_id(db, edited_expirence.bullet_points)
     )
     db.commit()
 
@@ -162,9 +124,9 @@ def delete_expirence(expirence: ExpirenceDelete, current_user: CurrentUser, db: 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     bullet_ids = list(deleted_expirence.bullet_points)
-    result = _to_read(deleted_expirence, _bullet_points_by_id(db, bullet_ids))
+    result = _to_read(deleted_expirence, bullet_points_by_id(db, bullet_ids))
 
-    _delete_bullet_points(db, bullet_ids)
+    delete_bullet_points(db, bullet_ids)
     db.commit()
 
     return result

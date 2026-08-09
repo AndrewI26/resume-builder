@@ -50,6 +50,7 @@ from deps.db import get_db
 from main import app
 from models.bullet_points import BulletPoint
 from models.expirence import Expirence
+from models.project import Project
 from models.user import User
 from security import (
     ACCESS_TOKEN_COOKIE_NAME,
@@ -185,6 +186,37 @@ def make_expirence(db: Session):
         return expirence
 
     return _make_expirence
+
+
+@pytest.fixture
+def make_project(db: Session):
+    """Insert a project directly, bypassing the endpoints under test."""
+
+    def _make_project(
+        user: User,
+        *,
+        name: str = "Resume Builder",
+        link: str | None = "https://example.com/project",
+        technologies: Sequence[str] = ("Python", "FastAPI"),
+        bullets: Sequence[str] = ("First bullet", "Second bullet"),
+    ) -> Project:
+        bullet_rows = [BulletPoint(text=text, bolded=[]) for text in bullets]
+        db.add_all(bullet_rows)
+        db.flush()
+
+        project = Project(
+            user_id=user.id,
+            name=name,
+            link=link,
+            technologies=list(technologies),
+            bullet_points=[bullet.id for bullet in bullet_rows],
+        )
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+        return project
+
+    return _make_project
 
 
 @pytest.fixture
