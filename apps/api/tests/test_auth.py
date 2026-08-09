@@ -53,6 +53,8 @@ class TestRegister:
 
         created = db.get(User, UUID(response.json()["id"]))
         assert created is not None
+        # nullable since Google sign-in landed: password users must still have one
+        assert created.hashed_password is not None
         assert created.hashed_password != PASSWORD
         assert verify_password(PASSWORD, created.hashed_password)
 
