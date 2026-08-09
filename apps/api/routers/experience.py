@@ -27,20 +27,14 @@ def _insert_bullet_points(
     if not bullet_points:
         return []
 
-    stmt = (
-        insert(BulletPointModel)
-        .values(
-            [
-                {
-                    "text": bullet.text,
-                    "bolded": [[start, end] for start, end in bullet.bolded],
-                }
-                for bullet in bullet_points
-            ]
-        )
-        .returning(BulletPointModel.id, sort_by_parameter_order=True)
+    stmt = insert(BulletPointModel).returning(
+        BulletPointModel.id, sort_by_parameter_order=True
     )
-    return list(db.scalars(stmt))
+    params = [
+        {"text": bullet.text, "bolded": [[start, end] for start, end in bullet.bolded]}
+        for bullet in bullet_points
+    ]
+    return list(db.scalars(stmt, params))
 
 
 def _delete_bullet_points(db: Session, ids: Sequence[UUID]) -> None:

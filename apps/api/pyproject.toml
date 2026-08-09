@@ -20,8 +20,14 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.0.0",
     "mypy>=2.3.0",
+    "pytest>=8.4.2",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.mypy]
 explicit_package_bases = true

@@ -19,6 +19,8 @@
     "format:api": "uv run --directory apps/api ruff format .",
     "lint:api": "uv run --directory apps/api ruff check --fix .",
     "typecheck:api": "uv run --directory apps/api mypy .",
+    "test:api": "uv run --directory apps/api pytest",
+    "test": "bun run test:api",
     "verify": "bun run format:web && bun run lint:web && bun run typecheck:web && bun run format:api && bun run lint:api && bun run typecheck:api",
     "prepare": "husky"
   },
