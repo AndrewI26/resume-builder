@@ -87,6 +87,44 @@ class TestGet:
         assert row["items"] == LANGUAGES
 
 
+class TestGetOne:
+    def test_returns_the_skill_list(self, auth, user, make_skill):
+        skill = make_skill(user, name="Languages", items=LANGUAGES, position=3)
+
+        response = auth(user).get(f"/skill/{skill.id}")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == str(skill.id)
+        assert body["name"] == "Languages"
+        assert body["items"] == LANGUAGES
+        assert body["position"] == 3
+
+    def test_returns_the_addressed_row(self, auth, user, make_skill):
+        make_skill(user, name="Languages", position=0)
+        wanted = make_skill(user, name="Technologies/Frameworks", position=1)
+
+        response = auth(user).get(f"/skill/{wanted.id}")
+
+        assert response.json()["name"] == "Technologies/Frameworks"
+
+    def test_requires_a_session_cookie(self, client, make_skill, user):
+        skill = make_skill(user)
+
+        assert client.get(f"/skill/{skill.id}").status_code == 401
+
+    def test_returns_404_for_an_unknown_id(self, auth, user):
+        assert auth(user).get(f"/skill/{uuid4()}").status_code == 404
+
+    def test_cannot_read_another_users_skill(self, auth, user, other_user, make_skill):
+        skill = make_skill(other_user)
+
+        assert auth(user).get(f"/skill/{skill.id}").status_code == 404
+
+    def test_rejects_a_malformed_id(self, auth, user):
+        assert auth(user).get("/skill/not-a-uuid").status_code == 422
+
+
 class TestCreate:
     def test_creates_a_skill_list(self, auth, user, db):
         response = auth(user).post("/skill/", json=payload())

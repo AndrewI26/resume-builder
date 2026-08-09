@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import delete, insert, select, update
 
@@ -18,6 +20,18 @@ router = APIRouter(prefix="/education", tags=["Education"])
 def get_educations(current_user: CurrentUser, db: Db):
     stmt = select(Education).where(Education.user_id == current_user.id)
     return db.scalars(stmt).all()
+
+
+@router.get("/{education_id}", response_model=EducationRead)
+def get_education(education_id: UUID, current_user: CurrentUser, db: Db):
+    stmt = select(Education).where(
+        Education.id == education_id, Education.user_id == current_user.id
+    )
+    education = db.scalars(stmt).one_or_none()
+    if education is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    return education
 
 
 @router.post("/", response_model=EducationRead, status_code=status.HTTP_201_CREATED)

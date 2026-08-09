@@ -86,6 +86,56 @@ class TestGet:
         assert row["technologies"] == ["Rust", "Axum", "Postgres"]
 
 
+class TestGetOne:
+    def test_returns_the_project(self, auth, user, make_project):
+        project = make_project(user, name="Resume Builder")
+
+        response = auth(user).get(f"/project/{project.id}")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == str(project.id)
+        assert body["name"] == "Resume Builder"
+        assert body["technologies"] == ["Python", "FastAPI"]
+
+    def test_hydrates_bullet_points_in_stored_order(self, auth, user, make_project):
+        project = make_project(user, bullets=("Alpha", "Beta", "Gamma"))
+
+        response = auth(user).get(f"/project/{project.id}")
+
+        assert [b["text"] for b in response.json()["bullet_points"]] == [
+            "Alpha",
+            "Beta",
+            "Gamma",
+        ]
+
+    def test_returns_the_addressed_row(self, auth, user, make_project):
+        make_project(user, name="First")
+        wanted = make_project(user, name="Second")
+
+        response = auth(user).get(f"/project/{wanted.id}")
+
+        assert response.json()["name"] == "Second"
+
+    def test_requires_a_session_cookie(self, client, make_project, user):
+        project = make_project(user)
+
+        assert client.get(f"/project/{project.id}").status_code == 401
+
+    def test_returns_404_for_an_unknown_id(self, auth, user):
+        assert auth(user).get(f"/project/{uuid4()}").status_code == 404
+
+    def test_cannot_read_another_users_project(
+        self, auth, user, other_user, make_project
+    ):
+        project = make_project(other_user)
+
+        assert auth(user).get(f"/project/{project.id}").status_code == 404
+
+    def test_rejects_a_malformed_id(self, auth, user):
+        assert auth(user).get("/project/not-a-uuid").status_code == 422
+
+
 class TestCreate:
     def test_creates_a_project(self, auth, user, db):
         response = auth(user).post("/project/", json=payload())

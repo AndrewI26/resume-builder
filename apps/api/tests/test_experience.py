@@ -85,6 +85,56 @@ class TestGet:
         ]
 
 
+class TestGetOne:
+    def test_returns_the_experience(self, auth, user, make_expirence):
+        expirence = make_expirence(user, company="Acme", position="Engineer")
+
+        response = auth(user).get(f"/experience/{expirence.id}")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == str(expirence.id)
+        assert body["company"] == "Acme"
+        assert body["position"] == "Engineer"
+
+    def test_hydrates_bullet_points_in_stored_order(self, auth, user, make_expirence):
+        expirence = make_expirence(user, bullets=("Alpha", "Beta", "Gamma"))
+
+        response = auth(user).get(f"/experience/{expirence.id}")
+
+        assert [b["text"] for b in response.json()["bullet_points"]] == [
+            "Alpha",
+            "Beta",
+            "Gamma",
+        ]
+
+    def test_returns_the_addressed_row(self, auth, user, make_expirence):
+        make_expirence(user, company="First")
+        wanted = make_expirence(user, company="Second")
+
+        response = auth(user).get(f"/experience/{wanted.id}")
+
+        assert response.json()["company"] == "Second"
+
+    def test_requires_a_session_cookie(self, client, make_expirence, user):
+        expirence = make_expirence(user)
+
+        assert client.get(f"/experience/{expirence.id}").status_code == 401
+
+    def test_returns_404_for_an_unknown_id(self, auth, user):
+        assert auth(user).get(f"/experience/{uuid4()}").status_code == 404
+
+    def test_cannot_read_another_users_experience(
+        self, auth, user, other_user, make_expirence
+    ):
+        expirence = make_expirence(other_user)
+
+        assert auth(user).get(f"/experience/{expirence.id}").status_code == 404
+
+    def test_rejects_a_malformed_id(self, auth, user):
+        assert auth(user).get("/experience/not-a-uuid").status_code == 422
+
+
 class TestCreate:
     def test_creates_an_experience(self, auth, user, db):
         response = auth(user).post("/experience/", json=payload())

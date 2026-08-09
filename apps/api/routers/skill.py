@@ -31,6 +31,16 @@ def get_skills(current_user: CurrentUser, db: Db):
     return db.scalars(stmt).all()
 
 
+@router.get("/{skill_id}", response_model=SkillRead)
+def get_skill(skill_id: UUID, current_user: CurrentUser, db: Db):
+    stmt = select(Skill).where(Skill.id == skill_id, Skill.user_id == current_user.id)
+    skill = db.scalars(stmt).one_or_none()
+    if skill is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    return skill
+
+
 @router.post("/", response_model=SkillRead, status_code=status.HTTP_201_CREATED)
 def create_skill(skill: SkillCreate, current_user: CurrentUser, db: Db):
     position = (

@@ -36,7 +36,7 @@ def _to_read(expirence: Expirence, by_id: dict[UUID, BulletPoint]) -> ExpirenceR
 
 
 @router.get("/", response_model=list[ExpirenceRead])
-def get_experience(current_user: CurrentUser, db: Db):
+def get_experiences(current_user: CurrentUser, db: Db):
     stmt = select(Expirence).where(Expirence.user_id == current_user.id)
     expirences = db.scalars(stmt).all()
 
@@ -44,6 +44,18 @@ def get_experience(current_user: CurrentUser, db: Db):
         db, [bullet_id for row in expirences for bullet_id in row.bullet_points]
     )
     return [_to_read(row, by_id) for row in expirences]
+
+
+@router.get("/{expirence_id}", response_model=ExpirenceRead)
+def get_experience(expirence_id: UUID, current_user: CurrentUser, db: Db):
+    stmt = select(Expirence).where(
+        Expirence.id == expirence_id, Expirence.user_id == current_user.id
+    )
+    expirence = db.scalars(stmt).one_or_none()
+    if expirence is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    return _to_read(expirence, bullet_points_by_id(db, expirence.bullet_points))
 
 
 @router.post("/", response_model=ExpirenceRead, status_code=status.HTTP_201_CREATED)

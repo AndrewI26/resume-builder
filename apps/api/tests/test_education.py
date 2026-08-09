@@ -82,6 +82,47 @@ class TestGet:
         assert {row["name"] for row in response.json()} == {"First", "Second"}
 
 
+class TestGetOne:
+    def test_returns_the_education(self, auth, user, make_education):
+        education = make_education(user)
+
+        response = auth(user).get(f"/education/{education.id}")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == str(education.id)
+        assert body["name"] == "State University"
+        assert body["subheading"] == "BSc Computer Science"
+        assert body["duration"] == "2016 - 2020"
+        assert body["location"] == "Boston, MA"
+
+    def test_returns_the_addressed_row(self, auth, user, make_education):
+        make_education(user, name="First")
+        wanted = make_education(user, name="Second")
+
+        response = auth(user).get(f"/education/{wanted.id}")
+
+        assert response.json()["name"] == "Second"
+
+    def test_requires_a_session_cookie(self, client, make_education, user):
+        education = make_education(user)
+
+        assert client.get(f"/education/{education.id}").status_code == 401
+
+    def test_returns_404_for_an_unknown_id(self, auth, user):
+        assert auth(user).get(f"/education/{uuid4()}").status_code == 404
+
+    def test_cannot_read_another_users_education(
+        self, auth, user, other_user, make_education
+    ):
+        education = make_education(other_user)
+
+        assert auth(user).get(f"/education/{education.id}").status_code == 404
+
+    def test_rejects_a_malformed_id(self, auth, user):
+        assert auth(user).get("/education/not-a-uuid").status_code == 422
+
+
 class TestCreate:
     def test_creates_an_education(self, auth, user, db):
         response = auth(user).post("/education/", json=payload())

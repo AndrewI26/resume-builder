@@ -51,6 +51,7 @@ from main import app
 from models.bullet_points import BulletPoint
 from models.education import Education
 from models.expirence import Expirence
+from models.personal_info import PersonalInfo
 from models.project import Project
 from models.skill import Skill
 from models.user import User
@@ -246,6 +247,37 @@ def make_project(db: Session):
         return project
 
     return _make_project
+
+
+@pytest.fixture
+def make_personal_info(db: Session):
+    """Insert a user's personal info directly, bypassing the endpoints."""
+
+    def _make_personal_info(
+        user: User,
+        *,
+        email: str | None = "me@example.com",
+        phone_number: str | None = "+1 555 0100",
+        address: str | None = "Boston, MA",
+        github: str | None = "https://github.com/example",
+        linkedin: str | None = "https://linkedin.com/in/example",
+        portfolio: str | None = "https://example.com",
+    ) -> PersonalInfo:
+        personal_info = PersonalInfo(
+            user_id=user.id,
+            email=email,
+            phone_number=phone_number,
+            address=address,
+            github=github,
+            linkedin=linkedin,
+            portfolio=portfolio,
+        )
+        db.add(personal_info)
+        db.commit()
+        db.refresh(personal_info)
+        return personal_info
+
+    return _make_personal_info
 
 
 @pytest.fixture

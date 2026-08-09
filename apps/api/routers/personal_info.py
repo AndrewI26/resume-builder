@@ -1,0 +1,103 @@
+from uuid import UUID
+
+from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import delete, insert, select, update
+
+from deps.auth import CurrentUser
+from deps.db import Db
+from models.personal_info import PersonalInfo
+from schemas.personal_info import (
+    PersonalInfoCreate,
+    PersonalInfoDelete,
+    PersonalInfoEdit,
+    PersonalInfoRead,
+)
+
+router = APIRouter(prefix="/personal-info", tags=["Personal info"])
+
+
+@router.get("/", response_model=list[PersonalInfoRead])
+def get_all_personal_info(current_user: CurrentUser, db: Db):
+    stmt = select(PersonalInfo).where(PersonalInfo.user_id == current_user.id)
+    return db.scalars(stmt).all()
+
+
+@router.get("/{personal_info_id}", response_model=PersonalInfoRead)
+def get_personal_info(personal_info_id: UUID, current_user: CurrentUser, db: Db):
+    stmt = select(PersonalInfo).where(
+        PersonalInfo.id == personal_info_id,
+        PersonalInfo.user_id == current_user.id,
+    )
+    personal_info = db.scalars(stmt).one_or_none()
+    if personal_info is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    return personal_info
+
+
+@router.post("/", response_model=PersonalInfoRead, status_code=status.HTTP_201_CREATED)
+def create_personal_info(
+    personal_info: PersonalInfoCreate, current_user: CurrentUser, db: Db
+):
+    stmt = (
+        insert(PersonalInfo)
+        .values(user_id=current_user.id, **personal_info.model_dump())
+        .returning(PersonalInfo)
+    )
+    new_personal_info = db.scalars(stmt).one()
+
+    result = PersonalInfoRead.model_validate(new_personal_info)
+    db.commit()
+
+    return result
+
+
+@router.put("/", response_model=PersonalInfoRead)
+def edit_personal_info(
+    personal_info: PersonalInfoEdit, current_user: CurrentUser, db: Db
+):
+    values = personal_info.model_dump(exclude_unset=True, exclude={"id"})
+    if not values:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
+        )
+
+    stmt = (
+        update(PersonalInfo)
+        .where(
+            PersonalInfo.id == personal_info.id,
+            PersonalInfo.user_id == current_user.id,
+        )
+        .values(**values)
+        .returning(PersonalInfo)
+    )
+    edited_personal_info = db.scalars(stmt).one_or_none()
+    if edited_personal_info is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    result = PersonalInfoRead.model_validate(edited_personal_info)
+    db.commit()
+
+    return result
+
+
+@router.delete("/", response_model=PersonalInfoRead)
+def delete_personal_info(
+    personal_info: PersonalInfoDelete, current_user: CurrentUser, db: Db
+):
+    stmt = (
+        delete(PersonalInfo)
+        .where(
+            PersonalInfo.id == personal_info.id,
+            PersonalInfo.user_id == current_user.id,
+        )
+        .returning(PersonalInfo)
+    )
+    deleted_personal_info = db.scalars(stmt).one_or_none()
+    if deleted_personal_info is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    result = PersonalInfoRead.model_validate(deleted_personal_info)
+    db.commit()
+
+    return result

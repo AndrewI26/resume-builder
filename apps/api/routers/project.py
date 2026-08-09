@@ -44,6 +44,18 @@ def get_projects(current_user: CurrentUser, db: Db):
     return [_to_read(row, by_id) for row in projects]
 
 
+@router.get("/{project_id}", response_model=ProjectRead)
+def get_project(project_id: UUID, current_user: CurrentUser, db: Db):
+    stmt = select(Project).where(
+        Project.id == project_id, Project.user_id == current_user.id
+    )
+    project = db.scalars(stmt).one_or_none()
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    return _to_read(project, bullet_points_by_id(db, project.bullet_points))
+
+
 @router.post("/", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
 def create_project(project: ProjectCreate, current_user: CurrentUser, db: Db):
     bullet_ids = insert_bullet_points(db, project.bullet_points)
