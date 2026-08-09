@@ -201,18 +201,47 @@ class TestEdit:
 
         assert response.json()["technologies"] == ["Go"]
 
-    def test_can_clear_the_link(self, auth, user, make_project, db):
+    def test_rejects_an_explicit_null_link(self, auth, user, make_project, db):
         project = make_project(user, link="https://example.com/project")
 
         response = auth(user).put(
             "/project/", json={"id": str(project.id), "link": None}
         )
 
-        assert response.json()["link"] is None
+        assert response.status_code == 422
+
+        untouched = get_project(db, project.id)
+        assert untouched is not None
+        assert untouched.link == "https://example.com/project"
+
+    def test_omitting_the_link_leaves_it_unchanged(self, auth, user, make_project, db):
+        project = make_project(user, link="https://example.com/project")
+
+        response = auth(user).put(
+            "/project/", json={"id": str(project.id), "name": "Renamed"}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["link"] == "https://example.com/project"
 
         updated = get_project(db, project.id)
         assert updated is not None
-        assert updated.link is None
+        assert updated.link == "https://example.com/project"
+
+    def test_updates_the_link_when_given_a_string(self, auth, user, make_project, db):
+        project = make_project(user, link="https://example.com/old")
+
+        response = auth(user).put(
+            "/project/",
+            json={"id": str(project.id), "link": "https://example.com/new"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["link"] == "https://example.com/new"
+
+        updated = get_project(db, project.id)
+        assert updated is not None
+        assert updated.link == "https://example.com/new"
 
     def test_replaces_bullet_points_and_removes_the_old_rows(
         self, auth, user, make_project, db

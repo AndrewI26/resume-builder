@@ -49,8 +49,10 @@ from db import Base
 from deps.db import get_db
 from main import app
 from models.bullet_points import BulletPoint
+from models.education import Education
 from models.expirence import Expirence
 from models.project import Project
+from models.skill import Skill
 from models.user import User
 from security import (
     ACCESS_TOKEN_COOKIE_NAME,
@@ -189,6 +191,33 @@ def make_expirence(db: Session):
 
 
 @pytest.fixture
+def make_education(db: Session):
+    """Insert an education directly, bypassing the endpoints under test."""
+
+    def _make_education(
+        user: User,
+        *,
+        name: str = "State University",
+        subheading: str = "BSc Computer Science",
+        duration: str = "2016 - 2020",
+        location: str = "Boston, MA",
+    ) -> Education:
+        education = Education(
+            user_id=user.id,
+            name=name,
+            subheading=subheading,
+            duration=duration,
+            location=location,
+        )
+        db.add(education)
+        db.commit()
+        db.refresh(education)
+        return education
+
+    return _make_education
+
+
+@pytest.fixture
 def make_project(db: Session):
     """Insert a project directly, bypassing the endpoints under test."""
 
@@ -217,6 +246,31 @@ def make_project(db: Session):
         return project
 
     return _make_project
+
+
+@pytest.fixture
+def make_skill(db: Session):
+    """Insert a skill list directly, bypassing the endpoints under test."""
+
+    def _make_skill(
+        user: User,
+        *,
+        name: str = "Languages",
+        items: Sequence[str] = ("Python", "Go", "SQL"),
+        position: int = 0,
+    ) -> Skill:
+        skill = Skill(
+            user_id=user.id,
+            name=name,
+            items=list(items),
+            position=position,
+        )
+        db.add(skill)
+        db.commit()
+        db.refresh(skill)
+        return skill
+
+    return _make_skill
 
 
 @pytest.fixture
