@@ -170,22 +170,46 @@ class TestCreate:
 
 
 class TestEdit:
-    def test_updates_only_the_supplied_fields(self, auth, user, make_education, db):
+    """PUT replaces the whole row, so every field is required on every call."""
+
+    def test_replaces_the_row(self, auth, user, make_education, db):
         education = make_education(user, name="Old name", location="Boston, MA")
 
         response = auth(user).put(
-            f"/education/{education.id}", json={"name": "New name"}
+            f"/education/{education.id}",
+            json=payload(name="New name", location="Seattle, WA"),
         )
 
         assert response.status_code == 200
         body = response.json()
         assert body["name"] == "New name"
-        assert body["location"] == "Boston, MA"
+        assert body["location"] == "Seattle, WA"
 
         updated = get_education(db, education.id)
         assert updated is not None
         assert updated.name == "New name"
-        assert updated.location == "Boston, MA"
+        assert updated.location == "Seattle, WA"
+
+    def test_keeps_the_id(self, auth, user, make_education):
+        education = make_education(user)
+
+        response = auth(user).put(f"/education/{education.id}", json=payload())
+
+        assert response.json()["id"] == str(education.id)
+
+    @pytest.mark.parametrize("field", FIELDS)
+    def test_requires_every_field(self, auth, user, make_education, db, field):
+        education = make_education(user)
+        body = payload()
+        del body[field]
+
+        response = auth(user).put(f"/education/{education.id}", json=body)
+
+        assert response.status_code == 422
+
+        untouched = get_education(db, education.id)
+        assert untouched is not None
+        assert getattr(untouched, field) == getattr(education, field)
 
     def test_updates_every_field_at_once(self, auth, user, make_education, db):
         education = make_education(user)
@@ -212,7 +236,9 @@ class TestEdit:
         # reach the database and blow up as an IntegrityError.
         education = make_education(user)
 
-        response = auth(user).put(f"/education/{education.id}", json={field: None})
+        response = auth(user).put(
+            f"/education/{education.id}", json=payload(**{field: None})
+        )
 
         assert response.status_code == 422
 
@@ -220,12 +246,12 @@ class TestEdit:
         assert untouched is not None
         assert getattr(untouched, field) == getattr(education, field)
 
-    def test_rejects_an_update_with_no_fields(self, auth, user, make_education):
+    def test_rejects_an_empty_body(self, auth, user, make_education):
         education = make_education(user)
 
         response = auth(user).put(f"/education/{education.id}", json={})
 
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     def test_cannot_edit_another_users_education(
         self, auth, user, other_user, make_education, db
@@ -233,7 +259,7 @@ class TestEdit:
         education = make_education(other_user, name="Theirs")
 
         response = auth(user).put(
-            f"/education/{education.id}", json={"name": "Hijacked"}
+            f"/education/{education.id}", json=payload(name="Hijacked")
         )
 
         assert response.status_code == 404
@@ -243,7 +269,7 @@ class TestEdit:
         assert untouched.name == "Theirs"
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).put(f"/education/{uuid4()}", json={"name": "Ghost"})
+        response = auth(user).put(f"/education/{uuid4()}", json=payload(name="Ghost"))
 
         assert response.status_code == 404
 

@@ -223,61 +223,95 @@ class TestCreate:
 
 
 class TestEdit:
-    def test_updates_only_the_supplied_fields(self, auth, user, make_project, db):
+    """PUT replaces the whole row, so every field is required on every call."""
+
+    def test_replaces_the_row(self, auth, user, make_project, db):
         project = make_project(user, name="Old name", technologies=("Python",))
 
-        response = auth(user).put(f"/project/{project.id}", json={"name": "New name"})
+        response = auth(user).put(
+            f"/project/{project.id}",
+            json=payload(name="New name", technologies=["Go", "Rust"]),
+        )
 
         assert response.status_code == 200
         body = response.json()
         assert body["name"] == "New name"
-        assert body["technologies"] == ["Python"]
-        assert [b["text"] for b in body["bullet_points"]] == [
-            "First bullet",
-            "Second bullet",
-        ]
+        assert body["technologies"] == ["Go", "Rust"]
 
         updated = get_project(db, project.id)
         assert updated is not None
         assert updated.name == "New name"
+        assert updated.technologies == ["Go", "Rust"]
 
-    def test_replaces_technologies(self, auth, user, make_project):
-        project = make_project(user, technologies=("Python", "FastAPI"))
+    def test_keeps_the_id(self, auth, user, make_project):
+        project = make_project(user)
 
-        response = auth(user).put(
-            f"/project/{project.id}", json={"technologies": ["Go"]}
-        )
+        response = auth(user).put(f"/project/{project.id}", json=payload())
 
-        assert response.json()["technologies"] == ["Go"]
+        assert response.json()["id"] == str(project.id)
 
-    def test_rejects_an_explicit_null_link(self, auth, user, make_project, db):
-        project = make_project(user, link="https://example.com/project")
+    @pytest.mark.parametrize("field", ["name", "technologies", "bullet_points"])
+    def test_requires_every_field(self, auth, user, make_project, field):
+        project = make_project(user)
+        body = payload()
+        del body[field]
 
-        response = auth(user).put(f"/project/{project.id}", json={"link": None})
+        response = auth(user).put(f"/project/{project.id}", json=body)
+
+        assert response.status_code == 422
+
+    def test_rejects_a_null_name(self, auth, user, make_project, db):
+        project = make_project(user, name="Kept")
+
+        response = auth(user).put(f"/project/{project.id}", json=payload(name=None))
 
         assert response.status_code == 422
 
         untouched = get_project(db, project.id)
         assert untouched is not None
-        assert untouched.link == "https://example.com/project"
+        assert untouched.name == "Kept"
 
-    def test_omitting_the_link_leaves_it_unchanged(self, auth, user, make_project, db):
+    def test_can_empty_the_technologies(self, auth, user, make_project):
+        project = make_project(user, technologies=("Python",))
+
+        response = auth(user).put(
+            f"/project/{project.id}", json=payload(technologies=[])
+        )
+
+        assert response.json()["technologies"] == []
+
+    def test_a_null_link_clears_it(self, auth, user, make_project, db):
+        """`link` is the one nullable column here, so null is a real value."""
         project = make_project(user, link="https://example.com/project")
 
-        response = auth(user).put(f"/project/{project.id}", json={"name": "Renamed"})
+        response = auth(user).put(f"/project/{project.id}", json=payload(link=None))
 
         assert response.status_code == 200
-        assert response.json()["link"] == "https://example.com/project"
+        assert response.json()["link"] is None
 
         updated = get_project(db, project.id)
         assert updated is not None
-        assert updated.link == "https://example.com/project"
+        assert updated.link is None
+
+    def test_omitting_the_link_clears_it(self, auth, user, make_project, db):
+        project = make_project(user, link="https://example.com/project")
+        body = payload()
+        del body["link"]
+
+        response = auth(user).put(f"/project/{project.id}", json=body)
+
+        assert response.status_code == 200
+        assert response.json()["link"] is None
+
+        updated = get_project(db, project.id)
+        assert updated is not None
+        assert updated.link is None
 
     def test_updates_the_link_when_given_a_string(self, auth, user, make_project, db):
         project = make_project(user, link="https://example.com/old")
 
         response = auth(user).put(
-            f"/project/{project.id}", json={"link": "https://example.com/new"}
+            f"/project/{project.id}", json=payload(link="https://example.com/new")
         )
 
         assert response.status_code == 200
@@ -295,7 +329,7 @@ class TestEdit:
 
         response = auth(user).put(
             f"/project/{project.id}",
-            json={"bullet_points": [{"text": "Brand new", "bolded": []}]},
+            json=payload(bullet_points=[{"text": "Brand new", "bolded": []}]),
         )
 
         assert [b["text"] for b in response.json()["bullet_points"]] == ["Brand new"]
@@ -305,19 +339,30 @@ class TestEdit:
         ).all()
         assert orphans == []
 
-    def test_rejects_an_update_with_no_fields(self, auth, user, make_project):
+    def test_can_empty_the_bullet_points(self, auth, user, make_project):
+        project = make_project(user)
+
+        response = auth(user).put(
+            f"/project/{project.id}", json=payload(bullet_points=[])
+        )
+
+        assert response.json()["bullet_points"] == []
+
+    def test_rejects_an_empty_body(self, auth, user, make_project):
         project = make_project(user)
 
         response = auth(user).put(f"/project/{project.id}", json={})
 
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     def test_cannot_edit_another_users_project(
         self, auth, user, other_user, make_project, db
     ):
         project = make_project(other_user, name="Theirs")
 
-        response = auth(user).put(f"/project/{project.id}", json={"name": "Hijacked"})
+        response = auth(user).put(
+            f"/project/{project.id}", json=payload(name="Hijacked")
+        )
 
         assert response.status_code == 404
 
@@ -326,7 +371,7 @@ class TestEdit:
         assert untouched.name == "Theirs"
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).put(f"/project/{uuid4()}", json={"name": "Ghost"})
+        response = auth(user).put(f"/project/{uuid4()}", json=payload(name="Ghost"))
 
         assert response.status_code == 404
 

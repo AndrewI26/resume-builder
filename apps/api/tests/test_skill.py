@@ -26,6 +26,11 @@ def payload(**overrides):
     return body
 
 
+def replacement(**overrides):
+    """A PUT body. Unlike a create, it has to state the position."""
+    return payload(**{"position": 0, **overrides})
+
+
 def skill_count(db: Session) -> int:
     return db.scalar(select(func.count()).select_from(Skill)) or 0
 
@@ -195,47 +200,47 @@ class TestCreate:
 
 
 class TestEdit:
-    def test_renames_a_list(self, auth, user, make_skill, db):
+    """PUT replaces the whole list, so every field is required on every call."""
+
+    def test_replaces_the_row(self, auth, user, make_skill, db):
         skill = make_skill(user, name="Languages", items=["Python"])
 
         response = auth(user).put(
-            f"/skill/{skill.id}", json={"name": "Programming Languages"}
+            f"/skill/{skill.id}",
+            json=replacement(name="Programming Languages", items=["Rust", "Zig"]),
         )
 
         assert response.status_code == 200
         body = response.json()
         assert body["name"] == "Programming Languages"
-        assert body["items"] == ["Python"]
+        assert body["items"] == ["Rust", "Zig"]
 
         updated = get_skill(db, skill.id)
         assert updated is not None
         assert updated.name == "Programming Languages"
+        assert updated.items == ["Rust", "Zig"]
 
-    def test_replaces_the_items(self, auth, user, make_skill, db):
-        skill = make_skill(user, items=["Python", "Go"])
+    def test_keeps_the_id(self, auth, user, make_skill):
+        skill = make_skill(user)
 
-        response = auth(user).put(
-            f"/skill/{skill.id}", json={"items": ["Rust", "Zig", "C"]}
-        )
+        response = auth(user).put(f"/skill/{skill.id}", json=replacement())
 
-        assert response.json()["items"] == ["Rust", "Zig", "C"]
+        assert response.json()["id"] == str(skill.id)
 
-        updated = get_skill(db, skill.id)
-        assert updated is not None
-        assert updated.items == ["Rust", "Zig", "C"]
-
-    def test_reorders_the_items(self, auth, user, make_skill):
+    def test_preserves_item_order(self, auth, user, make_skill):
         skill = make_skill(user, items=["Python", "Go", "SQL"])
         reordered = ["SQL", "Python", "Go"]
 
-        response = auth(user).put(f"/skill/{skill.id}", json={"items": reordered})
+        response = auth(user).put(
+            f"/skill/{skill.id}", json=replacement(items=reordered)
+        )
 
         assert response.json()["items"] == reordered
 
     def test_can_empty_the_items(self, auth, user, make_skill):
         skill = make_skill(user, items=["Python"])
 
-        response = auth(user).put(f"/skill/{skill.id}", json={"items": []})
+        response = auth(user).put(f"/skill/{skill.id}", json=replacement(items=[]))
 
         assert response.json()["items"] == []
 
@@ -244,8 +249,13 @@ class TestEdit:
         frameworks = make_skill(user, name="Technologies/Frameworks", position=1)
 
         client = auth(user)
-        client.put(f"/skill/{languages.id}", json={"position": 1})
-        client.put(f"/skill/{frameworks.id}", json={"position": 0})
+        client.put(
+            f"/skill/{languages.id}", json=replacement(name="Languages", position=1)
+        )
+        client.put(
+            f"/skill/{frameworks.id}",
+            json=replacement(name="Technologies/Frameworks", position=0),
+        )
 
         assert [row["name"] for row in client.get("/skill/").json()] == [
             "Technologies/Frameworks",
@@ -253,12 +263,28 @@ class TestEdit:
         ]
 
     @pytest.mark.parametrize("field", ["name", "items", "position"])
+    def test_requires_every_field(self, auth, user, make_skill, db, field):
+        skill = make_skill(user)
+        body = replacement()
+        del body[field]
+
+        response = auth(user).put(f"/skill/{skill.id}", json=body)
+
+        assert response.status_code == 422
+
+        untouched = get_skill(db, skill.id)
+        assert untouched is not None
+        assert getattr(untouched, field) == getattr(skill, field)
+
+    @pytest.mark.parametrize("field", ["name", "items", "position"])
     def test_rejects_a_null_field(self, auth, user, make_skill, db, field):
         # Every column is NOT NULL: null has to fail validation rather than
         # reach the database as an IntegrityError.
         skill = make_skill(user)
 
-        response = auth(user).put(f"/skill/{skill.id}", json={field: None})
+        response = auth(user).put(
+            f"/skill/{skill.id}", json=replacement(**{field: None})
+        )
 
         assert response.status_code == 422
 
@@ -269,23 +295,25 @@ class TestEdit:
     def test_rejects_a_negative_position(self, auth, user, make_skill):
         skill = make_skill(user, position=3)
 
-        response = auth(user).put(f"/skill/{skill.id}", json={"position": -1})
+        response = auth(user).put(f"/skill/{skill.id}", json=replacement(position=-1))
 
         assert response.status_code == 422
 
-    def test_rejects_an_update_with_no_fields(self, auth, user, make_skill):
+    def test_rejects_an_empty_body(self, auth, user, make_skill):
         skill = make_skill(user)
 
         response = auth(user).put(f"/skill/{skill.id}", json={})
 
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     def test_cannot_edit_another_users_skill(
         self, auth, user, other_user, make_skill, db
     ):
         skill = make_skill(other_user, name="Theirs")
 
-        response = auth(user).put(f"/skill/{skill.id}", json={"name": "Hijacked"})
+        response = auth(user).put(
+            f"/skill/{skill.id}", json=replacement(name="Hijacked")
+        )
 
         assert response.status_code == 404
 
@@ -294,7 +322,7 @@ class TestEdit:
         assert untouched.name == "Theirs"
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).put(f"/skill/{uuid4()}", json={"name": "Ghost"})
+        response = auth(user).put(f"/skill/{uuid4()}", json=replacement(name="Ghost"))
 
         assert response.status_code == 404
 

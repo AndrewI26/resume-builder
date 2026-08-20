@@ -7,11 +7,7 @@ from deps.auth import CurrentUser
 from deps.db import Db
 from enums import OperationType, SectionType
 from models.personal_info import PersonalInfo
-from schemas.personal_info import (
-    PersonalInfoCreate,
-    PersonalInfoEdit,
-    PersonalInfoRead,
-)
+from schemas.personal_info import PersonalInfoCreate, PersonalInfoRead
 from services.record_section import record_version
 
 router = APIRouter(prefix="/personal-info", tags=["Personal info"])
@@ -64,23 +60,17 @@ def create_personal_info(
 @router.put("/{personal_info_id}", response_model=PersonalInfoRead)
 def edit_personal_info(
     personal_info_id: UUID,
-    personal_info: PersonalInfoEdit,
+    personal_info: PersonalInfoCreate,
     current_user: CurrentUser,
     db: Db,
 ):
-    values = personal_info.model_dump(exclude_unset=True)
-    if not values:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
-        )
-
     stmt = (
         update(PersonalInfo)
         .where(
             PersonalInfo.id == personal_info_id,
             PersonalInfo.user_id == current_user.id,
         )
-        .values(**values)
+        .values(**personal_info.model_dump())
         .returning(PersonalInfo)
     )
     edited_personal_info = db.scalars(stmt).one_or_none()

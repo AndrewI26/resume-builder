@@ -3,8 +3,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from schemas.fields import omittable, omittable_str
-
 SkillItem = Annotated[str, Field(max_length=255)]
 
 
@@ -27,8 +25,12 @@ class SkillRead(BaseModel):
 
 
 class SkillEdit(BaseModel):
-    # All three columns are NOT NULL, so a field is either a value or left out
-    # entirely. See `schemas.fields.omittable`.
-    name: str = omittable_str(255)
-    items: list[SkillItem] = omittable()
-    position: int = omittable(ge=0)
+    """The full representation a replace has to send.
+
+    Unlike `SkillCreate`, `position` is required: there is no list to append
+    after, only an existing one whose place the caller has to state.
+    """
+
+    name: str = Field(max_length=255)
+    items: list[SkillItem]
+    position: int = Field(ge=0)

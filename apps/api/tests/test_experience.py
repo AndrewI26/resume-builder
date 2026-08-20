@@ -209,25 +209,60 @@ class TestCreate:
 
 
 class TestEdit:
-    def test_updates_only_the_supplied_fields(self, auth, user, make_expirence, db):
+    """PUT replaces the whole row, so every field is required on every call."""
+
+    def test_replaces_the_row(self, auth, user, make_expirence, db):
         expirence = make_expirence(user, company="Acme", position="Engineer")
 
         response = auth(user).put(
-            f"/experience/{expirence.id}", json={"company": "Globex"}
+            f"/experience/{expirence.id}",
+            json=payload(company="Globex", position="Staff Engineer"),
         )
 
         assert response.status_code == 200
         body = response.json()
         assert body["company"] == "Globex"
-        assert body["position"] == "Engineer"
-        assert [bullet["text"] for bullet in body["bullet_points"]] == [
-            "First bullet",
-            "Second bullet",
-        ]
+        assert body["position"] == "Staff Engineer"
 
         updated = get_expirence(db, expirence.id)
         assert updated is not None
         assert updated.company == "Globex"
+        assert updated.position == "Staff Engineer"
+
+    def test_keeps_the_id(self, auth, user, make_expirence):
+        expirence = make_expirence(user)
+
+        response = auth(user).put(f"/experience/{expirence.id}", json=payload())
+
+        assert response.json()["id"] == str(expirence.id)
+
+    @pytest.mark.parametrize(
+        "field", ["company", "position", "duration", "location", "bullet_points"]
+    )
+    def test_requires_every_field(self, auth, user, make_expirence, db, field):
+        expirence = make_expirence(user)
+        body = payload()
+        del body[field]
+
+        response = auth(user).put(f"/experience/{expirence.id}", json=body)
+
+        assert response.status_code == 422
+
+    @pytest.mark.parametrize("field", ["company", "position", "duration", "location"])
+    def test_rejects_a_null_field(self, auth, user, make_expirence, db, field):
+        # The columns are NOT NULL: a null has to fail validation rather than
+        # reach the database and blow up as an IntegrityError.
+        expirence = make_expirence(user)
+
+        response = auth(user).put(
+            f"/experience/{expirence.id}", json=payload(**{field: None})
+        )
+
+        assert response.status_code == 422
+
+        untouched = get_expirence(db, expirence.id)
+        assert untouched is not None
+        assert getattr(untouched, field) == getattr(expirence, field)
 
     def test_replaces_bullet_points_and_removes_the_old_rows(
         self, auth, user, make_expirence, db
@@ -237,7 +272,7 @@ class TestEdit:
 
         response = auth(user).put(
             f"/experience/{expirence.id}",
-            json={"bullet_points": [{"text": "Brand new", "bolded": []}]},
+            json=payload(bullet_points=[{"text": "Brand new", "bolded": []}]),
         )
 
         assert response.status_code == 200
@@ -248,12 +283,21 @@ class TestEdit:
         ).all()
         assert orphans == []
 
-    def test_rejects_an_update_with_no_fields(self, auth, user, make_expirence):
+    def test_can_empty_the_bullet_points(self, auth, user, make_expirence):
+        expirence = make_expirence(user)
+
+        response = auth(user).put(
+            f"/experience/{expirence.id}", json=payload(bullet_points=[])
+        )
+
+        assert response.json()["bullet_points"] == []
+
+    def test_rejects_an_empty_body(self, auth, user, make_expirence):
         expirence = make_expirence(user)
 
         response = auth(user).put(f"/experience/{expirence.id}", json={})
 
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     def test_cannot_edit_another_users_experience(
         self, auth, user, other_user, make_expirence, db
@@ -261,7 +305,7 @@ class TestEdit:
         expirence = make_expirence(other_user, company="Theirs")
 
         response = auth(user).put(
-            f"/experience/{expirence.id}", json={"company": "Hijacked"}
+            f"/experience/{expirence.id}", json=payload(company="Hijacked")
         )
 
         assert response.status_code == 404
@@ -271,7 +315,9 @@ class TestEdit:
         assert untouched.company == "Theirs"
 
     def test_returns_404_for_an_unknown_id(self, auth, user):
-        response = auth(user).put(f"/experience/{uuid4()}", json={"company": "Ghost"})
+        response = auth(user).put(
+            f"/experience/{uuid4()}", json=payload(company="Ghost")
+        )
 
         assert response.status_code == 404
 

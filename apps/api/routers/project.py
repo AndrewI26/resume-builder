@@ -8,11 +8,7 @@ from deps.db import Db
 from enums import OperationType, SectionType
 from models.project import Project
 from schemas.bullet_point import BulletPoint
-from schemas.project import (
-    ProjectCreate,
-    ProjectEdit,
-    ProjectRead,
-)
+from schemas.project import ProjectCreate, ProjectRead
 from services.bullet_points import (
     bullet_points_by_id,
     delete_bullet_points,
@@ -90,32 +86,27 @@ def create_project(project: ProjectCreate, current_user: CurrentUser, db: Db):
 
 @router.put("/{project_id}", response_model=ProjectRead)
 def edit_project(
-    project_id: UUID, project: ProjectEdit, current_user: CurrentUser, db: Db
+    project_id: UUID, project: ProjectCreate, current_user: CurrentUser, db: Db
 ):
-    values = project.model_dump(exclude_unset=True, exclude={"id", "bullet_points"})
-
-    stale_bullet_ids: list[UUID] = []
-    if project.bullet_points is not None:
-        stale_bullet_ids = list(
-            db.scalars(
-                select(Project.bullet_points).where(
-                    Project.id == project_id,
-                    Project.user_id == current_user.id,
-                )
-            ).one_or_none()
-            or []
-        )
-        values["bullet_points"] = insert_bullet_points(db, project.bullet_points)
-
-    if not values:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
-        )
+    stale_bullet_ids = list(
+        db.scalars(
+            select(Project.bullet_points).where(
+                Project.id == project_id,
+                Project.user_id == current_user.id,
+            )
+        ).one_or_none()
+        or []
+    )
 
     stmt = (
         update(Project)
         .where(Project.id == project_id, Project.user_id == current_user.id)
-        .values(**values)
+        .values(
+            name=project.name,
+            link=project.link,
+            technologies=project.technologies,
+            bullet_points=insert_bullet_points(db, project.bullet_points),
+        )
         .returning(Project)
     )
     edited_project = db.scalars(stmt).one_or_none()

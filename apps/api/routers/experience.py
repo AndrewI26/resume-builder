@@ -8,11 +8,7 @@ from deps.db import Db
 from enums import OperationType, SectionType
 from models.expirence import Expirence
 from schemas.bullet_point import BulletPoint
-from schemas.expirence import (
-    ExpirenceCreate,
-    ExpirenceEdit,
-    ExpirenceRead,
-)
+from schemas.expirence import ExpirenceCreate, ExpirenceRead
 from services.bullet_points import (
     bullet_points_by_id,
     delete_bullet_points,
@@ -93,32 +89,28 @@ def create_experience(expirence: ExpirenceCreate, current_user: CurrentUser, db:
 
 @router.put("/{expirence_id}", response_model=ExpirenceRead)
 def edit_expirence(
-    expirence_id: UUID, expirence: ExpirenceEdit, current_user: CurrentUser, db: Db
+    expirence_id: UUID, expirence: ExpirenceCreate, current_user: CurrentUser, db: Db
 ):
-    values = expirence.model_dump(exclude_unset=True, exclude={"id", "bullet_points"})
-
-    stale_bullet_ids: list[UUID] = []
-    if expirence.bullet_points is not None:
-        stale_bullet_ids = list(
-            db.scalars(
-                select(Expirence.bullet_points).where(
-                    Expirence.id == expirence_id,
-                    Expirence.user_id == current_user.id,
-                )
-            ).one_or_none()
-            or []
-        )
-        values["bullet_points"] = insert_bullet_points(db, expirence.bullet_points)
-
-    if not values:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
-        )
+    stale_bullet_ids = list(
+        db.scalars(
+            select(Expirence.bullet_points).where(
+                Expirence.id == expirence_id,
+                Expirence.user_id == current_user.id,
+            )
+        ).one_or_none()
+        or []
+    )
 
     stmt = (
         update(Expirence)
         .where(Expirence.id == expirence_id, Expirence.user_id == current_user.id)
-        .values(**values)
+        .values(
+            company=expirence.company,
+            position=expirence.position,
+            duration=expirence.duration,
+            location=expirence.location,
+            bullet_points=insert_bullet_points(db, expirence.bullet_points),
+        )
         .returning(Expirence)
     )
     edited_expirence = db.scalars(stmt).one_or_none()

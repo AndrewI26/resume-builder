@@ -78,16 +78,10 @@ def create_skill(skill: SkillCreate, current_user: CurrentUser, db: Db):
 
 @router.put("/{skill_id}", response_model=SkillRead)
 def edit_skill(skill_id: UUID, skill: SkillEdit, current_user: CurrentUser, db: Db):
-    values = skill.model_dump(exclude_unset=True)
-    if not values:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
-        )
-
     stmt = (
         update(Skill)
         .where(Skill.id == skill_id, Skill.user_id == current_user.id)
-        .values(**values)
+        .values(**skill.model_dump())
         .returning(Skill)
     )
     edited_skill = db.scalars(stmt).one_or_none()

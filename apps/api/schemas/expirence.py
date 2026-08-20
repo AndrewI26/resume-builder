@@ -17,13 +17,3 @@ class ExpirenceCreate(BaseModel):
 
 class ExpirenceRead(ExpirenceCreate):
     id: UUID
-
-
-class ExpirenceEdit(BaseModel):
-    company: str | None = Field(default=None, max_length=255)
-    position: str | None = Field(default=None, max_length=255)
-
-    duration: str | None = Field(default=None, max_length=255)
-    location: str | None = Field(default=None, max_length=255)
-
-    bullet_points: list[BulletPoint] | None = None
