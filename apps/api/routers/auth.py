@@ -4,7 +4,7 @@ from deps.auth import CurrentUser
 from deps.db import Db
 from models.user import User
 from schemas.user import UserCreate, UserLogin, UserRead
-from security import (
+from services.security import (
     ACCESS_TOKEN_COOKIE_NAME,
     hash_password,
     set_access_token_cookie,

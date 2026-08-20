@@ -5,12 +5,14 @@ from sqlalchemy import delete, insert, select, update
 
 from deps.auth import CurrentUser
 from deps.db import Db
+from enums import OperationType, SectionType
 from models.personal_info import PersonalInfo
 from schemas.personal_info import (
     PersonalInfoCreate,
     PersonalInfoEdit,
     PersonalInfoRead,
 )
+from services.record_section import record_version
 
 router = APIRouter(prefix="/personal-info", tags=["Personal info"])
 
@@ -46,7 +48,15 @@ def create_personal_info(
     new_personal_info = db.scalars(stmt).one()
 
     result = PersonalInfoRead.model_validate(new_personal_info)
-    db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.PERSONAL_INFO,
+        new_personal_info.id,
+        OperationType.CREATE,
+        result.model_dump(mode="json"),
+    )
 
     return result
 

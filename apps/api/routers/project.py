@@ -5,6 +5,7 @@ from sqlalchemy import delete, insert, select, update
 
 from deps.auth import CurrentUser
 from deps.db import Db
+from enums import OperationType, SectionType
 from models.project import Project
 from schemas.bullet_point import BulletPoint
 from schemas.project import (
@@ -18,6 +19,7 @@ from services.bullet_points import (
     hydrate,
     insert_bullet_points,
 )
+from services.record_section import record_version
 
 router = APIRouter(prefix="/project", tags=["Project"])
 
@@ -73,7 +75,15 @@ def create_project(project: ProjectCreate, current_user: CurrentUser, db: Db):
     new_project = db.scalars(stmt).one()
 
     result = _to_read(new_project, bullet_points_by_id(db, bullet_ids))
-    db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.PROJECT,
+        new_project.id,
+        OperationType.CREATE,
+        result.model_dump(mode="json"),
+    )
 
     return result
 

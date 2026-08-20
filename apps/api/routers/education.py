@@ -5,12 +5,14 @@ from sqlalchemy import delete, insert, select, update
 
 from deps.auth import CurrentUser
 from deps.db import Db
+from enums import OperationType, SectionType
 from models.education import Education
 from schemas.education import (
     EducationCreate,
     EducationEdit,
     EducationRead,
 )
+from services.record_section import record_version
 
 router = APIRouter(prefix="/education", tags=["Education"])
 
@@ -49,7 +51,15 @@ def create_education(education: EducationCreate, current_user: CurrentUser, db: 
     new_education = db.scalars(stmt).one()
 
     result = EducationRead.model_validate(new_education)
-    db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.EDUCATION,
+        new_education.id,
+        OperationType.CREATE,
+        result.model_dump(mode="json"),
+    )
 
     return result
 

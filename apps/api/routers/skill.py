@@ -6,8 +6,10 @@ from sqlalchemy.orm import Session
 
 from deps.auth import CurrentUser
 from deps.db import Db
+from enums import OperationType, SectionType
 from models.skill import Skill
 from schemas.skill import SkillCreate, SkillEdit, SkillRead
+from services.record_section import record_version
 
 router = APIRouter(prefix="/skill", tags=["Skill"])
 
@@ -62,7 +64,15 @@ def create_skill(skill: SkillCreate, current_user: CurrentUser, db: Db):
     new_skill = db.scalars(stmt).one()
 
     result = SkillRead.model_validate(new_skill)
-    db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.SKILL,
+        new_skill.id,
+        OperationType.CREATE,
+        result.model_dump(mode="json"),
+    )
 
     return result
 

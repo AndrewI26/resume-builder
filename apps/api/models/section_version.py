@@ -20,8 +20,6 @@ class SectionVersion(Base):
 
     __tablename__ = "section_versions"
     __table_args__ = (
-        # Postgres backs this with a unique index, which is also what serves
-        # the one query that matters: a section's versions, newest first.
         UniqueConstraint(
             "section_type",
             "section_id",

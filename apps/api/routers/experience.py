@@ -5,6 +5,7 @@ from sqlalchemy import delete, insert, select, update
 
 from deps.auth import CurrentUser
 from deps.db import Db
+from enums import OperationType, SectionType
 from models.expirence import Expirence
 from schemas.bullet_point import BulletPoint
 from schemas.expirence import (
@@ -18,6 +19,7 @@ from services.bullet_points import (
     hydrate,
     insert_bullet_points,
 )
+from services.record_section import record_version
 
 router = APIRouter(prefix="/experience", tags=["Experience"])
 
@@ -76,7 +78,15 @@ def create_experience(expirence: ExpirenceCreate, current_user: CurrentUser, db:
     new_expirence = db.scalars(stmt).one()
 
     result = _to_read(new_expirence, bullet_points_by_id(db, bullet_ids))
-    db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.EXPERIENCE,
+        new_expirence.id,
+        OperationType.CREATE,
+        result.model_dump(mode="json"),
+    )
 
     return result
 
