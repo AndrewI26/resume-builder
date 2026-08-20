@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from models.user import User
-from security import ACCESS_TOKEN_COOKIE_NAME, verify_password
+from services.security import ACCESS_TOKEN_COOKIE_NAME, verify_password
 from settings import get_settings
 
 PASSWORD = "correct-horse-battery"

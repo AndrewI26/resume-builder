@@ -14,19 +14,14 @@ class PersonalInfoBase(BaseModel):
 
 
 class PersonalInfoCreate(PersonalInfoBase):
-    """Every field is optional; omitting one leaves it unset."""
+    """The full representation, used to create a row and to replace one.
+
+    Every field is optional, so on a create an omitted field is stored as null
+    and on a replace it clears whatever was there.
+    """
 
 
 class PersonalInfoRead(PersonalInfoBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-
-
-class PersonalInfoEdit(PersonalInfoBase):
-    """Partial update.
-
-    Unlike the other resume tables, these columns are all nullable, so null is
-    a meaningful value here: omit a field to leave it alone, or send null to
-    clear it.
-    """

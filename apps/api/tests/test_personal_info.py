@@ -202,29 +202,66 @@ class TestCreate:
 
 
 class TestEdit:
-    def test_updates_only_the_supplied_fields(self, auth, user, make_personal_info, db):
+    """PUT replaces the whole row: an omitted field is cleared, not kept."""
+
+    def test_replaces_the_row(self, auth, user, make_personal_info, db):
         personal_info = make_personal_info(user, email="old@example.com")
 
         response = auth(user).put(
-            f"/personal-info/{personal_info.id}", json={"email": "new@example.com"}
+            f"/personal-info/{personal_info.id}",
+            json=payload(email="new@example.com", address="Seattle, WA"),
         )
 
         assert response.status_code == 200
         body = response.json()
         assert body["email"] == "new@example.com"
-        assert body["address"] == "Boston, MA"
+        assert body["address"] == "Seattle, WA"
 
         updated = get_personal_info(db, personal_info.id)
         assert updated is not None
         assert updated.email == "new@example.com"
-        assert updated.address == "Boston, MA"
+        assert updated.address == "Seattle, WA"
+
+    def test_keeps_the_id(self, auth, user, make_personal_info):
+        personal_info = make_personal_info(user)
+
+        response = auth(user).put(f"/personal-info/{personal_info.id}", json=payload())
+
+        assert response.json()["id"] == str(personal_info.id)
+
+    def test_an_omitted_field_is_cleared(self, auth, user, make_personal_info, db):
+        """The difference from a partial update: silence means null, not "keep"."""
+        personal_info = make_personal_info(user, email="me@example.com")
+        body = payload()
+        del body["address"]
+
+        response = auth(user).put(f"/personal-info/{personal_info.id}", json=body)
+
+        assert response.json()["address"] is None
+        assert response.json()["email"] == "me@example.com"
+
+        updated = get_personal_info(db, personal_info.id)
+        assert updated is not None
+        assert updated.address is None
+
+    def test_an_empty_body_clears_every_field(self, auth, user, make_personal_info, db):
+        personal_info = make_personal_info(user)
+
+        response = auth(user).put(f"/personal-info/{personal_info.id}", json={})
+
+        assert response.status_code == 200
+        assert all(response.json()[field] is None for field in FIELDS)
+
+        updated = get_personal_info(db, personal_info.id)
+        assert updated is not None
+        assert all(getattr(updated, field) is None for field in FIELDS)
 
     def test_edits_only_the_addressed_row(self, auth, user, make_personal_info, db):
         target = make_personal_info(user, email="target@example.com")
         bystander = make_personal_info(user, email="bystander@example.com")
 
         auth(user).put(
-            f"/personal-info/{target.id}", json={"email": "changed@example.com"}
+            f"/personal-info/{target.id}", json=payload(email="changed@example.com")
         )
 
         untouched = get_personal_info(db, bystander.id)
@@ -238,7 +275,7 @@ class TestEdit:
         personal_info = make_personal_info(user)
 
         response = auth(user).put(
-            f"/personal-info/{personal_info.id}", json={field: None}
+            f"/personal-info/{personal_info.id}", json=payload(**{field: None})
         )
 
         assert response.status_code == 200
@@ -252,7 +289,7 @@ class TestEdit:
         personal_info = make_personal_info(user)
 
         response = auth(user).put(
-            f"/personal-info/{personal_info.id}", json={"phone_number": None}
+            f"/personal-info/{personal_info.id}", json=payload(phone_number=None)
         )
 
         assert response.json()["phone_number"] is None
@@ -275,16 +312,9 @@ class TestEdit:
         for field, value in changes.items():
             assert response.json()[field] == value
 
-    def test_rejects_an_update_with_no_fields(self, auth, user, make_personal_info):
-        personal_info = make_personal_info(user)
-
-        response = auth(user).put(f"/personal-info/{personal_info.id}", json={})
-
-        assert response.status_code == 400
-
     def test_returns_404_for_an_unknown_id(self, auth, user):
         response = auth(user).put(
-            f"/personal-info/{uuid4()}", json={"email": "ghost@example.com"}
+            f"/personal-info/{uuid4()}", json=payload(email="ghost@example.com")
         )
 
         assert response.status_code == 404
@@ -295,7 +325,7 @@ class TestEdit:
         theirs = make_personal_info(other_user, email="theirs@example.com")
 
         response = auth(user).put(
-            f"/personal-info/{theirs.id}", json={"email": "hijacked@example.com"}
+            f"/personal-info/{theirs.id}", json=payload(email="hijacked@example.com")
         )
 
         assert response.status_code == 404

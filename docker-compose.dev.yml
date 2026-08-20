@@ -53,7 +53,25 @@ services:
     depends_on:
       - api
 
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:26.1
+    restart: unless-stopped
+    environment:
+      CB_SERVER_NAME: ${CLOUDBEAVER_SERVER_NAME}
+      CB_SERVER_URL: http://localhost:${CLOUDBEAVER_PORT}
+      CB_ADMIN_NAME: ${CLOUDBEAVER_ADMIN_NAME}
+      CB_ADMIN_PASSWORD: ${CLOUDBEAVER_ADMIN_PASSWORD}
+    ports:
+      - "${CLOUDBEAVER_PORT}:8978"
+    volumes:
+      - cloudbeaver_workspace:/opt/cloudbeaver/workspace
+      - ./docker/cloudbeaver/initial-data-sources.conf:/opt/cloudbeaver/conf/initial-data-sources.conf:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   api_venv:
   web_root_node_modules:
+  cloudbeaver_workspace:

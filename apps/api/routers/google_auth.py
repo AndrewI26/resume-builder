@@ -22,7 +22,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from deps.db import Db
-from google_oauth import (
+from models.oauth_account import GOOGLE_PROVIDER, OAuthAccount
+from models.user import User
+from schemas.user import GoogleCredential, UserRead
+from services.google_oauth import (
     GoogleOAuthError,
     GoogleProfile,
     build_authorization_url,
@@ -30,10 +33,7 @@ from google_oauth import (
     generate_pkce_pair,
     verify_id_token,
 )
-from models.oauth_account import GOOGLE_PROVIDER, OAuthAccount
-from models.user import User
-from schemas.user import GoogleCredential, UserRead
-from security import (
+from services.security import (
     OAUTH_STATE_COOKIE_NAME,
     OAUTH_STATE_EXPIRE_MINUTES,
     create_oauth_state_token,

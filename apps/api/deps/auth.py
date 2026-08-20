@@ -4,7 +4,7 @@ from fastapi import Cookie, Depends, HTTPException, status
 
 from deps.db import Db
 from models.user import User
-from security import ACCESS_TOKEN_COOKIE_NAME, decode_access_token
+from services.security import ACCESS_TOKEN_COOKIE_NAME, decode_access_token
 
 CREDENTIALS_EXCEPTION = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,

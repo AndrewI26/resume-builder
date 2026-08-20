@@ -4,7 +4,7 @@ from deps.auth import CurrentUser
 from deps.db import Db
 from models.user import User
 from schemas.user import UserCreate, UserLogin, UserRead
-from security import (
+from services.security import (
     ACCESS_TOKEN_COOKIE_NAME,
     hash_password,
     set_access_token_cookie,
@@ -35,8 +35,6 @@ def register(payload: UserCreate, response: Response, db: Db):
 @router.post("/login", response_model=UserRead)
 def login(payload: UserLogin, response: Response, db: Db):
     user = db.query(User).filter(User.email == payload.email).first()
-    # a null hash means the account only has an OAuth identity, so there is no
-    # password that could ever match
     if (
         user is None
         or user.hashed_password is None

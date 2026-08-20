@@ -12,8 +12,6 @@ settings = get_settings()
 
 ACCESS_TOKEN_COOKIE_NAME = "access_token"
 
-# short lived cookie holding the in-flight OAuth handshake (state, nonce, PKCE
-# verifier), signed so the callback can trust what it reads back
 OAUTH_STATE_COOKIE_NAME = "oauth_state"
 OAUTH_STATE_EXPIRE_MINUTES = 10
 
