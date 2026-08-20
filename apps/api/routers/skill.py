@@ -24,7 +24,6 @@ def _next_position(db: Session, user_id: UUID) -> int:
 
 @router.get("/", response_model=list[SkillRead])
 def get_skills(current_user: CurrentUser, db: Db):
-    # created_at breaks ties: nothing stops two lists sharing a position.
     stmt = (
         select(Skill)
         .where(Skill.user_id == current_user.id)

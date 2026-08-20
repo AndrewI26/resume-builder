@@ -14,8 +14,6 @@ class EducationCreate(BaseModel):
 
 
 class EducationRead(EducationCreate):
-    # Read straight off the ORM rows: unlike experiences and projects, there
-    # are no bullet points to hydrate, so nothing needs rebuilding by hand.
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
