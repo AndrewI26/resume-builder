@@ -29,7 +29,7 @@ export default function Signup() {
 			setFormError(null);
 			try {
 				await signUp(value);
-				navigate("/dashboard", { replace: true });
+				window.location.assign("/dashboard");
 			} catch (error) {
 				setFormError(
 					apiErrorMessage(error, "Could not create your account. Try again."),
@@ -47,6 +47,7 @@ export default function Signup() {
 
 			<form
 				className="mt-8 flex flex-col gap-4"
+				method="post"
 				noValidate
 				onSubmit={(event) => {
 					event.preventDefault();
@@ -64,7 +65,7 @@ export default function Signup() {
 				>
 					{(field) => (
 						<TextField
-							autoComplete="email"
+							autoComplete="username"
 							error={field.state.meta.errors[0] ?? undefined}
 							label="Email"
 							name={field.name}

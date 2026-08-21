@@ -29,7 +29,7 @@ export default function Login() {
 			setFormError(null);
 			try {
 				await signIn(value);
-				navigate("/dashboard", { replace: true });
+				window.location.assign("/dashboard");
 			} catch (error) {
 				setFormError(
 					apiErrorMessage(error, "Could not sign you in. Please try again."),
@@ -45,6 +45,7 @@ export default function Login() {
 
 			<form
 				className="mt-8 flex flex-col gap-4"
+				method="post"
 				noValidate
 				onSubmit={(event) => {
 					event.preventDefault();
@@ -62,7 +63,7 @@ export default function Login() {
 				>
 					{(field) => (
 						<TextField
-							autoComplete="email"
+							autoComplete="username"
 							error={field.state.meta.errors[0] ?? undefined}
 							label="Email"
 							name={field.name}
