@@ -11,9 +11,8 @@
 
 @theme {
 	--font-sans:
-		"Geist", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+		"League Spartan", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
 		"Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-	--font-display: "League Spartan", var(--font-sans);
 
 	--color-whitesmoke: #fcfcfc;
 	--color-platinum: #e4e2e1;

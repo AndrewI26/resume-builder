@@ -7,13 +7,13 @@ import { TextField } from "~/auth/text-field";
 
 export function meta() {
 	return [
-		{ title: "Sign in · Resume Builder" },
-		{ name: "description", content: "Sign in to your resume." },
+		{ title: "Create an account · Resume Builder" },
+		{ name: "description", content: "Create your resume builder account." },
 	];
 }
 
-export default function Login() {
-	const { signIn, isAuthenticated, isLoading } = useAuth();
+export default function Signup() {
+	const { signUp, isAuthenticated, isLoading } = useAuth();
 	const navigate = useNavigate();
 	const [formError, setFormError] = useState<string | null>(null);
 
@@ -28,11 +28,11 @@ export default function Login() {
 		onSubmit: async ({ value }) => {
 			setFormError(null);
 			try {
-				await signIn(value);
+				await signUp(value);
 				navigate("/dashboard", { replace: true });
 			} catch (error) {
 				setFormError(
-					apiErrorMessage(error, "Could not sign you in. Please try again."),
+					apiErrorMessage(error, "Could not create your account. Try again."),
 				);
 			}
 		},
@@ -40,8 +40,10 @@ export default function Login() {
 
 	return (
 		<main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-4 py-16">
-			<h1 className="text-4xl leading-heading tracking-decreased">Sign in</h1>
-			<p className="mt-2 text-ink-subtle">Welcome back.</p>
+			<h1 className="text-4xl leading-heading tracking-decreased">
+				Create an account
+			</h1>
+			<p className="mt-2 text-ink-subtle">Start building in a few seconds.</p>
 
 			<form
 				className="mt-8 flex flex-col gap-4"
@@ -78,19 +80,26 @@ export default function Login() {
 				<form.Field
 					name="password"
 					validators={{
-						onBlur: ({ value }) =>
-							value.length > 0 ? undefined : "Enter your password.",
+						onBlur: ({ value }) => {
+							if (value.length < 8) {
+								return "Use at least 8 characters.";
+							}
+							if (value.length > 100) {
+								return "Use at most 100 characters.";
+							}
+							return undefined;
+						},
 					}}
 				>
 					{(field) => (
 						<TextField
-							autoComplete="current-password"
+							autoComplete="new-password"
 							error={field.state.meta.errors[0] ?? undefined}
 							label="Password"
 							name={field.name}
 							onBlur={field.handleBlur}
 							onChange={field.handleChange}
-							placeholder="••••••••"
+							placeholder="At least 8 characters"
 							type="password"
 							value={field.state.value}
 						/>
@@ -115,16 +124,16 @@ export default function Login() {
 							disabled={!canSubmit}
 							type="submit"
 						>
-							{isSubmitting ? "Signing in…" : "Sign in"}
+							{isSubmitting ? "Creating account…" : "Create account"}
 						</button>
 					)}
 				</form.Subscribe>
 			</form>
 
 			<p className="mt-8 text-sm text-ink-subtle">
-				Don't have an account?{" "}
-				<Link className="text-ink underline underline-offset-4" to="/signup">
-					Create one
+				Already have an account?{" "}
+				<Link className="text-ink underline underline-offset-4" to="/login">
+					Sign in
 				</Link>
 			</p>
 		</main>

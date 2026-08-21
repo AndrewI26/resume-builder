@@ -12,9 +12,7 @@ function Dashboard() {
 
 	return (
 		<main className="mx-auto w-full max-w-3xl px-4 py-16">
-			<h1 className="font-display text-4xl leading-heading tracking-decreased">
-				Dashboard
-			</h1>
+			<h1 className="text-4xl leading-heading tracking-decreased">Dashboard</h1>
 			<p className="mt-2 text-ink-subtle">Signed in as {user?.email}</p>
 
 			<button
