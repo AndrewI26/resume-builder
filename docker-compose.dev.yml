@@ -65,7 +65,6 @@ services:
       - "${CLOUDBEAVER_PORT}:8978"
     volumes:
       - cloudbeaver_workspace:/opt/cloudbeaver/workspace
-      - ./docker/cloudbeaver/initial-data-sources.conf:/opt/cloudbeaver/conf/initial-data-sources.conf:ro
     depends_on:
       postgres:
         condition: service_healthy

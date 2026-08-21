@@ -54,6 +54,7 @@ DEFAULT_REDIRECT_PATH = "/"
 
 @router.get(
     "/login",
+    operation_id="google_login",
     status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     response_class=RedirectResponse,
     summary="Start the Google sign in redirect flow",
@@ -108,6 +109,7 @@ def login(next: str = DEFAULT_REDIRECT_PATH) -> RedirectResponse:
 
 @router.get(
     "/callback",
+    operation_id="google_callback",
     status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     response_class=RedirectResponse,
     summary="Google redirects here after the user consents",
@@ -172,6 +174,7 @@ def callback(
 
 @router.post(
     "/token",
+    operation_id="google_token",
     response_model=UserRead,
     summary="Sign in with an ID token from Google Identity Services",
 )

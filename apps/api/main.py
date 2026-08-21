@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRoute
 
 from routers.auth import router as auth_router
 from routers.education import router as education_router
@@ -12,7 +13,12 @@ from settings import get_settings
 
 settings = get_settings()
 
-app = FastAPI()
+
+def operation_id(route: APIRoute) -> str:
+    return route.name
+
+
+app = FastAPI(generate_unique_id_function=operation_id)
 
 # the frontend is on a different origin and auth rides on a cookie, so it needs
 # both an explicit origin and credentials allowed

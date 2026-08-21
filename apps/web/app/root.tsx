@@ -1,3 +1,5 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
 import {
 	isRouteErrorResponse,
 	Links,
@@ -8,6 +10,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
+import { AuthProvider } from "~/auth/auth-provider";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -19,7 +22,7 @@ export const links: Route.LinksFunction = () => [
 	},
 	{
 		rel: "stylesheet",
-		href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+		href: "https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=League+Spartan:wght@100..900&display=swap",
 	},
 ];
 
@@ -42,7 +45,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-	return <Outlet />;
+	const [queryClient] = useState(
+		() =>
+			new QueryClient({
+				defaultOptions: {
+					queries: { staleTime: 30_000, retry: false },
+				},
+			}),
+	);
+
+	return (
+		<QueryClientProvider client={queryClient}>
+			<AuthProvider>
+				<Outlet />
+			</AuthProvider>
+		</QueryClientProvider>
+	);
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
