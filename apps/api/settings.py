@@ -1,14 +1,17 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
     database_url: str
-    frontend_url: str = "http://localhost:5173"
-    port: int = 8000
+    frontend_url: str
+    backend_port: int
 
     secret_key: str
     jwt_algorithm: str = "HS256"
@@ -17,10 +20,8 @@ class Settings(BaseSettings):
     # send auth cookies over HTTPS only; keep off for local http:// development
     cookie_secure: bool = False
 
-    # from the OAuth 2.0 Client ID created in the Google Cloud console
     google_client_id: str | None = None
     google_client_secret: str | None = None
-    # must be registered verbatim as an authorized redirect URI on that client
     google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
 
     @property
@@ -30,4 +31,4 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return Settings()  # type: ignore

@@ -1,4 +1,12 @@
-const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const baseUrl =
+	import.meta.env.VITE_API_URL ??
+	(import.meta.env.DEV ? "http://localhost:8000" : undefined);
+
+if (!baseUrl) {
+	throw new Error(
+		"VITE_API_URL must be set when building the frontend for production.",
+	);
+}
 
 export class ApiError extends Error {
 	readonly status: number;

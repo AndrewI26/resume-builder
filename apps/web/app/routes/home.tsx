@@ -9,7 +9,7 @@ export function meta(_: Route.MetaArgs) {
 
 export default function Home() {
 	return (
-		<main className="mx-auto max-w-3xl px-md py-xl">
+		<main className="mx-auto max-w-3xl px-4 py-16">
 			<h1 className="text-5xl leading-heading tracking-decreased">
 				Resume Builder
 			</h1>

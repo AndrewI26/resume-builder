@@ -12,7 +12,7 @@ export function meta() {
 }
 
 const fieldClass =
-	"w-full rounded-xl border border-border bg-field px-md py-sm text-ink outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke aria-[invalid=true]:border-negative";
+	"w-full rounded-xl border border-border bg-field px-4 py-2 text-ink outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke aria-[invalid=true]:border-negative";
 
 export default function Login() {
 	const { signIn, isAuthenticated, isLoading } = useAuth();
@@ -41,14 +41,14 @@ export default function Login() {
 	});
 
 	return (
-		<main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-md py-xl">
+		<main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-4 py-16">
 			<h1 className="font-display text-4xl leading-heading tracking-decreased">
 				Sign in
 			</h1>
-			<p className="mt-sm text-ink-subtle">Welcome back.</p>
+			<p className="mt-2 text-ink-subtle">Welcome back.</p>
 
 			<form
-				className="mt-lg flex flex-col gap-md"
+				className="mt-8 flex flex-col gap-4"
 				noValidate
 				onSubmit={(event) => {
 					event.preventDefault();
@@ -65,7 +65,7 @@ export default function Login() {
 					}}
 				>
 					{(field) => (
-						<div className="flex flex-col gap-xs">
+						<div className="flex flex-col gap-1">
 							<label className="text-sm text-ink-subtle" htmlFor={field.name}>
 								Email
 							</label>
@@ -98,7 +98,7 @@ export default function Login() {
 					}}
 				>
 					{(field) => (
-						<div className="flex flex-col gap-xs">
+						<div className="flex flex-col gap-1">
 							<label className="text-sm text-ink-subtle" htmlFor={field.name}>
 								Password
 							</label>
@@ -125,7 +125,7 @@ export default function Login() {
 
 				{formError && (
 					<p
-						className="rounded-xl bg-negative-bg px-md py-sm text-sm text-negative"
+						className="rounded-xl bg-negative-bg px-4 py-2 text-sm text-negative"
 						role="alert"
 					>
 						{formError}
@@ -137,7 +137,7 @@ export default function Login() {
 				>
 					{([canSubmit, isSubmitting]) => (
 						<button
-							className="mt-xs rounded-button bg-btn-primary px-md py-sm text-btn-primary-fg transition-opacity hover:opacity-90 disabled:bg-btn-primary-disabled disabled:text-btn-primary-disabled-fg"
+							className="mt-1 rounded-button bg-btn-primary px-4 py-2 text-btn-primary-fg transition-opacity hover:opacity-90 disabled:bg-btn-primary-disabled disabled:text-btn-primary-disabled-fg"
 							disabled={!canSubmit}
 							type="submit"
 						>
