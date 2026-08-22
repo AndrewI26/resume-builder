@@ -1,5 +1,9 @@
+import type { components } from "@api/schema.d.ts";
 import { createContext, useContext } from "react";
-import type { UserCreate, UserLogin, UserRead } from "~/api/generated/model";
+
+export type UserRead = components["schemas"]["UserRead"];
+type UserCreate = components["schemas"]["UserCreate"];
+type UserLogin = components["schemas"]["UserLogin"];
 
 export type AuthContextValue = {
 	user: UserRead | null;

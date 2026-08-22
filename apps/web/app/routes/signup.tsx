@@ -1,9 +1,27 @@
 import { useForm } from "@tanstack/react-form";
+import type { components } from "@api/schema.d.ts";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { apiErrorMessage } from "~/api/errors";
 import { useAuth } from "~/auth/auth-context";
 import { TextField } from "~/auth/text-field";
+
+type SignupError =
+	| components["schemas"]["ErrorDetail"]
+	| components["schemas"]["HTTPValidationError"];
+
+function signupErrorMessage(error: unknown): string {
+	const detail = (error as SignupError | undefined)?.detail;
+
+	if (typeof detail === "string") {
+		return detail;
+	}
+
+	if (Array.isArray(detail) && detail.length > 0) {
+		return detail.map((item) => item.msg).join(" ");
+	}
+
+	return "Could not create your account. Try again.";
+}
 
 export function meta() {
 	return [
@@ -31,9 +49,7 @@ export default function Signup() {
 				await signUp(value);
 				window.location.assign("/dashboard");
 			} catch (error) {
-				setFormError(
-					apiErrorMessage(error, "Could not create your account. Try again."),
-				);
+				setFormError(signupErrorMessage(error));
 			}
 		},
 	});

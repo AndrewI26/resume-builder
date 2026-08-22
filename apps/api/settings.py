@@ -9,7 +9,11 @@ ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
-    database_url: str
+    postgres_user: str
+    postgres_password: str
+    postgres_db: str
+    postgres_port: int
+
     frontend_url: str
     backend_port: int
 
@@ -22,7 +26,14 @@ class Settings(BaseSettings):
 
     google_client_id: str | None = None
     google_client_secret: str | None = None
-    google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
+
+    @property
+    def google_redirect_uri(self) -> str:
+        return f"http://localhost:{self.backend_port}/auth/google/callback"
+
+    @property
+    def database_url(self) -> str:
+        return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@localhost:{self.postgres_port}/{self.postgres_db}"
 
     @property
     def google_oauth_configured(self) -> bool:

@@ -9,7 +9,7 @@
   "scripts": {
     "dev:web": "bun run --filter apps-web dev",
     "build:web": "bun run --filter apps-web build",
-    "codegen": "bun run --filter apps-web codegen",
+    "codegen": "bun run --filter apps-web generate-api",
     "docker:dev": "docker compose -f docker-compose.dev.yml up",
     "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
     "db:revision": "uv run --directory apps/api alembic revision --autogenerate -m",

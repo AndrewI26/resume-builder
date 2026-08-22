@@ -1,87 +1,72 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useMemo } from "react";
+import { $api } from "@api/api";
 import {
-	getMeQueryKey,
-	type meResponse,
-	useGoogleToken,
-	useLogin,
-	useLogout,
-	useMe,
-	useRegister,
-} from "~/api/generated/endpoints/auth/auth";
-import type { UserCreate, UserLogin, UserRead } from "~/api/generated/model";
-import { ApiError } from "~/api/fetcher";
-import { AuthContext, type AuthContextValue } from "./auth-context";
+	AuthContext,
+	type AuthContextValue,
+	type UserRead,
+} from "./auth-context";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const queryClient = useQueryClient();
 
-	const session = useMe<meResponse, ApiError>({
-		query: { retry: false },
-	});
+	const session = $api.useQuery("get", "/auth/me", undefined, { retry: false });
 
-	const { mutateAsync: loginRequest } = useLogin();
-	const { mutateAsync: registerRequest } = useRegister();
-	const { mutateAsync: googleTokenRequest } = useGoogleToken();
-	const { mutateAsync: logoutRequest } = useLogout();
+	const { mutateAsync: loginRequest } = $api.useMutation("post", "/auth/login");
+	const { mutateAsync: registerRequest } = $api.useMutation(
+		"post",
+		"/auth/register",
+	);
+	const { mutateAsync: googleTokenRequest } = $api.useMutation(
+		"post",
+		"/auth/google/token",
+	);
+	const { mutateAsync: logoutRequest } = $api.useMutation(
+		"post",
+		"/auth/logout",
+	);
 
 	const cacheUser = useCallback(
-		(user: UserRead, headers: Headers) => {
-			queryClient.setQueryData<meResponse>(getMeQueryKey(), {
-				status: 200,
-				data: user,
-				headers,
-			});
+		(user: UserRead) => {
+			queryClient.setQueryData(
+				$api.queryOptions("get", "/auth/me").queryKey,
+				user,
+			);
 			return user;
 		},
 		[queryClient],
 	);
 
 	const signIn = useCallback(
-		async (credentials: UserLogin) => {
-			const response = await loginRequest({ data: credentials });
-
-			if (response.status !== 200) {
-				throw new ApiError(response.status, response.data);
-			}
-
-			return cacheUser(response.data, response.headers);
+		async (credentials: { email: string; password: string }) => {
+			const user = await loginRequest({ body: credentials });
+			return cacheUser(user);
 		},
 		[loginRequest, cacheUser],
 	);
 
 	const signUp = useCallback(
-		async (credentials: UserCreate) => {
-			const response = await registerRequest({ data: credentials });
-
-			if (response.status !== 201) {
-				throw new ApiError(response.status, response.data);
-			}
-
-			return cacheUser(response.data, response.headers);
+		async (credentials: { email: string; password: string }) => {
+			const user = await registerRequest({ body: credentials });
+			return cacheUser(user);
 		},
 		[registerRequest, cacheUser],
 	);
 
 	const signInWithGoogle = useCallback(
 		async (credential: string) => {
-			const response = await googleTokenRequest({ data: { credential } });
-
-			if (response.status !== 200) {
-				throw new ApiError(response.status, response.data);
-			}
-
-			return cacheUser(response.data, response.headers);
+			const user = await googleTokenRequest({ body: { credential } });
+			return cacheUser(user);
 		},
 		[googleTokenRequest, cacheUser],
 	);
 
 	const signOut = useCallback(async () => {
-		await logoutRequest();
+		await logoutRequest({});
 		queryClient.clear();
 	}, [logoutRequest, queryClient]);
 
-	const user = session.data?.status === 200 ? session.data.data : null;
+	const user = session.data ?? null;
 
 	const value = useMemo<AuthContextValue>(
 		() => ({

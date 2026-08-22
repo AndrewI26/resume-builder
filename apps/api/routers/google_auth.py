@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from deps.db import Db
 from models.oauth_account import GOOGLE_PROVIDER, OAuthAccount
 from models.user import User
+from schemas.errors import ErrorDetail
 from schemas.user import GoogleCredential, UserRead
 from services.google_oauth import (
     GoogleOAuthError,
@@ -177,6 +178,7 @@ def callback(
     operation_id="google_token",
     response_model=UserRead,
     summary="Sign in with an ID token from Google Identity Services",
+    responses={status.HTTP_401_UNAUTHORIZED: {"model": ErrorDetail}},
 )
 def token(payload: GoogleCredential, response: Response, db: Db) -> User:
     """Exchange the `credential` from Google's sign in button for a session."""

@@ -9,7 +9,7 @@
 		"typecheck": "react-router typegen && tsc",
 		"format": "biome format --write .",
 		"lint": "biome lint --write .",
-		"codegen": "orval --config ./orval.config.ts"
+		"generate-api": "openapi-typescript http://localhost:8000/openapi.json -o ./app/api/schema.d.ts"
 	},
 	"dependencies": {
 		"@react-router/node": "^8",
@@ -17,6 +17,8 @@
 		"@tanstack/react-form": "^1.33.5",
 		"@tanstack/react-query": "^5",
 		"isbot": "^5.1.36",
+		"openapi-fetch": "^0.17.0",
+		"openapi-react-query": "^0.5.4",
 		"react": "^19.2.7",
 		"react-dom": "^19.2.7",
 		"react-router": "^8"
@@ -27,7 +29,7 @@
 		"@types/node": "^22",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
-		"orval": "^8",
+		"openapi-typescript": "^7.13.0",
 		"tailwindcss": "^4.2.2",
 		"typescript": "5.9.3",
 		"vite": "^8.0.3"

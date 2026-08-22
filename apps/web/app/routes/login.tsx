@@ -1,9 +1,27 @@
 import { useForm } from "@tanstack/react-form";
+import type { components } from "@api/schema.d.ts";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { apiErrorMessage } from "~/api/errors";
 import { useAuth } from "~/auth/auth-context";
 import { TextField } from "~/auth/text-field";
+
+type LoginError =
+	| components["schemas"]["ErrorDetail"]
+	| components["schemas"]["HTTPValidationError"];
+
+function loginErrorMessage(error: unknown): string {
+	const detail = (error as LoginError | undefined)?.detail;
+
+	if (typeof detail === "string") {
+		return detail;
+	}
+
+	if (Array.isArray(detail) && detail.length > 0) {
+		return detail.map((item) => item.msg).join(" ");
+	}
+
+	return "Could not sign you in. Please try again.";
+}
 
 export function meta() {
 	return [
@@ -31,9 +49,7 @@ export default function Login() {
 				await signIn(value);
 				window.location.assign("/dashboard");
 			} catch (error) {
-				setFormError(
-					apiErrorMessage(error, "Could not sign you in. Please try again."),
-				);
+				setFormError(loginErrorMessage(error));
 			}
 		},
 	});
