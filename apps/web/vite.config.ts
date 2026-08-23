@@ -17,6 +17,13 @@ export default defineConfig(({ mode }) => {
 		server: {
 			port: Number(env.FRONTEND_PORT) || 5173,
 			strictPort: true,
+			// Safari caches dev-served JS more aggressively than Chrome and can
+			// keep serving a stale route manifest after routes.ts changes even
+			// on reload; force every dev response to be revalidated.
+			headers:
+				env.NODE_ENV === "development"
+					? { "Cache-Control": "no-store" }
+					: undefined,
 		},
 	};
 });

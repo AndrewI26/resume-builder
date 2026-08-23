@@ -1,13 +1,12 @@
 import { Button } from "@components/button";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useAuth } from "~/auth/auth-context";
-import { RequireAuth } from "~/auth/require-auth";
 
 export function meta() {
 	return [{ title: "Dashboard · Resume Builder" }];
 }
 
-function Dashboard() {
+export default function Dashboard() {
 	const { user, signOut } = useAuth();
 	const navigate = useNavigate();
 
@@ -16,8 +15,23 @@ function Dashboard() {
 			<h1 className="text-4xl leading-heading tracking-decreased">Dashboard</h1>
 			<p className="mt-2 text-ink-subtle">Signed in as {user?.email}</p>
 
+			<div className="mt-8 flex gap-4">
+				<Link
+					className="inline-flex h-10 items-center justify-center rounded-button border border-btn-secondary-border bg-btn-secondary px-4 text-btn-secondary-fg transition-colors hover:border-stroke"
+					to="/resumes"
+				>
+					<span className="text-trim">Resumes</span>
+				</Link>
+				<Link
+					className="inline-flex h-10 items-center justify-center rounded-button border border-btn-secondary-border bg-btn-secondary px-4 text-btn-secondary-fg transition-colors hover:border-stroke"
+					to="/sections"
+				>
+					<span className="text-trim">Sections</span>
+				</Link>
+			</div>
+
 			<Button
-				className="mt-8"
+				className="mt-4"
 				onClick={async () => {
 					await signOut();
 					navigate("/login", { replace: true });
@@ -27,13 +41,5 @@ function Dashboard() {
 				Sign out
 			</Button>
 		</main>
-	);
-}
-
-export default function DashboardRoute() {
-	return (
-		<RequireAuth>
-			<Dashboard />
-		</RequireAuth>
 	);
 }
