@@ -287,6 +287,43 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	"/resumes/": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** Get Resumes */
+		get: operations["get_resumes"];
+		put?: never;
+		/** Create Resume */
+		post: operations["create_resume"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/resumes/{resume_id}": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** Get Resume */
+		get: operations["get_resume"];
+		put?: never;
+		post?: never;
+		/** Delete Resume */
+		delete: operations["delete_resume"];
+		options?: never;
+		head?: never;
+		/** Update Resume */
+		patch: operations["update_resume"];
+		trace?: never;
+	};
 	"/skill/": {
 		parameters: {
 			query?: never;
@@ -478,6 +515,43 @@ export interface components {
 			 * Format: uuid
 			 */
 			id: string;
+		};
+		/** ResumeCreate */
+		ResumeCreate: {
+			/** Name */
+			name: string;
+			/**
+			 * Sections
+			 * @default []
+			 */
+			sections: string[];
+		};
+		/** ResumeRead */
+		ResumeRead: {
+			/** Name */
+			name: string;
+			/**
+			 * Sections
+			 * @default []
+			 */
+			sections: string[];
+			/**
+			 * Id
+			 * Format: uuid
+			 */
+			id: string;
+			/**
+			 * Updated At
+			 * Format: date-time
+			 */
+			updated_at: string;
+		};
+		/** ResumeUpdate */
+		ResumeUpdate: {
+			/** Name */
+			name?: string | null;
+			/** Sections */
+			sections?: string[] | null;
 		};
 		/** SkillCreate */
 		SkillCreate: {
@@ -1488,6 +1562,175 @@ export interface operations {
 				};
 				content: {
 					"application/json": components["schemas"]["ProjectRead"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	get_resumes: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ResumeRead"][];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	create_resume: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["ResumeCreate"];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ResumeRead"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	get_resume: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				resume_id: string;
+			};
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ResumeRead"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	delete_resume: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				resume_id: string;
+			};
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ResumeRead"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	update_resume: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				resume_id: string;
+			};
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["ResumeUpdate"];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ResumeRead"];
 				};
 			};
 			/** @description Validation Error */
