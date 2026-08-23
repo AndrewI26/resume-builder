@@ -45,7 +45,7 @@ type SectionType = (typeof SECTION_TYPES)[number]["value"];
 type SectionOption = { id: string; label: string };
 
 const selectClassName =
-	"w-full rounded-xl border border-border bg-field px-4 py-2 text-ink text-trim outline-none transition-colors focus:border-stroke disabled:text-ink-disabled";
+	"w-full rounded-xl border border-border bg-field px-4 py-2 text-ink outline-none transition-colors focus:border-stroke disabled:text-ink-disabled";
 
 /** Fetches the pickable items for one section type and reduces them to id/label options.
  *
@@ -336,7 +336,7 @@ function CreateResumeForm() {
 							</label>
 							<input
 								aria-invalid={field.state.meta.errors.length > 0}
-								className="w-full rounded-xl border border-border bg-field px-4 py-2 text-ink text-trim outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke aria-invalid:border-negative"
+								className="w-full rounded-xl border border-border bg-field px-4 py-2 text-ink outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke aria-invalid:border-negative"
 								id={field.name}
 								name={field.name}
 								onChange={(event) => field.handleChange(event.target.value)}
