@@ -25,10 +25,21 @@ services:
       CB_SERVER_URL: http://localhost:${CLOUDBEAVER_PORT}
       CB_ADMIN_NAME: ${CLOUDBEAVER_ADMIN_NAME}
       CB_ADMIN_PASSWORD: ${CLOUDBEAVER_ADMIN_PASSWORD}
+      # Without this the pre-created connection exists but is invisible to the
+      # anonymous (not-signed-in) user, which is how you browse in dev.
+      CLOUDBEAVER_APP_GRANT_CONNECTIONS_ACCESS_TO_ANONYMOUS_TEAM: "true"
     ports:
       - "${CLOUDBEAVER_PORT}:8978"
     volumes:
       - cloudbeaver_workspace:/opt/cloudbeaver/workspace
+      # Pre-creates the Postgres connection so a fresh clone has one waiting.
+      # run-cloudbeaver-server.sh copies this into the workspace on first start
+      # only when workspace/.metadata is absent, so it takes effect on a fresh
+      # cloudbeaver_workspace volume and never overwrites your saved connections.
+      # Do NOT also mount the workspace copy: the script skips the copy when the
+      # destination exists, and CloudBeaver needs to write to it to store the
+      # password you enter on first connect (deliberately not committed here).
+      - ./docker/cloudbeaver/initial-data-sources.conf:/opt/cloudbeaver/conf/initial-data-sources.conf:ro
     depends_on:
       postgres:
         condition: service_healthy

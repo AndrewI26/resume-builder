@@ -1,7 +1,19 @@
 import { $api } from "@api/api";
 import type { components } from "@api/schema.d.ts";
+import {
+	type BulletPointDraft,
+	BulletPointsField,
+	emptyBulletPoint,
+	toApiBulletPoints,
+} from "@components/bullet-points-field";
 import { Button } from "@components/button";
 import { Modal } from "@components/modal";
+import {
+	emptySkillItem,
+	type SkillItemDraft,
+	SkillItemsField,
+	toApiSkillItems,
+} from "@components/skill-items-field";
 import { type Column, Table } from "@components/table";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -26,14 +38,6 @@ function splitList(text: string): string[] {
 		.split(",")
 		.map((item) => item.trim())
 		.filter((item) => item.length > 0);
-}
-
-function toBulletPoints(text: string): { text: string; bolded: [] }[] {
-	return text
-		.split("\n")
-		.map((line) => line.trim())
-		.filter((line) => line.length > 0)
-		.map((line) => ({ text: line, bolded: [] }));
 }
 
 function required(message: string) {
@@ -84,32 +88,6 @@ function TextInput({
 				{...inputProps}
 			/>
 			{error !== undefined && <p className="text-negative text-sm">{error}</p>}
-		</div>
-	);
-}
-
-function TextArea({
-	label,
-	onChange,
-	value,
-}: {
-	label: string;
-	onChange: (value: string) => void;
-	value: string;
-}) {
-	const id = useId();
-
-	return (
-		<div className="flex flex-col gap-1">
-			<label className="text-ink-subtle text-sm" htmlFor={id}>
-				{label}
-			</label>
-			<textarea
-				className={`${inputClassName} min-h-24`}
-				id={id}
-				onChange={(event) => onChange(event.target.value)}
-				value={value}
-			/>
 		</div>
 	);
 }
@@ -249,7 +227,7 @@ function ExperienceForm({ onCreated }: { onCreated: () => void }) {
 			position: "",
 			duration: "",
 			location: "",
-			bulletPointsText: "",
+			bulletPoints: [emptyBulletPoint()] as BulletPointDraft[],
 		},
 		onSubmit: async ({ value }) => {
 			setFormError(null);
@@ -260,7 +238,7 @@ function ExperienceForm({ onCreated }: { onCreated: () => void }) {
 						position: value.position,
 						duration: value.duration,
 						location: value.location,
-						bullet_points: toBulletPoints(value.bulletPointsText),
+						bullet_points: toApiBulletPoints(value.bulletPoints),
 					},
 				});
 				await queryClient.invalidateQueries({
@@ -344,10 +322,10 @@ function ExperienceForm({ onCreated }: { onCreated: () => void }) {
 				)}
 			</form.Field>
 
-			<form.Field name="bulletPointsText">
+			<form.Field name="bulletPoints">
 				{(field) => (
-					<TextArea
-						label="Bullet points (one per line)"
+					<BulletPointsField
+						label="Bullet points"
 						onChange={field.handleChange}
 						value={field.state.value}
 					/>
@@ -512,7 +490,7 @@ function ProjectForm({ onCreated }: { onCreated: () => void }) {
 			name: "",
 			link: "",
 			technologiesText: "",
-			bulletPointsText: "",
+			bulletPoints: [emptyBulletPoint()] as BulletPointDraft[],
 		},
 		onSubmit: async ({ value }) => {
 			setFormError(null);
@@ -522,7 +500,7 @@ function ProjectForm({ onCreated }: { onCreated: () => void }) {
 						name: value.name,
 						link: value.link.trim() || undefined,
 						technologies: splitList(value.technologiesText),
-						bullet_points: toBulletPoints(value.bulletPointsText),
+						bullet_points: toApiBulletPoints(value.bulletPoints),
 					},
 				});
 				await queryClient.invalidateQueries({
@@ -583,10 +561,10 @@ function ProjectForm({ onCreated }: { onCreated: () => void }) {
 				)}
 			</form.Field>
 
-			<form.Field name="bulletPointsText">
+			<form.Field name="bulletPoints">
 				{(field) => (
-					<TextArea
-						label="Bullet points (one per line)"
+					<BulletPointsField
+						label="Bullet points"
 						onChange={field.handleChange}
 						value={field.state.value}
 					/>
@@ -614,12 +592,15 @@ function SkillForm({ onCreated }: { onCreated: () => void }) {
 	const { mutateAsync: createSkill } = $api.useMutation("post", "/skill/");
 
 	const form = useForm({
-		defaultValues: { name: "", itemsText: "" },
+		defaultValues: {
+			name: "",
+			items: [emptySkillItem()] as SkillItemDraft[],
+		},
 		onSubmit: async ({ value }) => {
 			setFormError(null);
 			try {
 				await createSkill({
-					body: { name: value.name, items: splitList(value.itemsText) },
+					body: { name: value.name, items: toApiSkillItems(value.items) },
 				});
 				await queryClient.invalidateQueries({
 					queryKey: $api.queryOptions("get", "/skill/").queryKey,
@@ -658,15 +639,19 @@ function SkillForm({ onCreated }: { onCreated: () => void }) {
 			</form.Field>
 
 			<form.Field
-				name="itemsText"
-				validators={{ onSubmit: required("Enter at least one item.") }}
+				name="items"
+				validators={{
+					onSubmit: ({ value }) =>
+						toApiSkillItems(value).length > 0
+							? undefined
+							: "Enter at least one skill.",
+				}}
 			>
 				{(field) => (
-					<TextInput
+					<SkillItemsField
 						error={field.state.meta.errors[0]}
-						label="Items (comma separated)"
-						onChange={(event) => field.handleChange(event.target.value)}
-						placeholder="Python, Go, SQL"
+						label="Skills"
+						onChange={field.handleChange}
 						value={field.state.value}
 					/>
 				)}

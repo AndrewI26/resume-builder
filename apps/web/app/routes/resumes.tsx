@@ -1,6 +1,7 @@
 import { $api } from "@api/api";
 import type { components } from "@api/schema.d.ts";
 import { Button } from "@components/button";
+import { Dropdown, type DropdownOption } from "@components/dropdown";
 import { Table } from "@components/table";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,20 +33,22 @@ function createResumeErrorMessage(error: unknown): string {
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
 
-const SECTION_TYPES = [
+type SectionType =
+	| "education"
+	| "experience"
+	| "personal_info"
+	| "project"
+	| "skill";
+
+const SECTION_TYPES: DropdownOption<SectionType>[] = [
 	{ value: "education", label: "Education" },
 	{ value: "experience", label: "Experience" },
 	{ value: "personal_info", label: "Personal info" },
 	{ value: "project", label: "Project" },
 	{ value: "skill", label: "Skill" },
-] as const;
-
-type SectionType = (typeof SECTION_TYPES)[number]["value"];
+];
 
 type SectionOption = { id: string; label: string };
-
-const selectClassName =
-	"w-full rounded-xl border border-border bg-field px-4 py-2 text-ink outline-none transition-colors focus:border-stroke disabled:text-ink-disabled";
 
 /** Fetches the pickable items for one section type and reduces them to id/label options.
  *
@@ -155,49 +158,35 @@ function SectionPicker({
 			<p className="text-ink-subtle text-sm">Sections</p>
 
 			<div className="mt-2 flex items-end gap-3">
-				<div className="flex flex-1 flex-col gap-1">
-					<label className="text-ink-subtle text-sm" htmlFor="section-type">
-						Section type
-					</label>
-					<select
-						className={selectClassName}
-						id="section-type"
-						onChange={(event) => {
-							setSectionType(event.target.value as SectionType | "");
-							setSectionId("");
-						}}
-						value={sectionType}
-					>
-						<option value="">Choose a type…</option>
-						{SECTION_TYPES.map((type) => (
-							<option key={type.value} value={type.value}>
-								{type.label}
-							</option>
-						))}
-					</select>
-				</div>
+				<Dropdown
+					className="flex-1"
+					id="section-type"
+					label="Section type"
+					onChange={(nextType) => {
+						setSectionType(nextType);
+						setSectionId("");
+					}}
+					options={SECTION_TYPES}
+					placeholder="Choose a type…"
+					value={sectionType}
+				/>
 
-				<div className="flex flex-1 flex-col gap-1">
-					<label className="text-ink-subtle text-sm" htmlFor="section-item">
-						Section
-					</label>
-					<select
-						className={selectClassName}
-						disabled={sectionType === ""}
-						id="section-item"
-						onChange={(event) => setSectionId(event.target.value)}
-						value={sectionId}
-					>
-						<option value="">
-							{isLoading ? "Loading…" : "Choose a section…"}
-						</option>
-						{availableOptions.map((option) => (
-							<option key={option.id} value={option.id}>
-								{option.label}
-							</option>
-						))}
-					</select>
-				</div>
+				<Dropdown
+					className="flex-1"
+					disabled={sectionType === ""}
+					emptyMessage={
+						isLoading ? "Loading…" : "Nothing left to add for this type."
+					}
+					id="section-item"
+					label="Section"
+					onChange={setSectionId}
+					options={availableOptions.map((option) => ({
+						value: option.id,
+						label: option.label,
+					}))}
+					placeholder={isLoading ? "Loading…" : "Choose a section…"}
+					value={sectionId}
+				/>
 
 				<Button
 					disabled={sectionType === "" || sectionId === ""}
