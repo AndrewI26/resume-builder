@@ -140,14 +140,14 @@ function EducationForm({ onCreated }: { onCreated: () => void }) {
 		>
 			<form.Field
 				name="name"
-				validators={{ onSubmit: required("Enter a name.") }}
+				validators={{ onSubmit: required("Enter a school.") }}
 			>
 				{(field) => (
 					<TextInput
 						error={field.state.meta.errors[0]}
 						label="Name"
 						onChange={(event) => field.handleChange(event.target.value)}
-						placeholder="B.S. Computer Science"
+						placeholder="University of Waterloo"
 						value={field.state.value}
 					/>
 				)}
@@ -162,7 +162,7 @@ function EducationForm({ onCreated }: { onCreated: () => void }) {
 						error={field.state.meta.errors[0]}
 						label="Subheading"
 						onChange={(event) => field.handleChange(event.target.value)}
-						placeholder="University of Somewhere"
+						placeholder="Computer Science (B.A.Sc.) - 3.7/4.00 GPA (70% CAV)"
 						value={field.state.value}
 					/>
 				)}

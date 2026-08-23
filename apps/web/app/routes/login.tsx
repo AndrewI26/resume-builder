@@ -50,6 +50,7 @@ export default function Login() {
 				await signIn(value);
 				window.location.assign("/dashboard");
 			} catch (error) {
+				console.error("Login error:", error);
 				setFormError(loginErrorMessage(error));
 			}
 		},

@@ -23,7 +23,9 @@ app = FastAPI(generate_unique_id_function=operation_id)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url],
+    allow_origins=[
+        "*" if settings.node_env == "development" else settings.frontend_url
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
