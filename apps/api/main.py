@@ -20,8 +20,6 @@ def operation_id(route: APIRoute) -> str:
 
 app = FastAPI(generate_unique_id_function=operation_id)
 
-# the frontend is on a different origin and auth rides on a cookie, so it needs
-# both an explicit origin and credentials allowed
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_url],

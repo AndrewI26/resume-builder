@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     postgres_db: str
     postgres_port: int
 
-    frontend_url: str
+    frontend_port: str
     backend_port: int
 
     secret_key: str
@@ -26,6 +26,10 @@ class Settings(BaseSettings):
 
     google_client_id: str | None = None
     google_client_secret: str | None = None
+
+    @property
+    def frontend_url(self) -> str:
+        return f"http://localhost:{self.frontend_port}"
 
     @property
     def google_redirect_uri(self) -> str:

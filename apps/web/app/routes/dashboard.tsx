@@ -1,3 +1,4 @@
+import { Button } from "@components/button";
 import { useNavigate } from "react-router";
 import { useAuth } from "~/auth/auth-context";
 import { RequireAuth } from "~/auth/require-auth";
@@ -15,16 +16,16 @@ function Dashboard() {
 			<h1 className="text-4xl leading-heading tracking-decreased">Dashboard</h1>
 			<p className="mt-2 text-ink-subtle">Signed in as {user?.email}</p>
 
-			<button
-				className="mt-8 rounded-button bg-btn-tertiary px-4 py-2 text-btn-tertiary-fg transition-opacity hover:opacity-90"
+			<Button
+				className="mt-8"
 				onClick={async () => {
 					await signOut();
 					navigate("/login", { replace: true });
 				}}
-				type="button"
+				variant="tertiary"
 			>
 				Sign out
-			</button>
+			</Button>
 		</main>
 	);
 }

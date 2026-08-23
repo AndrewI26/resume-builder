@@ -8,10 +8,12 @@ import {
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
-
-import type { Route } from "./+types/root";
 import { AuthProvider } from "~/auth/auth-provider";
+import { Navbar } from "~/components/navbar";
+import type { Route } from "./+types/root";
 import "./app.css";
+
+const NO_FLASH_THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.classList.add(t);}catch(e){}})();`;
 
 export const links: Route.LinksFunction = () => [
 	{ rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -34,6 +36,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<Meta />
 				<Links />
+				{/* biome-ignore lint/security/noDangerouslySetInnerHtml: static, no user input */}
+				<script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
 			</head>
 			<body>
 				{children}
@@ -57,6 +61,7 @@ export default function App() {
 	return (
 		<QueryClientProvider client={queryClient}>
 			<AuthProvider>
+				<Navbar />
 				<Outlet />
 			</AuthProvider>
 		</QueryClientProvider>

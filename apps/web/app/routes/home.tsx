@@ -12,7 +12,7 @@ export default function Home() {
 	const { isAuthenticated, isLoading, user } = useAuth();
 
 	return (
-		<main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-4 py-16">
+		<main className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-3xl flex-col justify-center px-4 py-16">
 			<p className="text-sm tracking-increased text-ink-subtle uppercase">
 				Resume Builder
 			</p>
@@ -31,10 +31,10 @@ export default function Home() {
 			) : isAuthenticated ? (
 				<div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
 					<Link
-						className="rounded-button bg-btn-primary px-6 py-3 text-center text-btn-primary-fg transition-opacity hover:opacity-90"
+						className="inline-flex h-12 items-center justify-center rounded-button bg-btn-primary px-6 text-btn-primary-fg transition-opacity hover:opacity-90"
 						to="/dashboard"
 					>
-						Go to dashboard
+						<span className="text-trim">Go to dashboard</span>
 					</Link>
 					<p className="text-sm text-ink-subtle">Signed in as {user?.email}</p>
 				</div>
@@ -42,16 +42,16 @@ export default function Home() {
 				<>
 					<div className="mt-8 flex flex-col gap-4 sm:flex-row">
 						<Link
-							className="rounded-button bg-btn-primary px-6 py-3 text-center text-btn-primary-fg transition-opacity hover:opacity-90"
+							className="inline-flex h-12 items-center justify-center rounded-button bg-btn-primary px-6 text-btn-primary-fg transition-opacity hover:opacity-90"
 							to="/login"
 						>
-							Sign in
+							<span className="text-trim">Sign in</span>
 						</Link>
 						<Link
-							className="rounded-button border border-btn-secondary-border bg-btn-secondary px-6 py-3 text-center text-btn-secondary-fg transition-colors hover:border-stroke"
+							className="inline-flex h-12 items-center justify-center rounded-button border border-btn-secondary-border bg-btn-secondary px-6 text-btn-secondary-fg transition-colors hover:border-stroke"
 							to="/signup"
 						>
-							Create an account
+							<span className="text-trim">Create an account</span>
 						</Link>
 					</div>
 					<p className="mt-4 text-sm text-ink-subtle">

@@ -16,6 +16,7 @@
 		"paths": {
 			"~/*": ["./app/*"],
 			"@api/*": ["./app/api/*"],
+			"@components/*": ["./app/components/*"],
 			"@routes/*": ["./.react-router/types/routes/*"]
 		},
 		"esModuleInterop": true,

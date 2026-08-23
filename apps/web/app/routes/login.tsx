@@ -1,5 +1,6 @@
-import { useForm } from "@tanstack/react-form";
 import type { components } from "@api/schema.d.ts";
+import { Button } from "@components/button";
+import { useForm } from "@tanstack/react-form";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "~/auth/auth-context";
@@ -55,7 +56,7 @@ export default function Login() {
 	});
 
 	return (
-		<main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-4 py-16">
+		<main className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-sm flex-col justify-center px-4 py-16">
 			<h1 className="text-4xl leading-heading tracking-decreased">Sign in</h1>
 			<p className="mt-2 text-ink-subtle">Welcome back.</p>
 
@@ -127,13 +128,9 @@ export default function Login() {
 					selector={(state) => [state.canSubmit, state.isSubmitting] as const}
 				>
 					{([canSubmit, isSubmitting]) => (
-						<button
-							className="mt-1 rounded-button bg-btn-primary px-4 py-2 text-btn-primary-fg transition-opacity hover:opacity-90 disabled:bg-btn-primary-disabled disabled:text-btn-primary-disabled-fg"
-							disabled={!canSubmit}
-							type="submit"
-						>
+						<Button className="mt-1" disabled={!canSubmit} type="submit">
 							{isSubmitting ? "Signing in…" : "Sign in"}
-						</button>
+						</Button>
 					)}
 				</form.Subscribe>
 			</form>

@@ -118,8 +118,8 @@
 	--tracking-decreased: -0.05em;
 	--tracking-increased: 0.15em;
 
-	--radius-button: 12px;
-	--radius-card: 12px;
+	--radius-button: 9999px;
+	--radius-card: 24px;
 
 	--shadow-card: 5px 5px 5px rgb(0 0 0 / 0.15);
 }
@@ -324,4 +324,10 @@
 		var(--gradient-card-start),
 		var(--gradient-card-end)
 	);
+}
+
+/* Trims to cap-height/baseline (unsupported browsers just ignore it), then nudges down ~1px: trimming alone over-centers text with no descender and under-centers text with one (a "g" hangs below the trimmed box), so this splits the difference for League Spartan rather than fully committing to either case. */
+@utility text-trim {
+	text-box: trim-both cap alphabetic;
+	transform: translateY(-1px);
 }

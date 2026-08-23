@@ -1,6 +1,6 @@
+import { $api } from "@api/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useMemo } from "react";
-import { $api } from "@api/api";
 import {
 	AuthContext,
 	type AuthContextValue,
