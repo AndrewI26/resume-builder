@@ -5,10 +5,11 @@ from sqlalchemy import delete, insert, select, update
 
 from deps.auth import CurrentUser
 from deps.db import Db
-from enums import OperationType, SectionType
+from enums import OperationType, ResumeSectionType, SectionType
 from models.education import Education
 from schemas.education import EducationCreate, EducationRead
 from services.record_section import record_version
+from services.resume_sections import detach_section
 
 router = APIRouter(prefix="/education", tags=["Education"])
 
@@ -92,6 +93,7 @@ def delete_education(education_id: UUID, current_user: CurrentUser, db: Db):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     result = EducationRead.model_validate(deleted_education)
+    detach_section(db, ResumeSectionType.EDUCATION, education_id)
     db.commit()
 
     return result

@@ -12,6 +12,7 @@ export default [
 	layout("auth/protected-layout.tsx", [
 		route("dashboard", "routes/dashboard.tsx"),
 		route("resumes", "routes/resumes.tsx"),
+		route("resumes/:resumeId", "routes/resume.$resumeId.tsx"),
 		route("sections", "routes/sections.tsx"),
 	]),
 	route("*", "routes/not-found.tsx"),

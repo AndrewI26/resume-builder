@@ -7,6 +7,7 @@
  */
 
 import type {
+	BulletPoint,
 	Education,
 	Experience,
 	PersonalInfo,
@@ -50,7 +51,10 @@ function displayUrl(url: string): string {
 	return escapeLatex(url.replace(/^https?:\/\//, "").replace(/\/$/, ""));
 }
 
-function renderHeader(fullName: string, info: PersonalInfo | null): string {
+function renderHeader(
+	fullName: string,
+	info: PersonalInfo | null | undefined,
+): string {
 	const entries: string[] = [];
 
 	if (info?.phone_number) {
@@ -103,9 +107,7 @@ function renderSkills(items: Skill[]): string {
 	].join("\n");
 }
 
-function renderBullets(
-	bullets: { text: string; bolded: [number, number][] }[],
-) {
+function renderBullets(bullets: BulletPoint[]) {
 	if (bullets.length === 0) return [];
 
 	return [

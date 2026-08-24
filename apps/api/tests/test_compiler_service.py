@@ -6,6 +6,8 @@ API's side of the conversation: what it sends, and how it classifies what
 comes back.
 """
 
+from uuid import uuid4
+
 import httpx
 import pytest
 
@@ -83,3 +85,94 @@ def test_refuses_to_run_without_a_token(monkeypatch):
 
     with pytest.raises(CompilerUnavailable):
         compiler.compile_to_pdf(SOURCE)
+
+
+class TestPdfEndpoint:
+    """The endpoint's own behaviour: authorization, and how it translates the
+    compile service's answers. The sandboxing is tested in Go."""
+
+    @pytest.fixture
+    def compiles(self, monkeypatch):
+        calls = []
+
+        def _compile(source: str) -> bytes:
+            calls.append(source)
+            return PDF
+
+        monkeypatch.setattr("routers.resume.compile_to_pdf", _compile)
+        return calls
+
+    def test_requires_a_session_cookie(self, client):
+        response = client.post(f"/resumes/{uuid4()}/pdf", json={"source": SOURCE})
+
+        assert response.status_code == 401
+
+    def test_hides_another_users_resume(
+        self, auth, user, other_user, make_resume, compiles
+    ):
+        resume = make_resume(other_user)
+
+        response = auth(user).post(f"/resumes/{resume.id}/pdf", json={"source": SOURCE})
+
+        assert response.status_code == 404
+        assert compiles == [], "compiled a resume the caller does not own"
+
+    def test_returns_the_pdf(self, auth, user, make_resume, compiles):
+        resume = make_resume(user)
+
+        response = auth(user).post(f"/resumes/{resume.id}/pdf", json={"source": SOURCE})
+
+        assert response.status_code == 200
+        assert response.content == PDF
+        assert response.headers["content-type"] == "application/pdf"
+        assert compiles == [SOURCE]
+
+    def test_names_the_download_after_the_resume(
+        self, auth, user, make_resume, compiles
+    ):
+        resume = make_resume(user, title="Backend Engineer")
+
+        response = auth(user).post(f"/resumes/{resume.id}/pdf", json={"source": SOURCE})
+
+        assert (
+            'filename="backend-engineer.pdf"'
+            in (response.headers["content-disposition"])
+        )
+
+    def test_rejects_an_oversized_source(self, auth, user, make_resume, compiles):
+        resume = make_resume(user)
+
+        response = auth(user).post(
+            f"/resumes/{resume.id}/pdf", json={"source": "x" * 1_000_001}
+        )
+
+        assert response.status_code == 422
+        assert compiles == []
+
+    def test_a_bad_document_comes_back_with_the_log(
+        self, auth, user, make_resume, monkeypatch
+    ):
+        def _compile(source: str) -> bytes:
+            raise DocumentRejected("! Undefined control sequence.")
+
+        monkeypatch.setattr("routers.resume.compile_to_pdf", _compile)
+        resume = make_resume(user)
+
+        response = auth(user).post(f"/resumes/{resume.id}/pdf", json={"source": SOURCE})
+
+        assert response.status_code == 422
+        assert "Undefined control sequence" in response.json()["detail"]
+
+    def test_an_unreachable_compiler_does_not_leak_its_message(
+        self, auth, user, make_resume, monkeypatch
+    ):
+        def _compile(source: str) -> bytes:
+            raise CompilerUnavailable("connection refused to compiler:8100")
+
+        monkeypatch.setattr("routers.resume.compile_to_pdf", _compile)
+        resume = make_resume(user)
+
+        response = auth(user).post(f"/resumes/{resume.id}/pdf", json={"source": SOURCE})
+
+        assert response.status_code == 503
+        assert "connection refused" not in response.text

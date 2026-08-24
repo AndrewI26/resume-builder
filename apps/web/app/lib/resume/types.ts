@@ -1,63 +1,48 @@
 /**
- * The shape of `GET /resume/{id}/document`.
+ * The shape of `GET /resumes/{id}/document`.
  *
- * Mirrors `schemas/resume.py` on the API. Blocks arrive in the resume's
- * section order with bullet points already hydrated, so a renderer can walk
- * this structure without sorting or fetching anything further.
+ * Aliased from the generated OpenAPI client rather than written out by hand,
+ * so the API is the single source of truth. If the endpoint's shape changes,
+ * `bun run codegen` propagates it and anything here that no longer fits stops
+ * compiling — which is the point.
  */
 
-export type SectionType = "education" | "experience" | "project" | "skill";
+// the same specifier the generated client uses: importing it any other way
+// makes TypeScript treat it as a second, unrelated copy of these types
+import type { components } from "@api/schema.d.ts";
 
+type Schemas = components["schemas"];
+
+export type SectionType = Schemas["ResumeSectionType"];
+
+/**
+ * A line of resume text plus the runs of it that render bold.
+ *
+ * Each range in `bolded` is a pair of **inclusive** character indices into
+ * `text`: `[0, 6]` over `"Shipped it"` covers `"Shipped"`.
+ *
+ * The pair is typed as `number[]` rather than `[number, number]` on purpose.
+ * `openapi-react-query` widens tuples when it infers a response type, so a
+ * document straight off the client will not satisfy the stricter form. The
+ * API validates the pairs, and `splitBullet` ignores any range that does not
+ * come through as a usable one.
+ */
 export interface BulletPoint {
 	text: string;
-	/**
-	 * Character ranges of `text` that render bold, each **inclusive** on both
-	 * ends: `[0, 6]` over `"Shipped it"` covers `"Shipped"`. The API guarantees
-	 * they arrive sorted and non-overlapping.
-	 */
-	bolded: [number, number][];
+	bolded: number[][];
 }
 
-export interface PersonalInfo {
-	email: string | null;
-	phone_number: string | null;
-	address: string | null;
-	github: string | null;
-	linkedin: string | null;
-	portfolio: string | null;
-}
+export type PersonalInfo = Schemas["PersonalInfoRead"];
+export type Education = Schemas["EducationRead"];
+export type Skill = Schemas["SkillRead"];
 
-export interface Education {
-	id: string;
-	name: string;
-	subheading: string;
-	duration: string;
-	location: string;
-}
-
-export interface Experience {
-	id: string;
-	company: string;
-	position: string;
-	duration: string;
-	location: string;
+export type Experience = Omit<Schemas["ExpirenceRead"], "bullet_points"> & {
 	bullet_points: BulletPoint[];
-}
+};
 
-export interface Project {
-	id: string;
-	name: string;
-	link: string | null;
-	technologies: string[];
+export type Project = Omit<Schemas["ProjectRead"], "bullet_points"> & {
 	bullet_points: BulletPoint[];
-}
-
-export interface Skill {
-	id: string;
-	name: string;
-	items: string[];
-	position: number;
-}
+};
 
 export type SectionBlock =
 	| { type: "education"; items: Education[] }
@@ -65,12 +50,6 @@ export type SectionBlock =
 	| { type: "project"; items: Project[] }
 	| { type: "skill"; items: Skill[] };
 
-export interface ResumeDocument {
-	id: string;
-	title: string;
-	template: string;
-	/** Already resolved against the account name; empty when neither is set. */
-	full_name: string;
-	personal_info: PersonalInfo | null;
+export type ResumeDocument = Omit<Schemas["ResumeDocument"], "sections"> & {
 	sections: SectionBlock[];
-}
+};

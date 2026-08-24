@@ -13,6 +13,7 @@ const underlined = (label: string) =>
 	`\\underline{\\smash{${label}}\\vphantom{gj/}}`;
 
 const emptyInfo: PersonalInfo = {
+	id: "50000000-0000-0000-0000-0000000000ff",
 	email: null,
 	phone_number: null,
 	address: null,

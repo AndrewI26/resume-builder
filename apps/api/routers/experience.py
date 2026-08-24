@@ -5,31 +5,19 @@ from sqlalchemy import delete, insert, select, update
 
 from deps.auth import CurrentUser
 from deps.db import Db
-from enums import OperationType, SectionType
+from enums import OperationType, ResumeSectionType, SectionType
 from models.expirence import Expirence
-from schemas.bullet_point import BulletPoint
 from schemas.expirence import ExpirenceCreate, ExpirenceRead
 from services.bullet_points import (
     bullet_points_by_id,
     delete_bullet_points,
-    hydrate,
     insert_bullet_points,
 )
 from services.record_section import record_version
+from services.resume_sections import detach_section
+from services.sections import expirence_to_read as _to_read
 
 router = APIRouter(prefix="/experience", tags=["Experience"])
-
-
-def _to_read(expirence: Expirence, by_id: dict[UUID, BulletPoint]) -> ExpirenceRead:
-    """Rebuild an experience with its bullet points hydrated, in stored order."""
-    return ExpirenceRead(
-        id=expirence.id,
-        company=expirence.company,
-        position=expirence.position,
-        duration=expirence.duration,
-        location=expirence.location,
-        bullet_points=hydrate(expirence.bullet_points, by_id),
-    )
 
 
 @router.get("/", response_model=list[ExpirenceRead])
@@ -142,6 +130,7 @@ def delete_expirence(expirence_id: UUID, current_user: CurrentUser, db: Db):
     result = _to_read(deleted_expirence, bullet_points_by_id(db, bullet_ids))
 
     delete_bullet_points(db, bullet_ids)
+    detach_section(db, ResumeSectionType.EXPERIENCE, expirence_id)
     db.commit()
 
     return result

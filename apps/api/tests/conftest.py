@@ -47,12 +47,15 @@ from sqlalchemy.orm import Session
 
 from db import Base
 from deps.db import get_db
+from enums import DEFAULT_SECTION_ORDER, ResumeSectionType
 from main import app
 from models.bullet_points import BulletPoint
 from models.education import Education
 from models.expirence import Expirence
 from models.personal_info import PersonalInfo
 from models.project import Project
+from models.resume import Resume
+from models.resume_section import ResumeSection
 from models.skill import Skill
 from models.user import User
 from services.security import (
@@ -320,3 +323,57 @@ def auth(client: TestClient):
         return client
 
     return _auth
+
+
+@pytest.fixture
+def make_resume(db: Session):
+    """Insert a resume directly, bypassing the endpoints under test."""
+
+    def _make_resume(
+        user: User,
+        *,
+        title: str = "Software Engineer",
+        template: str = "jakes",
+        full_name: str | None = "Ada Lovelace",
+        personal_info: PersonalInfo | None = None,
+        section_order: Sequence[ResumeSectionType] | None = None,
+    ) -> Resume:
+        order = DEFAULT_SECTION_ORDER if section_order is None else section_order
+        resume = Resume(
+            user_id=user.id,
+            title=title,
+            template=template,
+            full_name=full_name,
+            personal_info_id=None if personal_info is None else personal_info.id,
+            section_order=[section_type.value for section_type in order],
+        )
+        db.add(resume)
+        db.commit()
+        db.refresh(resume)
+        return resume
+
+    return _make_resume
+
+
+@pytest.fixture
+def attach_section(db: Session):
+    """Add one section to a resume at a given position within its type."""
+
+    def _attach_section(
+        resume: Resume,
+        section_type: ResumeSectionType,
+        section_id,
+        position: int = 0,
+    ) -> ResumeSection:
+        row = ResumeSection(
+            resume_id=resume.id,
+            section_type=section_type,
+            section_id=section_id,
+            position=position,
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return row
+
+    return _attach_section

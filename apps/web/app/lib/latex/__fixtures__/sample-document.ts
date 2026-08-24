@@ -31,6 +31,7 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 	template: "jakes",
 	full_name: "Andrew Iammancini",
 	personal_info: {
+		id: "50000000-0000-0000-0000-000000000001",
 		email: "andrewi44@icloud.com",
 		phone_number: null,
 		address: null,

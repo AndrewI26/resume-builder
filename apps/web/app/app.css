@@ -10,3 +10,147 @@
 		-moz-osx-font-smoothing: grayscale;
 	}
 }
+
+/*
+ * Jake's Resume, as HTML.
+ *
+ * Measurements come from the template itself: US Letter at 11pt, with the
+ * geometry package's 0.5cm top and 1cm side margins. Sizes are in `pt` so they
+ * track the page's own scale rather than the browser's root font size.
+ *
+ * The font is the one place this cannot match LaTeX out of the box. Computer
+ * Modern is not a webfont, so the stack prefers a locally installed Latin
+ * Modern — anyone with a TeX distribution has it — and falls back to a generic
+ * serif. Shipping the webfont is what makes the preview exact everywhere.
+ */
+.resume-page {
+	--resume-font:
+		"Latin Modern Roman", "CMU Serif", "Computer Modern", "Times New Roman",
+		Times, serif;
+
+	width: 8.5in;
+	min-height: 11in;
+	padding: 0.5cm 1cm 0 1cm;
+	background: white;
+	color: black;
+	font-family: var(--resume-font);
+	font-size: 11pt;
+	line-height: 1.15;
+	/* the preview is a sheet of paper; it does not follow the app's theme */
+	color-scheme: light;
+}
+
+.resume-header {
+	text-align: center;
+	margin-bottom: 6pt;
+}
+
+.resume-name {
+	font-size: 24pt;
+	font-variant: small-caps;
+	letter-spacing: 0.5pt;
+	line-height: 1.1;
+}
+
+.resume-contact {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 2pt 10pt;
+	font-size: 9.5pt;
+	margin-top: 2pt;
+}
+
+.resume-contact-entry {
+	display: inline-flex;
+	align-items: center;
+	gap: 3pt;
+}
+
+.resume-icon {
+	width: 9pt;
+	height: 9pt;
+	flex: none;
+}
+
+.resume-section {
+	margin-top: 7pt;
+}
+
+.resume-section-title {
+	font-size: 13pt;
+	font-weight: bold;
+	font-variant: small-caps;
+	border-bottom: 0.6pt solid black;
+	padding-bottom: 1pt;
+	margin-bottom: 3pt;
+}
+
+.resume-entry {
+	margin-top: 3pt;
+}
+
+.resume-subheading {
+	font-size: 10.5pt;
+}
+
+.resume-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 12pt;
+}
+
+.resume-bullets {
+	list-style: disc;
+	padding-left: 16pt;
+	margin: 1pt 0 0;
+	font-size: 10pt;
+}
+
+.resume-bullets li {
+	margin-bottom: 1pt;
+	text-align: justify;
+}
+
+.resume-skills {
+	font-size: 10pt;
+	padding-left: 4pt;
+}
+
+.resume-project-title {
+	display: flex;
+	align-items: center;
+	gap: 3pt;
+	font-size: 10.5pt;
+}
+
+/*
+ * Where the first page ends, so someone can see they have overflowed before
+ * they compile. 11in of page less the 0.5cm top padding.
+ */
+.resume-page-break {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: calc(11in);
+	border-top: 1px dashed #dc2626;
+	pointer-events: none;
+}
+
+/* Print the sheet on its own, with nothing of the app's chrome around it. */
+@media print {
+	@page {
+		size: letter;
+		margin: 0;
+	}
+
+	html,
+	body {
+		background: white;
+	}
+
+	.resume-page {
+		box-shadow: none;
+		margin: 0;
+	}
+}

@@ -33,17 +33,18 @@ function createResumeErrorMessage(error: unknown): string {
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
 
-type SectionType =
-	| "education"
-	| "experience"
-	| "personal_info"
-	| "project"
-	| "skill";
+// The only template the renderer implements today. Stated explicitly rather
+// than left to the server's default, so adding a second one surfaces here.
+const DEFAULT_TEMPLATE = "jakes";
+
+// Mirrors the API's ResumeSectionType. Personal info is deliberately absent:
+// it is the header of a resume — name, email, links, no section heading — and
+// is attached through personal_info_id rather than as a section.
+type SectionType = "education" | "experience" | "project" | "skill";
 
 const SECTION_TYPES: DropdownOption<SectionType>[] = [
 	{ value: "education", label: "Education" },
 	{ value: "experience", label: "Experience" },
-	{ value: "personal_info", label: "Personal info" },
 	{ value: "project", label: "Project" },
 	{ value: "skill", label: "Skill" },
 ];
@@ -64,9 +65,6 @@ function useSectionOptions(sectionType: SectionType | ""): {
 	});
 	const experience = $api.useQuery("get", "/experience/", undefined, {
 		enabled: sectionType === "experience",
-	});
-	const personalInfo = $api.useQuery("get", "/personal-info/", undefined, {
-		enabled: sectionType === "personal_info",
 	});
 	const project = $api.useQuery("get", "/project/", undefined, {
 		enabled: sectionType === "project",
@@ -93,14 +91,6 @@ function useSectionOptions(sectionType: SectionType | ""): {
 					})),
 					isLoading: experience.isPending,
 				};
-			case "personal_info":
-				return {
-					options: (personalInfo.data ?? []).map((row) => ({
-						id: row.id,
-						label: row.email ?? row.address ?? "Personal info",
-					})),
-					isLoading: personalInfo.isPending,
-				};
 			case "project":
 				return {
 					options: (project.data ?? []).map((row) => ({
@@ -126,8 +116,6 @@ function useSectionOptions(sectionType: SectionType | ""): {
 		education.isPending,
 		experience.data,
 		experience.isPending,
-		personalInfo.data,
-		personalInfo.isPending,
 		project.data,
 		project.isPending,
 		skill.data,
@@ -285,8 +273,15 @@ function CreateResumeForm() {
 			try {
 				await createResume({
 					body: {
-						name: value.name,
-						sections: sections.map((section) => section.id),
+						title: value.name,
+						template: DEFAULT_TEMPLATE,
+						// the type travels with the id: without it nothing
+						// downstream can tell a project from an education, and
+						// the resume cannot be rendered
+						sections: sections.map((section) => ({
+							section_type: section.type,
+							section_id: section.id,
+						})),
 					},
 				});
 				await queryClient.invalidateQueries({
@@ -434,7 +429,14 @@ export default function Resumes() {
 					{
 						key: "name",
 						header: "Name",
-						render: (resume: Resume) => resume.name,
+						render: (resume: Resume) => (
+							<Link
+								to={`/resumes/${resume.id}`}
+								className="underline underline-offset-2"
+							>
+								{resume.title}
+							</Link>
+						),
 					},
 					{
 						key: "updatedAt",

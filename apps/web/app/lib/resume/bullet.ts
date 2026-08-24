@@ -29,6 +29,9 @@ export function splitBullet(bullet: BulletPoint): Segment[] {
 	let cursor = 0;
 
 	for (const [start, end] of ranges) {
+		// a range that did not arrive as a usable pair is dropped rather than
+		// trusted; see the note on BulletPoint.bolded
+		if (start === undefined || end === undefined) continue;
 		if (start < cursor || start > end || start < 0) continue;
 
 		if (start > cursor) {

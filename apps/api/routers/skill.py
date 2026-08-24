@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session
 
 from deps.auth import CurrentUser
 from deps.db import Db
-from enums import OperationType, SectionType
+from enums import OperationType, ResumeSectionType, SectionType
 from models.skill import Skill
 from schemas.skill import SkillCreate, SkillEdit, SkillRead
 from services.record_section import record_version
+from services.resume_sections import detach_section
 
 router = APIRouter(prefix="/skill", tags=["Skill"])
 
@@ -106,6 +107,7 @@ def delete_skill(skill_id: UUID, current_user: CurrentUser, db: Db):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     result = SkillRead.model_validate(deleted_skill)
+    detach_section(db, ResumeSectionType.SKILL, skill_id)
     db.commit()
 
     return result

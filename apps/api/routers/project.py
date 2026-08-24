@@ -5,29 +5,19 @@ from sqlalchemy import delete, insert, select, update
 
 from deps.auth import CurrentUser
 from deps.db import Db
-from enums import OperationType, SectionType
+from enums import OperationType, ResumeSectionType, SectionType
 from models.project import Project
-from schemas.bullet_point import BulletPoint
 from schemas.project import ProjectCreate, ProjectRead
 from services.bullet_points import (
     bullet_points_by_id,
     delete_bullet_points,
-    hydrate,
     insert_bullet_points,
 )
 from services.record_section import record_version
+from services.resume_sections import detach_section
+from services.sections import project_to_read as _to_read
 
 router = APIRouter(prefix="/project", tags=["Project"])
-
-
-def _to_read(project: Project, by_id: dict[UUID, BulletPoint]) -> ProjectRead:
-    return ProjectRead(
-        id=project.id,
-        name=project.name,
-        link=project.link,
-        technologies=list(project.technologies),
-        bullet_points=hydrate(project.bullet_points, by_id),
-    )
 
 
 @router.get("/", response_model=list[ProjectRead])
@@ -138,6 +128,7 @@ def delete_project(project_id: UUID, current_user: CurrentUser, db: Db):
     result = _to_read(deleted_project, bullet_points_by_id(db, bullet_ids))
 
     delete_bullet_points(db, bullet_ids)
+    detach_section(db, ResumeSectionType.PROJECT, project_id)
     db.commit()
 
     return result

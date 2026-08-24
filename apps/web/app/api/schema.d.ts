@@ -314,14 +314,86 @@ export interface paths {
 		};
 		/** Get Resume */
 		get: operations["get_resume"];
-		put?: never;
+		/** Edit Resume */
+		put: operations["edit_resume"];
 		post?: never;
 		/** Delete Resume */
 		delete: operations["delete_resume"];
 		options?: never;
 		head?: never;
-		/** Update Resume */
-		patch: operations["update_resume"];
+		patch?: never;
+		trace?: never;
+	};
+	"/resumes/{resume_id}/sections": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** Get Resume Sections */
+		get: operations["get_resume_sections"];
+		/**
+		 * Replace Resume Sections
+		 * @description Replace the whole membership list.
+		 *
+		 *     Position is taken from the index within each type's run, so the request
+		 *     body states the intended order outright rather than patching it.
+		 */
+		put: operations["replace_resume_sections"];
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/resumes/{resume_id}/document": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Get Resume Document
+		 * @description The whole resume, resolved and ordered, in the shape a renderer wants.
+		 *
+		 *     Bullet points are hydrated, blocks arrive in ``section_order`` and empty
+		 *     ones are dropped, so a client can walk this straight into a template.
+		 */
+		get: operations["get_resume_document"];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/resumes/{resume_id}/pdf": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Compile Resume Pdf
+		 * @description Typeset LaTeX into a PDF.
+		 *
+		 *     The resume is what authorizes the call and what names the file; the source
+		 *     itself comes from the caller, generated in their browser from the document
+		 *     endpoint. Nothing here can confirm it is the same document, so the compile
+		 *     service treats every request as hostile and is sandboxed for it.
+		 */
+		post: operations["compile_resume_pdf"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
 		trace?: never;
 	};
 	"/skill/": {
@@ -365,12 +437,30 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
 	schemas: {
-		/** BulletPoint */
+		/**
+		 * BulletPoint
+		 * @description A line of resume text plus the runs of it that render bold.
+		 *
+		 *     Each range in ``bolded`` is a pair of **inclusive** character indices into
+		 *     ``text``: ``(0, 6)`` over ``"Shipped it"`` bolds ``"Shipped"``. Ranges must
+		 *     arrive sorted and disjoint, so a renderer can walk them in one pass and
+		 *     cannot be handed overlaps that would nest one bold inside another.
+		 */
 		BulletPoint: {
 			/** Text */
 			text: string;
 			/** Bolded */
 			bolded: [number, number][];
+		};
+		/** EducationBlock */
+		EducationBlock: {
+			/**
+			 * @description discriminator enum property added by openapi-typescript
+			 * @enum {string}
+			 */
+			type: "education";
+			/** Items */
+			items: components["schemas"]["EducationRead"][];
 		};
 		/** EducationCreate */
 		EducationCreate: {
@@ -403,6 +493,16 @@ export interface components {
 		ErrorDetail: {
 			/** Detail */
 			detail: string;
+		};
+		/** ExperienceBlock */
+		ExperienceBlock: {
+			/**
+			 * @description discriminator enum property added by openapi-typescript
+			 * @enum {string}
+			 */
+			type: "experience";
+			/** Items */
+			items: components["schemas"]["ExpirenceRead"][];
 		};
 		/** ExpirenceCreate */
 		ExpirenceCreate: {
@@ -489,6 +589,16 @@ export interface components {
 			 */
 			id: string;
 		};
+		/** ProjectBlock */
+		ProjectBlock: {
+			/**
+			 * @description discriminator enum property added by openapi-typescript
+			 * @enum {string}
+			 */
+			type: "project";
+			/** Items */
+			items: components["schemas"]["ProjectRead"][];
+		};
 		/** ProjectCreate */
 		ProjectCreate: {
 			/** Name */
@@ -516,25 +626,112 @@ export interface components {
 			 */
 			id: string;
 		};
-		/** ResumeCreate */
+		/**
+		 * ResumeCompileRequest
+		 * @description The LaTeX to typeset.
+		 *
+		 *     The source is generated on the client from the document endpoint's own
+		 *     output, but nothing here can prove that — a caller could send anything.
+		 *     The compile service is sandboxed on the assumption that they will: it
+		 *     refuses shell escape, cannot read or write outside its scratch directory,
+		 *     and is killed if it runs long.
+		 */
+		ResumeCompileRequest: {
+			/** Source */
+			source: string;
+		};
+		/**
+		 * ResumeCreate
+		 * @description A new resume. Everything but the title has a usable default.
+		 *
+		 *     Sections may be attached here rather than in a second call, because the
+		 *     editor builds a resume and its contents in one modal and there is no
+		 *     reason to make it save twice.
+		 */
 		ResumeCreate: {
-			/** Name */
-			name: string;
+			/** Title */
+			title: string;
+			/**
+			 * Template
+			 * @default jakes
+			 */
+			template: string;
+			/** Full Name */
+			full_name?: string | null;
+			/** Personal Info Id */
+			personal_info_id?: string | null;
+			/** Section Order */
+			section_order?: components["schemas"]["ResumeSectionType"][];
 			/**
 			 * Sections
 			 * @default []
 			 */
-			sections: string[];
+			sections: components["schemas"]["ResumeSectionRef"][];
+		};
+		/**
+		 * ResumeDocument
+		 * @description Everything a renderer needs, resolved and in order, in one response.
+		 *
+		 *     Bullet points are hydrated and blocks arrive in ``section_order``, so a
+		 *     client can walk the structure straight into a template without a second
+		 *     request or any sorting of its own. Blocks with no items are dropped, since
+		 *     an empty section would otherwise render as a bare heading.
+		 */
+		ResumeDocument: {
+			/**
+			 * Id
+			 * Format: uuid
+			 */
+			id: string;
+			/** Title */
+			title: string;
+			/** Template */
+			template: string;
+			/** Full Name */
+			full_name: string;
+			personal_info?: components["schemas"]["PersonalInfoRead"] | null;
+			/** Sections */
+			sections: (
+				| components["schemas"]["EducationBlock"]
+				| components["schemas"]["ExperienceBlock"]
+				| components["schemas"]["ProjectBlock"]
+				| components["schemas"]["SkillBlock"]
+			)[];
+		};
+		/**
+		 * ResumeEdit
+		 * @description The full representation a replace has to send.
+		 */
+		ResumeEdit: {
+			/** Title */
+			title: string;
+			/**
+			 * Template
+			 * @default jakes
+			 */
+			template: string;
+			/** Full Name */
+			full_name?: string | null;
+			/** Personal Info Id */
+			personal_info_id?: string | null;
+			/** Section Order */
+			section_order?: components["schemas"]["ResumeSectionType"][];
 		};
 		/** ResumeRead */
 		ResumeRead: {
-			/** Name */
-			name: string;
+			/** Title */
+			title: string;
 			/**
-			 * Sections
-			 * @default []
+			 * Template
+			 * @default jakes
 			 */
-			sections: string[];
+			template: string;
+			/** Full Name */
+			full_name?: string | null;
+			/** Personal Info Id */
+			personal_info_id?: string | null;
+			/** Section Order */
+			section_order?: components["schemas"]["ResumeSectionType"][];
 			/**
 			 * Id
 			 * Format: uuid
@@ -546,12 +743,49 @@ export interface components {
 			 */
 			updated_at: string;
 		};
-		/** ResumeUpdate */
-		ResumeUpdate: {
-			/** Name */
-			name?: string | null;
+		/**
+		 * ResumeSectionRef
+		 * @description A pointer to one of the caller's sections, by type and id.
+		 */
+		ResumeSectionRef: {
+			section_type: components["schemas"]["ResumeSectionType"];
+			/**
+			 * Section Id
+			 * Format: uuid
+			 */
+			section_id: string;
+		};
+		/**
+		 * ResumeSectionType
+		 * @description The section kinds a resume orders and renders as headed blocks.
+		 *
+		 *     Deliberately narrower than ``SectionType``: personal info is the header of
+		 *     a resume rather than one of its sections, so it hangs off ``Resume``
+		 *     directly and cannot be expressed here.
+		 * @enum {string}
+		 */
+		ResumeSectionType: "education" | "experience" | "project" | "skill";
+		/**
+		 * ResumeSectionsReplace
+		 * @description The whole membership list at once.
+		 *
+		 *     Position is the index within the run of entries sharing a type, so
+		 *     reordering is a rewrite of the list rather than a separate operation —
+		 *     the same trade the skill lists make.
+		 */
+		ResumeSectionsReplace: {
 			/** Sections */
-			sections?: string[] | null;
+			sections: components["schemas"]["ResumeSectionRef"][];
+		};
+		/** SkillBlock */
+		SkillBlock: {
+			/**
+			 * @description discriminator enum property added by openapi-typescript
+			 * @enum {string}
+			 */
+			type: "skill";
+			/** Items */
+			items: components["schemas"]["SkillRead"][];
 		};
 		/** SkillCreate */
 		SkillCreate: {
@@ -1674,6 +1908,43 @@ export interface operations {
 			};
 		};
 	};
+	edit_resume: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				resume_id: string;
+			};
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["ResumeEdit"];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ResumeRead"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
 	delete_resume: {
 		parameters: {
 			query?: never;
@@ -1707,7 +1978,40 @@ export interface operations {
 			};
 		};
 	};
-	update_resume: {
+	get_resume_sections: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				resume_id: string;
+			};
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ResumeSectionsReplace"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	replace_resume_sections: {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -1720,7 +2024,7 @@ export interface operations {
 		};
 		requestBody: {
 			content: {
-				"application/json": components["schemas"]["ResumeUpdate"];
+				"application/json": components["schemas"]["ResumeSectionsReplace"];
 			};
 		};
 		responses: {
@@ -1730,7 +2034,77 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content: {
-					"application/json": components["schemas"]["ResumeRead"];
+					"application/json": components["schemas"]["ResumeSectionsReplace"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	get_resume_document: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				resume_id: string;
+			};
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ResumeDocument"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	compile_resume_pdf: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				resume_id: string;
+			};
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["ResumeCompileRequest"];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/pdf": unknown;
 				};
 			};
 			/** @description Validation Error */
