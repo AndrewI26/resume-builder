@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useParams } from "react-router";
-import { $api } from "~/api/api";
+import { $api } from "@api/api";
+import { Button } from "@components/button";
 import { ResumePreview } from "~/components/resume-preview";
 import { serializeToTex } from "~/lib/latex/serialize";
 
@@ -82,12 +83,12 @@ export default function ResumeRoute() {
 	}
 
 	if (isPending) {
-		return <p className="p-8 text-sm opacity-70">Loading resume…</p>;
+		return <p className="p-8 text-ink-subtle text-sm">Loading resume…</p>;
 	}
 
 	if (isError || !data) {
 		return (
-			<p className="p-8 text-sm opacity-70">Could not load this resume.</p>
+			<p className="p-8 text-ink-subtle text-sm">Could not load this resume.</p>
 		);
 	}
 
@@ -96,29 +97,26 @@ export default function ResumeRoute() {
 			<div className="mx-auto flex max-w-[8.5in] flex-wrap items-center gap-3 p-4 print:hidden">
 				<h1 className="mr-auto text-lg font-semibold">{data.title}</h1>
 
-				<button
-					type="button"
+				<Button
 					onClick={() =>
 						save(`${slug}.tex`, tex, "application/x-tex;charset=utf-8")
 					}
-					className="rounded border px-3 py-1.5 text-sm font-medium"
+					variant="secondary"
 				>
 					Download .tex
-				</button>
+				</Button>
 
-				<button
-					type="button"
-					onClick={downloadPdf}
-					disabled={compiling}
-					className="rounded border px-3 py-1.5 text-sm font-medium disabled:opacity-60"
-				>
+				<Button disabled={compiling} onClick={downloadPdf}>
 					{compiling ? "Building PDF…" : "Download PDF"}
-				</button>
+				</Button>
 			</div>
 
 			{error && (
 				<div className="mx-auto mb-4 max-w-[8.5in] px-4 print:hidden">
-					<p className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+					<p
+						className="rounded-xl bg-negative-bg px-4 py-2 text-negative text-sm"
+						role="alert"
+					>
 						{error}
 					</p>
 				</div>

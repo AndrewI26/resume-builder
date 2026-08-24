@@ -258,12 +258,74 @@ function SectionPicker({
 	);
 }
 
+/**
+ * The fields that make up the top of the printed resume.
+ *
+ * Personal info is not a section: it renders as the header — name, email,
+ * links — with no section heading, which is why it is chosen here rather than
+ * from the section picker. Without it a resume prints with a bare name and no
+ * way to contact anyone.
+ */
+function HeaderFields({
+	fullName,
+	onFullNameChange,
+	personalInfoId,
+	onPersonalInfoChange,
+}: {
+	fullName: string;
+	onFullNameChange: (value: string) => void;
+	personalInfoId: string;
+	onPersonalInfoChange: (value: string) => void;
+}) {
+	const { data, isPending } = $api.useQuery("get", "/personal-info/");
+
+	const options = (data ?? []).map((row) => ({
+		value: row.id,
+		label: row.email ?? row.address ?? row.github ?? "Contact details",
+	}));
+
+	return (
+		<div className="mt-6 rounded-xl border border-border p-4">
+			<p className="text-ink-subtle text-sm">Header</p>
+
+			<div className="mt-2 flex items-end gap-3">
+				<div className="flex flex-1 flex-col gap-1">
+					<label className="text-ink-subtle text-sm" htmlFor="full-name">
+						Name on the resume
+					</label>
+					<input
+						className="w-full rounded-xl border border-border bg-field px-4 py-2 text-ink outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke"
+						id="full-name"
+						name="full-name"
+						onChange={(event) => onFullNameChange(event.target.value)}
+						placeholder="e.g. Casey Quinn"
+						value={fullName}
+					/>
+				</div>
+
+				<Dropdown
+					className="flex-1"
+					emptyMessage="Add your contact details under Sections first."
+					id="personal-info"
+					label="Contact details"
+					onChange={onPersonalInfoChange}
+					options={options}
+					placeholder={isPending ? "Loading…" : "Choose contact details…"}
+					value={personalInfoId}
+				/>
+			</div>
+		</div>
+	);
+}
+
 function CreateResumeForm() {
 	const queryClient = useQueryClient();
 	const [formError, setFormError] = useState<string | null>(null);
 	const [sections, setSections] = useState<
 		(SectionOption & { type: SectionType })[]
 	>([]);
+	const [fullName, setFullName] = useState("");
+	const [personalInfoId, setPersonalInfoId] = useState("");
 	const { mutateAsync: createResume } = $api.useMutation("post", "/resumes/");
 
 	const form = useForm({
@@ -275,6 +337,10 @@ function CreateResumeForm() {
 					body: {
 						title: value.name,
 						template: DEFAULT_TEMPLATE,
+						// both drive the printed header; left null the resume
+						// renders with no name and no way to contact anyone
+						full_name: fullName.trim() || null,
+						personal_info_id: personalInfoId || null,
 						// the type travels with the id: without it nothing
 						// downstream can tell a project from an education, and
 						// the resume cannot be rendered
@@ -289,6 +355,8 @@ function CreateResumeForm() {
 				});
 				formApi.reset();
 				setSections([]);
+				setFullName("");
+				setPersonalInfoId("");
 			} catch (error) {
 				setFormError(createResumeErrorMessage(error));
 			}
@@ -355,6 +423,13 @@ function CreateResumeForm() {
 					{formError}
 				</p>
 			)}
+
+			<HeaderFields
+				fullName={fullName}
+				onFullNameChange={setFullName}
+				onPersonalInfoChange={setPersonalInfoId}
+				personalInfoId={personalInfoId}
+			/>
 
 			<SectionPicker
 				onAdd={(section) => setSections((current) => [...current, section])}
