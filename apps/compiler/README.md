@@ -21,29 +21,6 @@ inside the API.
 
 It also keeps a 3.3 GB TeX Live installation out of the API image.
 
-## Why pdfTeX and not Tectonic
-
-Tectonic would have made a far smaller image — a single ~30 MB static binary
-that fetches packages on demand, instead of a full TeX Live install.
-
-It cannot be used. The Jake's Resume template ends its preamble with:
-
-```latex
-\input{glyphtounicode}
-\pdfgentounicode=1
-```
-
-That emits the glyph-to-Unicode map that makes the PDF's text extractable, and
-`\pdfgentounicode` is a **pdfTeX primitive**. Tectonic is XeTeX-based and
-rejects it outright — the build fails with `Undefined control sequence`.
-
-Dropping those two lines would compile fine and produce a PDF that applicant
-tracking systems cannot read, which for a resume defeats the point. So the
-image carries real TeX Live and the size is the price.
-
-The property is verifiable: extracting text from a compiled resume yields the
-name, employers, skills and contact details as searchable strings.
-
 ## HTTP interface
 
 ### `GET /healthz`
