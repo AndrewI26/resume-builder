@@ -1,0 +1,34 @@
+% Pulls every package the resume template uses, so the image ships with them
+% already in Tectonic's bundle cache.
+%
+% Keep this list in step with the preamble in
+% apps/web/app/lib/latex/preamble.ts. A package missing here is not fatal — the
+% first compile that needs it will fetch it — but that compile is slow and
+% needs outbound network, which the container should not depend on.
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{fontawesome5}
+\usepackage{multicol}
+\input{glyphtounicode}
+\usepackage[top=.5cm, bottom=0cm, left=1cm, right=1cm]{geometry}
+
+\pdfgentounicode=1
+
+\begin{document}
+\faEnvelope\ \faLinkedin\ \faGithub\ \faInternetExplorer\ \faLink\ \faPhone\ \faMapMarker
+\section{Warmup}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}X}
+  Cache the packages.
+\end{tabularx}
+\end{document}

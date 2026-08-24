@@ -9,6 +9,7 @@
 		"typecheck": "react-router typegen && tsc",
 		"format": "biome format --write .",
 		"lint": "biome lint --write .",
+		"test": "bun test",
 		"generate-api": "openapi-typescript http://localhost:8000/openapi.json -o ./app/api/schema.d.ts"
 	},
 	"dependencies": {
@@ -26,6 +27,7 @@
 	"devDependencies": {
 		"@react-router/dev": "^8",
 		"@tailwindcss/vite": "^4.2.2",
+		"@types/bun": "latest",
 		"@types/node": "^22",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
