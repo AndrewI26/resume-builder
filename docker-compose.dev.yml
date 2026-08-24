@@ -17,41 +17,31 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
+  # Turns LaTeX into PDFs, and nothing else.
+  #
+  # It runs documents it did not write, so it gets a read-only root, no
+  # capabilities, and memory and pid ceilings — a runaway \loop should take out
+  # one container, not the host. The port is bound to 127.0.0.1 rather than
+  # published on every interface, because the API reaches it from the host and
+  # nothing else should reach it at all.
+  compiler:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile.dev
+      context: ./apps/compiler
     restart: unless-stopped
-    env_file: .env
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      FRONTEND_URL: http://localhost:${FRONTEND_PORT}
-      PORT: ${BACKEND_PORT}
+      COMPILER_TOKEN: ${COMPILER_TOKEN}
+      COMPILE_CONCURRENCY: ${COMPILE_CONCURRENCY:-2}
     ports:
-      - "${BACKEND_PORT}:${BACKEND_PORT}"
-    volumes:
-      - ./apps/api:/app
-      - api_venv:/app/.venv
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile.dev
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      VITE_API_URL: http://localhost:${BACKEND_PORT}
-      PORT: ${FRONTEND_PORT}
-    ports:
-      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
-    volumes:
-      - .:/app
-      - web_root_node_modules:/app/node_modules
-    depends_on:
-      - api
+      - "127.0.0.1:${COMPILER_PORT:-8100}:8100"
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 1g
+    pids_limit: 128
 
   cloudbeaver:
     image: dbeaver/cloudbeaver:26.1
@@ -61,10 +51,20 @@ services:
       CB_SERVER_URL: http://localhost:${CLOUDBEAVER_PORT}
       CB_ADMIN_NAME: ${CLOUDBEAVER_ADMIN_NAME}
       CB_ADMIN_PASSWORD: ${CLOUDBEAVER_ADMIN_PASSWORD}
+      # Without this the pre-created connection exists but is invisible to the
+      # anonymous (not-signed-in) user, which is how you browse in dev.
+      CLOUDBEAVER_APP_GRANT_CONNECTIONS_ACCESS_TO_ANONYMOUS_TEAM: "true"
     ports:
       - "${CLOUDBEAVER_PORT}:8978"
     volumes:
       - cloudbeaver_workspace:/opt/cloudbeaver/workspace
+      # Pre-creates the Postgres connection so a fresh clone has one waiting.
+      # run-cloudbeaver-server.sh copies this into the workspace on first start
+      # only when workspace/.metadata is absent, so it takes effect on a fresh
+      # cloudbeaver_workspace volume and never overwrites your saved connections.
+      # Do NOT also mount the workspace copy: the script skips the copy when the
+      # destination exists, and CloudBeaver needs to write to it to store the
+      # password you enter on first connect (deliberately not committed here).
       - ./docker/cloudbeaver/initial-data-sources.conf:/opt/cloudbeaver/conf/initial-data-sources.conf:ro
     depends_on:
       postgres:
@@ -72,6 +72,4 @@ services:
 
 volumes:
   postgres_data:
-  api_venv:
-  web_root_node_modules:
   cloudbeaver_workspace:

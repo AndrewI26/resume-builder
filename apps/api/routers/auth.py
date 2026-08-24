@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Response, status
 from deps.auth import CurrentUser
 from deps.db import Db
 from models.user import User
+from schemas.errors import ErrorDetail
 from schemas.user import UserCreate, UserLogin, UserRead
 from services.security import (
     ACCESS_TOKEN_COOKIE_NAME,
@@ -14,7 +15,12 @@ from services.security import (
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=UserRead,
+    status_code=status.HTTP_201_CREATED,
+    responses={status.HTTP_409_CONFLICT: {"model": ErrorDetail}},
+)
 def register(payload: UserCreate, response: Response, db: Db):
     existing_user = db.query(User).filter(User.email == payload.email).first()
     if existing_user is not None:
@@ -32,7 +38,11 @@ def register(payload: UserCreate, response: Response, db: Db):
     return user
 
 
-@router.post("/login", response_model=UserRead)
+@router.post(
+    "/login",
+    response_model=UserRead,
+    responses={status.HTTP_401_UNAUTHORIZED: {"model": ErrorDetail}},
+)
 def login(payload: UserLogin, response: Response, db: Db):
     user = db.query(User).filter(User.email == payload.email).first()
     if (
@@ -54,6 +64,10 @@ def logout(response: Response):
     response.delete_cookie(ACCESS_TOKEN_COOKIE_NAME)
 
 
-@router.get("/me", response_model=UserRead)
+@router.get(
+    "/me",
+    response_model=UserRead,
+    responses={status.HTTP_401_UNAUTHORIZED: {"model": ErrorDetail}},
+)
 def me(current_user: CurrentUser):
     return current_user

@@ -24,3 +24,26 @@ class OperationType(str, enum.Enum):
     CREATE = "create"
     UPDATE = "update"
     DELETE = "delete"
+
+
+class ResumeSectionType(str, enum.Enum):
+    """The section kinds a resume orders and renders as headed blocks.
+
+    Deliberately narrower than ``SectionType``: personal info is the header of
+    a resume rather than one of its sections, so it hangs off ``Resume``
+    directly and cannot be expressed here.
+    """
+
+    EDUCATION = "education"
+    EXPERIENCE = "experience"
+    PROJECT = "project"
+    SKILL = "skill"
+
+
+# The order Jake's template lays sections out in, used for a new resume.
+DEFAULT_SECTION_ORDER = [
+    ResumeSectionType.SKILL,
+    ResumeSectionType.EXPERIENCE,
+    ResumeSectionType.PROJECT,
+    ResumeSectionType.EDUCATION,
+]

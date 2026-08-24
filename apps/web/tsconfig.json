@@ -7,14 +7,17 @@
 	],
 	"compilerOptions": {
 		"lib": ["DOM", "DOM.Iterable", "ES2022"],
-		"types": ["node", "vite/client"],
+		"types": ["bun", "node", "vite/client"],
 		"target": "ES2022",
 		"module": "ES2022",
 		"moduleResolution": "bundler",
 		"jsx": "react-jsx",
 		"rootDirs": [".", "./.react-router/types"],
 		"paths": {
-			"~/*": ["./app/*"]
+			"~/*": ["./app/*"],
+			"@api/*": ["./app/api/*"],
+			"@components/*": ["./app/components/*"],
+			"@routes/*": ["./.react-router/types/routes/*"]
 		},
 		"esModuleInterop": true,
 		"verbatimModuleSyntax": true,

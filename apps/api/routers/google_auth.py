@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from deps.db import Db
 from models.oauth_account import GOOGLE_PROVIDER, OAuthAccount
 from models.user import User
+from schemas.errors import ErrorDetail
 from schemas.user import GoogleCredential, UserRead
 from services.google_oauth import (
     GoogleOAuthError,
@@ -54,6 +55,7 @@ DEFAULT_REDIRECT_PATH = "/"
 
 @router.get(
     "/login",
+    operation_id="google_login",
     status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     response_class=RedirectResponse,
     summary="Start the Google sign in redirect flow",
@@ -108,6 +110,7 @@ def login(next: str = DEFAULT_REDIRECT_PATH) -> RedirectResponse:
 
 @router.get(
     "/callback",
+    operation_id="google_callback",
     status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     response_class=RedirectResponse,
     summary="Google redirects here after the user consents",
@@ -172,8 +175,10 @@ def callback(
 
 @router.post(
     "/token",
+    operation_id="google_token",
     response_model=UserRead,
     summary="Sign in with an ID token from Google Identity Services",
+    responses={status.HTTP_401_UNAUTHORIZED: {"model": ErrorDetail}},
 )
 def token(payload: GoogleCredential, response: Response, db: Db) -> User:
     """Exchange the `credential` from Google's sign in button for a session."""

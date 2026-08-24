@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+import pytest
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -160,3 +162,40 @@ class TestHydrate:
 
     def test_an_empty_map_drops_everything(self):
         assert hydrate([uuid4()], {}) == []
+
+
+class TestBoldedRanges:
+    """Offsets are inclusive on both ends, and must be sorted and disjoint."""
+
+    def test_an_inclusive_range_covers_its_end_character(self):
+        # (0, 6) over a 10 character string bolds "Shipped", not "Shippe"
+        text = "Shipped it"
+        start, end = bullet(text, bolded=[(0, 6)]).bolded[0]
+
+        assert text[start : end + 1] == "Shipped"
+
+    def test_accepts_adjacent_ranges(self):
+        assert bullet("abcdef", bolded=[(0, 1), (2, 3)]).bolded == [(0, 1), (2, 3)]
+
+    def test_accepts_a_single_character_range(self):
+        assert bullet("abc", bolded=[(1, 1)]).bolded == [(1, 1)]
+
+    def test_accepts_a_range_ending_at_the_last_character(self):
+        assert bullet("abc", bolded=[(0, 2)]).bolded == [(0, 2)]
+
+    @pytest.mark.parametrize(
+        ("bolded", "reason"),
+        [
+            ([(3, 1)], "inverted"),
+            ([(-1, 2)], "negative start"),
+            ([(0, -1)], "negative end"),
+            ([(0, 3)], "end past the last index"),
+            ([(3, 3)], "start past the last index"),
+            ([(2, 3), (0, 1)], "out of order"),
+            ([(0, 2), (1, 2)], "overlapping"),
+            ([(0, 2), (2, 2)], "touching at a shared index"),
+        ],
+    )
+    def test_rejects_invalid_ranges(self, bolded, reason):
+        with pytest.raises(ValidationError):
+            bullet("abc", bolded=bolded)

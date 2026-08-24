@@ -1,5 +1,6 @@
 # Binaries
 /resume-builder
+/apps/compiler/compiler
 *.exe
 *.exe~
 *.dll
