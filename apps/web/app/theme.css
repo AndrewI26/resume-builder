@@ -137,6 +137,8 @@
 	--card: light-dark(#ffffff, var(--color-dune));
 	--card-primary: light-dark(#ffffff, #171717);
 	--card-secondary: light-dark(#f2f2f2, #0f0f0f);
+	/* One step down from --card-secondary, for hovering a whole card. */
+	--card-hover: light-dark(#eaeaea, #080808);
 	--surface: light-dark(#ffffff, #000000);
 	--field: light-dark(#ffffff, var(--color-whitesmoke-3));
 	--disabled: light-dark(var(--color-dune-3), var(--color-whitesmoke-12));
@@ -272,6 +274,7 @@
 	--color-card: var(--card);
 	--color-card-primary: var(--card-primary);
 	--color-card-secondary: var(--card-secondary);
+	--color-card-hover: var(--card-hover);
 	--color-surface: var(--surface);
 	--color-field: var(--field);
 	--color-disabled: var(--disabled);
