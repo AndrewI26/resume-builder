@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db import Base
@@ -26,6 +26,7 @@ class PersonalInfo(Base):
     phone_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     address: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    github: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    linkedin: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    portfolio: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    # Each holds a `{"url": ..., "label": ...}` object; see schemas.link.Link.
+    github: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    linkedin: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    portfolio: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

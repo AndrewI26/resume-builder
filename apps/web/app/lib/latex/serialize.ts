@@ -51,6 +51,11 @@ function displayUrl(url: string): string {
 	return escapeLatex(url.replace(/^https?:\/\//, "").replace(/\/$/, ""));
 }
 
+/** A link's custom label if it has one, otherwise a fallback. */
+function linkLabel(link: { label?: string | null }, fallback: string): string {
+	return link.label ? escapeLatex(link.label) : fallback;
+}
+
 function renderHeader(
 	fullName: string,
 	info: PersonalInfo | null | undefined,
@@ -66,15 +71,16 @@ function renderHeader(
 		);
 	}
 	if (info?.linkedin) {
-		entries.push(
-			contact("faLinkedin", displayUrl(info.linkedin), info.linkedin),
-		);
+		const label = linkLabel(info.linkedin, displayUrl(info.linkedin.url));
+		entries.push(contact("faLinkedin", label, info.linkedin.url));
 	}
 	if (info?.github) {
-		entries.push(contact("faGithub", displayUrl(info.github), info.github));
+		const label = linkLabel(info.github, displayUrl(info.github.url));
+		entries.push(contact("faGithub", label, info.github.url));
 	}
 	if (info?.portfolio) {
-		entries.push(contact("faInternetExplorer", "Portfolio", info.portfolio));
+		const label = linkLabel(info.portfolio, "Portfolio");
+		entries.push(contact("faInternetExplorer", label, info.portfolio.url));
 	}
 	if (info?.address) {
 		entries.push(contact("faMapMarker", escapeLatex(info.address)));

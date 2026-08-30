@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "tertiary";
+type ButtonVariant = "primary" | "secondary" | "tertiary" | "danger";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 	variant?: ButtonVariant;
@@ -13,6 +13,8 @@ const variantClasses: Record<ButtonVariant, string> = {
 		"border border-btn-secondary-border bg-btn-secondary text-btn-secondary-fg disabled:border-btn-secondary-disabled-border disabled:bg-btn-secondary-disabled disabled:text-btn-secondary-disabled-fg",
 	tertiary:
 		"bg-btn-tertiary text-btn-tertiary-fg disabled:bg-btn-tertiary-disabled disabled:text-btn-tertiary-disabled-fg",
+	danger:
+		"bg-btn-warning text-btn-warning-fg disabled:bg-disabled disabled:text-ink-disabled",
 };
 
 export function Button({

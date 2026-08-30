@@ -14,6 +14,12 @@ export function emptySkillItem(): SkillItemDraft {
 	return { id: crypto.randomUUID(), value: "" };
 }
 
+/** Converts the API's plain string list back to drafts for editing. */
+export function fromApiSkillItems(items: string[]): SkillItemDraft[] {
+	const drafts = items.map((value) => ({ id: crypto.randomUUID(), value }));
+	return drafts.length > 0 ? drafts : [emptySkillItem()];
+}
+
 /** Trims the items and drops the blank ones, preserving the list's order. */
 export function toApiSkillItems(items: SkillItemDraft[]): string[] {
 	return items

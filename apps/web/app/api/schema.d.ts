@@ -549,6 +549,19 @@ export interface components {
 			detail?: components["schemas"]["ValidationError"][];
 		};
 		/**
+		 * Link
+		 * @description A URL paired with the text a resume shows in its place.
+		 *
+		 *     `label` is optional: a caller that only has the URL can omit it, and the
+		 *     renderer falls back to showing the URL itself.
+		 */
+		Link: {
+			/** Url */
+			url: string;
+			/** Label */
+			label?: string | null;
+		};
+		/**
 		 * PersonalInfoCreate
 		 * @description The full representation, used to create a row and to replace one.
 		 *
@@ -562,12 +575,9 @@ export interface components {
 			phone_number?: string | null;
 			/** Address */
 			address?: string | null;
-			/** Github */
-			github?: string | null;
-			/** Linkedin */
-			linkedin?: string | null;
-			/** Portfolio */
-			portfolio?: string | null;
+			github?: components["schemas"]["Link"] | null;
+			linkedin?: components["schemas"]["Link"] | null;
+			portfolio?: components["schemas"]["Link"] | null;
 		};
 		/** PersonalInfoRead */
 		PersonalInfoRead: {
@@ -577,12 +587,9 @@ export interface components {
 			phone_number?: string | null;
 			/** Address */
 			address?: string | null;
-			/** Github */
-			github?: string | null;
-			/** Linkedin */
-			linkedin?: string | null;
-			/** Portfolio */
-			portfolio?: string | null;
+			github?: components["schemas"]["Link"] | null;
+			linkedin?: components["schemas"]["Link"] | null;
+			portfolio?: components["schemas"]["Link"] | null;
 			/**
 			 * Id
 			 * Format: uuid

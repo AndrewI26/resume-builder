@@ -148,7 +148,10 @@ describe("header", () => {
 	test("strips the scheme from a displayed link", () => {
 		const tex = serializeToTex(
 			document({
-				personal_info: { ...emptyInfo, github: "https://github.com/ada" },
+				personal_info: {
+					...emptyInfo,
+					github: { url: "https://github.com/ada", label: null },
+				},
 			}),
 		);
 
@@ -161,7 +164,7 @@ describe("header", () => {
 			document({
 				personal_info: {
 					...emptyInfo,
-					linkedin: "https://linkedin.com/in/ada/",
+					linkedin: { url: "https://linkedin.com/in/ada/", label: null },
 				},
 			}),
 		);
@@ -176,8 +179,8 @@ describe("header", () => {
 			document({
 				personal_info: {
 					...emptyInfo,
-					portfolio: "https://ada.dev",
-					github: "https://github.com/ada",
+					portfolio: { url: "https://ada.dev", label: null },
+					github: { url: "https://github.com/ada", label: null },
 				},
 			}),
 		);
@@ -186,14 +189,45 @@ describe("header", () => {
 		expect(tex).toContain(underlined("github.com/ada"));
 	});
 
-	test("labels a portfolio rather than printing its URL", () => {
+	test("labels a portfolio rather than printing its URL, absent a custom label", () => {
 		const tex = serializeToTex(
 			document({
-				personal_info: { ...emptyInfo, portfolio: "https://ada.dev" },
+				personal_info: {
+					...emptyInfo,
+					portfolio: { url: "https://ada.dev", label: null },
+				},
 			}),
 		);
 
 		expect(tex).toContain(underlined("Portfolio"));
+	});
+
+	test("prefers a custom label over the url it derives from", () => {
+		const tex = serializeToTex(
+			document({
+				personal_info: {
+					...emptyInfo,
+					github: { url: "https://github.com/ada", label: "My code" },
+				},
+			}),
+		);
+
+		expect(tex).toContain(underlined("My code"));
+		expect(tex).not.toContain(underlined("github.com/ada"));
+		expect(tex).toContain("\\href{https://github.com/ada}");
+	});
+
+	test("escapes a custom label", () => {
+		const tex = serializeToTex(
+			document({
+				personal_info: {
+					...emptyInfo,
+					portfolio: { url: "https://ada.dev", label: "A & B" },
+				},
+			}),
+		);
+
+		expect(tex).toContain(underlined("A \\& B"));
 	});
 });
 

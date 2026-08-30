@@ -17,6 +17,7 @@ type TableProps<T> = {
 	data: T[];
 	emptyMessage?: string;
 	getRowKey: (row: T) => string;
+	onRowClick?: (row: T) => void;
 };
 
 const alignClass = (align: Column<unknown>["align"]) =>
@@ -34,6 +35,7 @@ export function Table<T>({
 	data,
 	emptyMessage = "Nothing here yet.",
 	getRowKey,
+	onRowClick,
 }: TableProps<T>) {
 	return (
 		<div
@@ -70,8 +72,25 @@ export function Table<T>({
 						<tbody>
 							{data.map((row) => (
 								<tr
-									className="transition-colors hover:bg-table-row-hover"
+									className={[
+										"transition-colors hover:bg-table-row-hover",
+										onRowClick && "cursor-pointer",
+									]
+										.filter(Boolean)
+										.join(" ")}
 									key={getRowKey(row)}
+									onClick={onRowClick && (() => onRowClick(row))}
+									onKeyDown={
+										onRowClick &&
+										((event) => {
+											if (event.key === "Enter" || event.key === " ") {
+												event.preventDefault();
+												onRowClick(row);
+											}
+										})
+									}
+									role={onRowClick ? "button" : undefined}
+									tabIndex={onRowClick ? 0 : undefined}
 								>
 									{columns.map((column) => (
 										<td
