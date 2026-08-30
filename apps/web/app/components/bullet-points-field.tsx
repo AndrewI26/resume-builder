@@ -20,6 +20,21 @@ export function emptyBulletPoint(): BulletPointDraft {
 	return { id: crypto.randomUUID(), text: "", bolded: [] };
 }
 
+/** Converts the API's inclusive-end ranges back to drafts for editing. */
+export function fromApiBulletPoints(
+	bullets: { text: string; bolded: [number, number][] }[],
+): BulletPointDraft[] {
+	const drafts = bullets.map((bullet) => ({
+		id: crypto.randomUUID(),
+		text: bullet.text,
+		bolded: bullet.bolded.map(
+			([start, end]) => [start, end + 1] as [number, number],
+		),
+	}));
+
+	return drafts.length > 0 ? drafts : [emptyBulletPoint()];
+}
+
 /** Drops blank bullets and converts half-open ranges to the API's inclusive ends. */
 export function toApiBulletPoints(
 	bullets: BulletPointDraft[],

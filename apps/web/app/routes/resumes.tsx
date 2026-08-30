@@ -281,7 +281,12 @@ function HeaderFields({
 
 	const options = (data ?? []).map((row) => ({
 		value: row.id,
-		label: row.email ?? row.address ?? row.github ?? "Contact details",
+		label:
+			row.email ??
+			row.address ??
+			row.github?.label ??
+			row.github?.url ??
+			"Contact details",
 	}));
 
 	return (

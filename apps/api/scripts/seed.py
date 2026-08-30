@@ -11,6 +11,7 @@ to run outside development.
 
 import sys
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass, field
 
 from sqlalchemy import delete, select
@@ -18,12 +19,14 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 import models.oauth_account  # noqa: F401  (maps User.oauth_accounts)
+from enums import DEFAULT_SECTION_ORDER, ResumeSectionType
 from models.bullet_points import BulletPoint
 from models.education import Education
 from models.expirence import Expirence
 from models.personal_info import PersonalInfo
 from models.project import Project
 from models.resume import Resume
+from models.resume_section import ResumeSection
 from models.skill import Skill
 from models.user import User
 from services.security import hash_password
@@ -103,7 +106,10 @@ class SkillSeed:
 @dataclass(frozen=True)
 class ResumeSeed:
     key: str
-    name: str
+    title: str
+    full_name: str
+    # education/experience/project/skill keys only, in section-type run order.
+    # Personal info attaches via `Resume.personal_info_id`, not membership.
     sections: list[str]
 
 
@@ -234,9 +240,9 @@ SKILLS = [
 RESUMES = [
     ResumeSeed(
         key="resume:software-engineer",
-        name="Software Engineer",
+        title="Software Engineer",
+        full_name="Demo User",
         sections=[
-            PERSONAL_INFO_KEY,
             "education:state-university",
             "experience:acme",
             "experience:globex",
@@ -247,9 +253,9 @@ RESUMES = [
     ),
     ResumeSeed(
         key="resume:backend-focused",
-        name="Backend Focused",
+        title="Backend Focused",
+        full_name="Demo User",
         sections=[
-            PERSONAL_INFO_KEY,
             "education:northside-college",
             "education:state-university",
             "experience:acme",
@@ -263,6 +269,30 @@ RESUMES = [
 
 def bullet_ids(owner_key: str, bullets: list[Bullet]) -> list[uuid.UUID]:
     return [sid(f"bullet:{owner_key}:{index}") for index in range(len(bullets))]
+
+
+def _section_type(key: str) -> ResumeSectionType:
+    """The section type a seed key belongs to, from its ``type:name`` prefix."""
+    prefix = key.split(":", 1)[0]
+    return ResumeSectionType(prefix)
+
+
+def _resume_section_rows(resume_id: uuid.UUID, keys: list[str]) -> list[ResumeSection]:
+    """Membership rows for a resume, positioned within each type's own run."""
+    grouped: dict[ResumeSectionType, list[str]] = defaultdict(list)
+    for key in keys:
+        grouped[_section_type(key)].append(key)
+
+    return [
+        ResumeSection(
+            resume_id=resume_id,
+            section_type=section_type,
+            section_id=sid(key),
+            position=position,
+        )
+        for section_type, type_keys in grouped.items()
+        for position, key in enumerate(type_keys)
+    ]
 
 
 def seeded_section_ids() -> list[uuid.UUID]:
@@ -375,9 +405,12 @@ def insert_all(db: Session) -> None:
             email=SEED_EMAIL,
             phone_number="+1 (555) 010-1234",
             address="Boston, MA",
-            github="https://github.com/demo-user",
-            linkedin="https://linkedin.com/in/demo-user",
-            portfolio="https://demo-user.dev",
+            github={"url": "https://github.com/demo-user", "label": None},
+            linkedin={
+                "url": "https://linkedin.com/in/demo-user",
+                "label": "in/demo-user",
+            },
+            portfolio={"url": "https://demo-user.dev", "label": "Portfolio"},
         )
     )
 
@@ -436,14 +469,21 @@ def insert_all(db: Session) -> None:
         )
 
     for resume in RESUMES:
-        db.add(
-            Resume(
-                id=sid(resume.key),
-                user_id=SEED_USER_ID,
-                name=resume.name,
-                sections=[sid(key) for key in resume.sections],
-            )
+        new_resume = Resume(
+            id=sid(resume.key),
+            user_id=SEED_USER_ID,
+            title=resume.title,
+            full_name=resume.full_name,
+            personal_info_id=sid(PERSONAL_INFO_KEY),
+            section_order=[
+                section_type.value for section_type in DEFAULT_SECTION_ORDER
+            ],
         )
+        db.add(new_resume)
+        db.flush()
+
+        for row in _resume_section_rows(new_resume.id, resume.sections):
+            db.add(row)
 
 
 def add_bullets(db: Session, ids: list[uuid.UUID], bullets: list[Bullet]) -> None:

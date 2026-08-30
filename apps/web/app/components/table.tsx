@@ -12,6 +12,7 @@ type TableProps<T> = {
 	data: T[];
 	emptyMessage?: string;
 	getRowKey: (row: T) => string;
+	onRowClick?: (row: T) => void;
 };
 
 export function Table<T>({
@@ -20,6 +21,7 @@ export function Table<T>({
 	data,
 	emptyMessage = "Nothing here yet.",
 	getRowKey,
+	onRowClick,
 }: TableProps<T>) {
 	if (data.length === 0) {
 		return (
@@ -54,8 +56,25 @@ export function Table<T>({
 				<tbody>
 					{data.map((row) => (
 						<tr
-							className="border-border border-b last:border-0"
+							className={[
+								"border-border border-b last:border-0",
+								onRowClick && "cursor-pointer transition-colors hover:bg-field",
+							]
+								.filter(Boolean)
+								.join(" ")}
 							key={getRowKey(row)}
+							onClick={onRowClick && (() => onRowClick(row))}
+							onKeyDown={
+								onRowClick &&
+								((event) => {
+									if (event.key === "Enter" || event.key === " ") {
+										event.preventDefault();
+										onRowClick(row);
+									}
+								})
+							}
+							role={onRowClick && "button"}
+							tabIndex={onRowClick && 0}
 						>
 							{columns.map((column) => (
 								<td className="px-4 py-3 text-ink" key={column.key}>

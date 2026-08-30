@@ -35,9 +35,9 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 		email: "andrewi44@icloud.com",
 		phone_number: null,
 		address: null,
-		github: "https://github.com/AndrewI26",
-		linkedin: "https://linkedin.com/in/andrew-iammancini",
-		portfolio: "https://andrewi.vercel.app",
+		github: { url: "https://github.com/AndrewI26", label: null },
+		linkedin: { url: "https://linkedin.com/in/andrew-iammancini", label: null },
+		portfolio: { url: "https://andrewi.vercel.app", label: null },
 	},
 	sections: [
 		{

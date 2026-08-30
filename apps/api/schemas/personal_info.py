@@ -2,15 +2,17 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from schemas.link import Link
+
 
 class PersonalInfoBase(BaseModel):
     email: str | None = Field(default=None, max_length=255)
     phone_number: str | None = Field(default=None, max_length=50)
     address: str | None = Field(default=None, max_length=255)
 
-    github: str | None = Field(default=None, max_length=2048)
-    linkedin: str | None = Field(default=None, max_length=2048)
-    portfolio: str | None = Field(default=None, max_length=2048)
+    github: Link | None = None
+    linkedin: Link | None = None
+    portfolio: Link | None = None
 
 
 class PersonalInfoCreate(PersonalInfoBase):

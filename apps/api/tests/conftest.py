@@ -12,6 +12,7 @@ endpoints' own ``commit()`` calls are contained and tests stay independent.
 import os
 from collections.abc import Generator, Iterator, Sequence
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import pytest
@@ -256,16 +257,25 @@ def make_project(db: Session):
 def make_personal_info(db: Session):
     """Insert a user's personal info directly, bypassing the endpoints."""
 
+    _UNSET: Any = object()
+
     def _make_personal_info(
         user: User,
         *,
         email: str | None = "me@example.com",
         phone_number: str | None = "+1 555 0100",
         address: str | None = "Boston, MA",
-        github: str | None = "https://github.com/example",
-        linkedin: str | None = "https://linkedin.com/in/example",
-        portfolio: str | None = "https://example.com",
+        github: dict | None = _UNSET,
+        linkedin: dict | None = _UNSET,
+        portfolio: dict | None = _UNSET,
     ) -> PersonalInfo:
+        if github is _UNSET:
+            github = {"url": "https://github.com/example", "label": "GitHub"}
+        if linkedin is _UNSET:
+            linkedin = {"url": "https://linkedin.com/in/example", "label": "LinkedIn"}
+        if portfolio is _UNSET:
+            portfolio = {"url": "https://example.com", "label": "Portfolio"}
+
         personal_info = PersonalInfo(
             user_id=user.id,
             email=email,

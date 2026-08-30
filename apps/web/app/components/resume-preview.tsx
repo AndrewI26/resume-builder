@@ -121,6 +121,11 @@ function displayUrl(url: string): string {
 	return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
 }
 
+/** A link's custom label if it has one, otherwise a fallback. */
+function linkLabel(link: { label?: string | null }, fallback: string): string {
+	return link.label ? link.label : fallback;
+}
+
 function Header({
 	fullName,
 	info,
@@ -135,12 +140,23 @@ function Header({
 	}
 	if (info?.email) entries.push({ icon: "envelope", label: info.email });
 	if (info?.linkedin) {
-		entries.push({ icon: "link", label: displayUrl(info.linkedin) });
+		entries.push({
+			icon: "link",
+			label: linkLabel(info.linkedin, displayUrl(info.linkedin.url)),
+		});
 	}
 	if (info?.github) {
-		entries.push({ icon: "link", label: displayUrl(info.github) });
+		entries.push({
+			icon: "link",
+			label: linkLabel(info.github, displayUrl(info.github.url)),
+		});
 	}
-	if (info?.portfolio) entries.push({ icon: "globe", label: "Portfolio" });
+	if (info?.portfolio) {
+		entries.push({
+			icon: "globe",
+			label: linkLabel(info.portfolio, "Portfolio"),
+		});
+	}
 	if (info?.address) entries.push({ icon: "pin", label: info.address });
 
 	return (

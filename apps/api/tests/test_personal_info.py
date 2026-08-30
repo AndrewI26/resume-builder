@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from models.personal_info import PersonalInfo
 
 FIELDS = ("email", "phone_number", "address", "github", "linkedin", "portfolio")
+LINK_FIELDS = ("github", "linkedin", "portfolio")
 
 
 def payload(**overrides):
@@ -15,9 +16,9 @@ def payload(**overrides):
         "email": "me@example.com",
         "phone_number": "+1 555 0100",
         "address": "Boston, MA",
-        "github": "https://github.com/example",
-        "linkedin": "https://linkedin.com/in/example",
-        "portfolio": "https://example.com",
+        "github": {"url": "https://github.com/example", "label": "GitHub"},
+        "linkedin": {"url": "https://linkedin.com/in/example", "label": "LinkedIn"},
+        "portfolio": {"url": "https://example.com", "label": "Portfolio"},
     }
     body.update(overrides)
     return body
@@ -64,9 +65,12 @@ class TestGet:
         assert row["email"] == "me@example.com"
         assert row["phone_number"] == "+1 555 0100"
         assert row["address"] == "Boston, MA"
-        assert row["github"] == "https://github.com/example"
-        assert row["linkedin"] == "https://linkedin.com/in/example"
-        assert row["portfolio"] == "https://example.com"
+        assert row["github"] == {"url": "https://github.com/example", "label": "GitHub"}
+        assert row["linkedin"] == {
+            "url": "https://linkedin.com/in/example",
+            "label": "LinkedIn",
+        }
+        assert row["portfolio"] == {"url": "https://example.com", "label": "Portfolio"}
 
     def test_returns_all_of_the_callers_rows(self, auth, user, make_personal_info):
         make_personal_info(user, email="first@example.com")
@@ -185,9 +189,6 @@ class TestCreate:
             ("email", 256),
             ("phone_number", 51),
             ("address", 256),
-            ("github", 2049),
-            ("linkedin", 2049),
-            ("portfolio", 2049),
         ],
     )
     def test_rejects_overlong_fields(self, auth, user, db, field, length):
@@ -195,6 +196,30 @@ class TestCreate:
 
         response = auth(user).post(
             "/personal-info/", json=payload(**{field: "a" * length})
+        )
+
+        assert response.status_code == 422
+        assert row_count(db) == before
+
+    @pytest.mark.parametrize("field", LINK_FIELDS)
+    def test_rejects_an_overlong_link_url(self, auth, user, db, field):
+        before = row_count(db)
+
+        response = auth(user).post(
+            "/personal-info/",
+            json=payload(**{field: {"url": "a" * 2049, "label": None}}),
+        )
+
+        assert response.status_code == 422
+        assert row_count(db) == before
+
+    @pytest.mark.parametrize("field", LINK_FIELDS)
+    def test_rejects_an_overlong_link_label(self, auth, user, db, field):
+        before = row_count(db)
+
+        response = auth(user).post(
+            "/personal-info/",
+            json=payload(**{field: {"url": "https://example.com", "label": "a" * 256}}),
         )
 
         assert response.status_code == 422
@@ -301,9 +326,12 @@ class TestEdit:
             email="other@example.com",
             phone_number="+44 20 7946 0000",
             address="London, UK",
-            github="https://github.com/other",
-            linkedin="https://linkedin.com/in/other",
-            portfolio="https://other.example.com",
+            github={"url": "https://github.com/other", "label": "Other GitHub"},
+            linkedin={
+                "url": "https://linkedin.com/in/other",
+                "label": "Other LinkedIn",
+            },
+            portfolio={"url": "https://other.example.com", "label": "Other site"},
         )
 
         response = auth(user).put(f"/personal-info/{personal_info.id}", json=changes)
