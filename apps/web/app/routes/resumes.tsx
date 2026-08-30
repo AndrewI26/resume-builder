@@ -507,7 +507,7 @@ export default function Resumes() {
 						render: (resume: Resume) => (
 							<Link
 								to={`/resumes/${resume.id}`}
-								className="underline underline-offset-2"
+								className="font-medium transition-colors hover:text-informative"
 							>
 								{resume.title}
 							</Link>
@@ -516,6 +516,7 @@ export default function Resumes() {
 					{
 						key: "updatedAt",
 						header: "Last modified",
+						align: "right",
 						render: (resume: Resume) =>
 							dateFormatter.format(new Date(resume.updated_at)),
 					},
