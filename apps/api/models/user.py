@@ -27,3 +27,13 @@ class User(Base):
     oauth_accounts: Mapped[list["OAuthAccount"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+
+    @property
+    def sign_in_methods(self) -> list[str]:
+        """How this account can be signed in to, in the order it was gained.
+
+        A password is only ever set at /auth/register, so it comes first for
+        anyone who signed up that way; providers follow as they were linked.
+        """
+        methods = ["password"] if self.hashed_password is not None else []
+        return methods + [account.provider for account in self.oauth_accounts]

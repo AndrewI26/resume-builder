@@ -10,10 +10,16 @@ Two entry points, so the frontend can pick whichever it prefers:
 
 Either way the user ends up with the same `access_token` cookie that
 `/auth/login` issues, so the rest of the API is unchanged.
+
+Signed in users can also *link* Google to the account they already have, from
+`GET /auth/google/link/start`. That reuses the redirect flow above and comes
+back through the same callback, which tells the two apart by the `link_user_id`
+claim in the state cookie.
 """
 
 import secrets
 from urllib.parse import urlencode
+from uuid import UUID
 
 from fastapi import APIRouter, Cookie, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
@@ -21,6 +27,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from deps.auth import CurrentUser
 from deps.db import Db
 from models.oauth_account import GOOGLE_PROVIDER, OAuthAccount
 from models.user import User
@@ -35,9 +42,11 @@ from services.google_oauth import (
     verify_id_token,
 )
 from services.security import (
+    ACCESS_TOKEN_COOKIE_NAME,
     OAUTH_STATE_COOKIE_NAME,
     OAUTH_STATE_EXPIRE_MINUTES,
     create_oauth_state_token,
+    decode_access_token,
     decode_oauth_state_token,
     set_access_token_cookie,
 )
@@ -51,6 +60,9 @@ settings = get_settings()
 STATE_COOKIE_PATH = "/auth/google"
 
 DEFAULT_REDIRECT_PATH = "/"
+
+# where the link flow returns to, and where its errors are reported
+LINK_REDIRECT_PATH = "/profile"
 
 
 @router.get(
@@ -106,6 +118,114 @@ def login(next: str = DEFAULT_REDIRECT_PATH) -> RedirectResponse:
         path=STATE_COOKIE_PATH,
     )
     return response
+
+
+@router.get(
+    "/link/start",
+    operation_id="google_link_start",
+    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    response_class=RedirectResponse,
+    summary="Start linking Google to the signed in account",
+)
+def link_start(
+    next: str = LINK_REDIRECT_PATH,
+    access_token: str | None = Cookie(default=None, alias=ACCESS_TOKEN_COOKIE_NAME),
+) -> RedirectResponse:
+    """Send the browser to Google, remembering who is linking.
+
+    The session is read from the cookie rather than through ``CurrentUser`` so
+    that a signed out visitor lands on the login page: this is a top level
+    navigation, and a JSON 401 would render as a raw page.
+    """
+    user_id = decode_access_token(access_token) if access_token else None
+    if user_id is None:
+        return _frontend_redirect("/login")
+
+    if not settings.google_oauth_configured:
+        return _frontend_redirect(
+            _safe_redirect_path(next), auth_error="google_not_configured"
+        )
+
+    state = secrets.token_urlsafe(32)
+    nonce = secrets.token_urlsafe(32)
+    code_verifier, code_challenge = generate_pkce_pair()
+
+    try:
+        authorization_url = build_authorization_url(
+            state=state, nonce=nonce, code_challenge=code_challenge
+        )
+    except GoogleOAuthError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+
+    response = RedirectResponse(
+        authorization_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT
+    )
+    response.set_cookie(
+        key=OAUTH_STATE_COOKIE_NAME,
+        value=create_oauth_state_token(
+            {
+                "state": state,
+                "nonce": nonce,
+                "code_verifier": code_verifier,
+                "next": _safe_redirect_path(next),
+                # what makes the callback link rather than sign in
+                "link_user_id": str(user_id),
+            }
+        ),
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=OAUTH_STATE_EXPIRE_MINUTES * 60,
+        path=STATE_COOKIE_PATH,
+    )
+    return response
+
+
+@router.delete(
+    "/link",
+    operation_id="google_unlink",
+    response_model=UserRead,
+    summary="Disconnect Google from the signed in account",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"model": ErrorDetail},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorDetail},
+        status.HTTP_409_CONFLICT: {"model": ErrorDetail},
+    },
+)
+def unlink(current_user: CurrentUser, db: Db) -> User:
+    """Remove the Google link, unless it is the only way in.
+
+    A passwordless user who unlinked their sole provider could never sign in
+    again, so that is refused rather than left to support.
+    """
+    account = next(
+        (
+            linked
+            for linked in current_user.oauth_accounts
+            if linked.provider == GOOGLE_PROVIDER
+        ),
+        None,
+    )
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Google is not connected to this account",
+        )
+
+    if len(current_user.sign_in_methods) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Google is the only way to sign in to this account. "
+            "Set a password before disconnecting it.",
+        )
+
+    db.delete(account)
+    db.commit()
+    db.refresh(current_user)
+
+    return current_user
 
 
 @router.get(
@@ -166,6 +286,18 @@ def callback(
     except GoogleOAuthError:
         return _finish(auth_error="google_auth_failed")
 
+    link_user_id = stored.get("link_user_id")
+    if link_user_id is not None:
+        # a signed in user adding Google to the account they already have; the
+        # session they arrived with stands, so no cookie is issued here
+        try:
+            _link_account(db, UUID(str(link_user_id)), profile)
+        except (ValueError, LinkError) as exc:
+            reason = exc.reason if isinstance(exc, LinkError) else "link_failed"
+            return _finish(next_path, auth_error=reason)
+
+        return _finish(next_path)
+
     user = _get_or_create_user(db, profile)
 
     response = _finish(next_path)
@@ -193,6 +325,56 @@ def token(payload: GoogleCredential, response: Response, db: Db) -> User:
     user = _get_or_create_user(db, profile)
     set_access_token_cookie(response, user.id)
     return user
+
+
+class LinkError(Exception):
+    """A link attempt the callback should report back to the frontend."""
+
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
+def _link_account(db: Session, user_id: UUID, profile: GoogleProfile) -> None:
+    """Attach a verified Google identity to an existing local account.
+
+    The Google address is deliberately not required to match the account's own
+    email — people sign up here with one address and use Google with another —
+    so it is stored on the link for support rather than checked. What cannot be
+    allowed is stealing an identity already linked elsewhere, since that would
+    hand one person a way into another person's account.
+
+    Linking again with the same identity is a no-op, so a double click or a
+    replayed callback is harmless.
+    """
+    user = db.get(User, user_id)
+    if user is None:
+        raise LinkError("link_failed")
+
+    account = _find_account(db, profile.sub)
+    if account is not None:
+        if account.user_id != user.id:
+            raise LinkError("google_already_linked")
+        return
+
+    db.add(
+        OAuthAccount(
+            user_id=user.id,
+            provider=GOOGLE_PROVIDER,
+            provider_account_id=profile.sub,
+            email=profile.email,
+        )
+    )
+    _backfill_name(user, profile)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        # something else linked this identity between the check and the commit
+        db.rollback()
+        account = _find_account(db, profile.sub)
+        if account is None or account.user_id != user.id:
+            raise LinkError("google_already_linked") from None
 
 
 def _get_or_create_user(db: Session, profile: GoogleProfile) -> User:

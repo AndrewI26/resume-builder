@@ -4,7 +4,7 @@ from deps.auth import CurrentUser
 from deps.db import Db
 from models.user import User
 from schemas.errors import ErrorDetail
-from schemas.user import UserCreate, UserLogin, UserRead
+from schemas.user import UserCreate, UserLogin, UserRead, UserUpdate
 from services.security import (
     ACCESS_TOKEN_COOKIE_NAME,
     hash_password,
@@ -62,6 +62,21 @@ def login(payload: UserLogin, response: Response, db: Db):
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(response: Response):
     response.delete_cookie(ACCESS_TOKEN_COOKIE_NAME)
+
+
+@router.patch(
+    "/me",
+    response_model=UserRead,
+    responses={status.HTTP_401_UNAUTHORIZED: {"model": ErrorDetail}},
+)
+def update_me(payload: UserUpdate, current_user: CurrentUser, db: Db):
+    name = payload.name.strip() if payload.name is not None else ""
+    current_user.name = name or None
+
+    db.commit()
+    db.refresh(current_user)
+
+    return current_user
 
 
 @router.get(

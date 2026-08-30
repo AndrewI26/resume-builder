@@ -4,6 +4,7 @@ import { createContext, useContext } from "react";
 export type UserRead = components["schemas"]["UserRead"];
 type UserCreate = components["schemas"]["UserCreate"];
 type UserLogin = components["schemas"]["UserLogin"];
+type UserUpdate = components["schemas"]["UserUpdate"];
 
 export type AuthContextValue = {
 	user: UserRead | null;
@@ -13,6 +14,8 @@ export type AuthContextValue = {
 	signUp: (credentials: UserCreate) => Promise<UserRead>;
 	signInWithGoogle: (credential: string) => Promise<UserRead>;
 	signOut: () => Promise<void>;
+	updateProfile: (changes: UserUpdate) => Promise<UserRead>;
+	disconnectGoogle: () => Promise<UserRead>;
 };
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

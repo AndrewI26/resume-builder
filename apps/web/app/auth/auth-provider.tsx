@@ -25,6 +25,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		"post",
 		"/auth/logout",
 	);
+	const { mutateAsync: updateProfileRequest } = $api.useMutation(
+		"patch",
+		"/auth/me",
+	);
+	const { mutateAsync: unlinkGoogleRequest } = $api.useMutation(
+		"delete",
+		"/auth/google/link",
+	);
 
 	const cacheUser = useCallback(
 		(user: UserRead) => {
@@ -61,6 +69,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		[googleTokenRequest, cacheUser],
 	);
 
+	const updateProfile = useCallback(
+		async (changes: { name?: string | null }) => {
+			const user = await updateProfileRequest({ body: changes });
+			return cacheUser(user);
+		},
+		[updateProfileRequest, cacheUser],
+	);
+
+	const disconnectGoogle = useCallback(async () => {
+		const user = await unlinkGoogleRequest({});
+		return cacheUser(user);
+	}, [unlinkGoogleRequest, cacheUser]);
+
 	const signOut = useCallback(async () => {
 		await logoutRequest({});
 		queryClient.clear();
@@ -77,8 +98,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			signUp,
 			signInWithGoogle,
 			signOut,
+			updateProfile,
+			disconnectGoogle,
 		}),
-		[user, session.isPending, signIn, signUp, signInWithGoogle, signOut],
+		[
+			user,
+			session.isPending,
+			signIn,
+			signUp,
+			signInWithGoogle,
+			signOut,
+			updateProfile,
+			disconnectGoogle,
+		],
 	);
 
 	return <AuthContext value={value}>{children}</AuthContext>;
