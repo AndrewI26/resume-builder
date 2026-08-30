@@ -191,7 +191,14 @@ export function Dropdown<TValue extends string>({
 					aria-controls={open ? listboxId : undefined}
 					aria-expanded={open}
 					aria-haspopup="listbox"
-					className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-field px-5 py-2 text-left text-ink outline-none transition-colors focus:border-stroke disabled:text-ink-disabled"
+					className={[
+						"flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-field px-5 py-2 text-left text-ink outline-none transition-colors focus:border-stroke disabled:text-ink-disabled",
+						// Open, the list hangs straight off the bottom edge, so the
+						// two square off into one shape.
+						open ? "rounded-b-none" : "",
+					]
+						.filter(Boolean)
+						.join(" ")}
 					disabled={disabled}
 					id={buttonId}
 					onClick={() =>
@@ -204,10 +211,13 @@ export function Dropdown<TValue extends string>({
 					type="button"
 				>
 					{/* No `text-trim` here: it shrinks the box to cap-height/baseline,
-					    which `truncate`'s overflow clip would then cut descenders off. */}
+					    which `truncate`'s overflow clip would then cut descenders off.
+					    League Spartan's line box carries more descent than ascent, so
+					    untrimmed text rides ~1.5px high; the nudge lands it where
+					    `text-trim` would, descenders intact. */}
 					<span
 						className={[
-							"truncate",
+							"translate-y-px truncate",
 							selectedIndex === -1 ? "text-ink-disabled" : "",
 						]
 							.filter(Boolean)
@@ -236,7 +246,9 @@ export function Dropdown<TValue extends string>({
 					// aria-activedescendant, so the list itself is never focused.
 					<div
 						aria-labelledby={buttonId}
-						className="absolute top-full right-0 left-0 z-10 mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-surface py-1 shadow-card"
+						// -mt-px pulls the panel's top border onto the trigger's
+						// bottom one so the seam reads as a single line.
+						className="-mt-px absolute top-full right-0 left-0 z-10 max-h-60 overflow-y-auto rounded-xl rounded-t-none border border-border bg-surface py-1 shadow-card"
 						id={listboxId}
 						ref={listRef}
 						role="listbox"

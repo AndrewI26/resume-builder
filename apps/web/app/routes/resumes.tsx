@@ -142,7 +142,7 @@ function SectionPicker({
 	const availableOptions = options.filter((option) => !addedIds.has(option.id));
 
 	return (
-		<div className="mt-6 rounded-xl border border-border p-4">
+		<div className="mt-6 rounded-xl border border-border bg-table p-4">
 			<p className="text-ink-subtle text-sm">Sections</p>
 
 			<div className="mt-2 flex items-end gap-3">
@@ -290,7 +290,7 @@ function HeaderFields({
 	}));
 
 	return (
-		<div className="mt-6 rounded-xl border border-border p-4">
+		<div className="mt-6 rounded-xl border border-border bg-table p-4">
 			<p className="text-ink-subtle text-sm">Header</p>
 
 			<div className="mt-2 flex items-end gap-3">
@@ -299,7 +299,7 @@ function HeaderFields({
 						Name on the resume
 					</label>
 					<input
-						className="w-full rounded-xl border border-border bg-field px-4 py-2 text-ink outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke"
+						className="w-full rounded-xl border border-border bg-field px-4 py-field text-ink outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke"
 						id="full-name"
 						name="full-name"
 						onChange={(event) => onFullNameChange(event.target.value)}
@@ -393,7 +393,7 @@ function CreateResumeForm() {
 							</label>
 							<input
 								aria-invalid={field.state.meta.errors.length > 0}
-								className="w-full rounded-xl border border-border bg-field px-4 py-2 text-ink outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke aria-invalid:border-negative"
+								className="w-full rounded-xl border border-border bg-field px-4 py-field text-ink outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke aria-invalid:border-negative"
 								id={field.name}
 								name={field.name}
 								onChange={(event) => field.handleChange(event.target.value)}

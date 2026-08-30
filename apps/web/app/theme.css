@@ -136,9 +136,9 @@
 	--page: light-dark(var(--color-canvas), #000000);
 	--card: light-dark(#ffffff, var(--color-dune));
 	--card-primary: light-dark(#ffffff, #171717);
-	--card-secondary: light-dark(#f2f2f2, #0f0f0f);
+	--card-secondary: light-dark(#ffffff, #0f0f0f);
 	/* One step down from --card-secondary, for hovering a whole card. */
-	--card-hover: light-dark(#eaeaea, #080808);
+	--card-hover: light-dark(#f5f5f5, #080808);
 	--surface: light-dark(#ffffff, #000000);
 	--field: light-dark(#ffffff, var(--color-whitesmoke-3));
 	--disabled: light-dark(var(--color-dune-3), var(--color-whitesmoke-12));
@@ -342,6 +342,20 @@
 		var(--gradient-card-start),
 		var(--gradient-card-end)
 	);
+}
+
+/* The vertical nudge for a form control's own text.
+ *
+ * League Spartan's line box carries 0.22em of descent against only 0.04em of
+ * space above the cap, so a field's value — and the caret, drawn on that same
+ * line box — sit ~1.5px above the optical centre at 16px. `text-trim` is no
+ * help here: `text-box` has no effect on the text inside an input or textarea.
+ * Shifting a pixel between the two paddings moves text and caret together. The
+ * 1px, rather than the full 1.5px, matches what `text-trim` settles on
+ * elsewhere.
+ */
+@utility py-field {
+	padding-block: calc(var(--spacing) * 2 + 1px) calc(var(--spacing) * 2 - 1px);
 }
 
 /* Trims to cap-height/baseline (unsupported browsers just ignore it), then nudges down ~1px: trimming alone over-centers text with no descender and under-centers text with one (a "g" hangs below the trimmed box), so this splits the difference for League Spartan rather than fully committing to either case. */
