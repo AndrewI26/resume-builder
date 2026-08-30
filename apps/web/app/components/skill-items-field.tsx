@@ -59,7 +59,7 @@ export function SkillItemsField({
 						/>
 						<input
 							aria-label={`Skill ${index + 1}`}
-							className="w-full rounded-xl border border-border bg-field px-4 py-2 text-ink outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke"
+							className="w-full rounded-xl border border-border bg-field px-4 py-field text-ink outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke"
 							onChange={(event) =>
 								onChange(
 									value.map((current) =>
