@@ -15,6 +15,8 @@
 		"Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 
 	--color-whitesmoke: #fcfcfc;
+	/* The warm off-white a page sits on in light mode. */
+	--color-canvas: #f2f1ed;
 	--color-platinum: #e4e2e1;
 	--color-dune: #32302f;
 	--color-grey: #94908d;
@@ -122,15 +124,21 @@
 	--radius-card: 24px;
 
 	--shadow-card: 5px 5px 5px rgb(0 0 0 / 0.15);
+	/* Barely-there lift: enough to separate a white card from the canvas. */
+	--shadow-raised: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.06);
+
+	--radius-table: 16px;
 }
 
 :root {
 	color-scheme: light dark;
 
-	--page: light-dark(var(--color-whitesmoke), #000000);
+	--page: light-dark(var(--color-canvas), #000000);
 	--card: light-dark(#ffffff, var(--color-dune));
 	--card-primary: light-dark(#ffffff, #171717);
 	--card-secondary: light-dark(#f2f2f2, #0f0f0f);
+	/* One step down from --card-secondary, for hovering a whole card. */
+	--card-hover: light-dark(#eaeaea, #080808);
 	--surface: light-dark(#ffffff, #000000);
 	--field: light-dark(#ffffff, var(--color-whitesmoke-3));
 	--disabled: light-dark(var(--color-dune-3), var(--color-whitesmoke-12));
@@ -236,6 +244,11 @@
 	--chip-blue: light-dark(#1c56b0, #80a6ec);
 	--chip-blue-bg: light-dark(#e3ecf8, #294176);
 
+	--table: light-dark(#ffffff, #101010);
+	--table-border: light-dark(#e8e7e3, #232323);
+	--table-header-ink: light-dark(#6f6c68, #8f8d8a);
+	--table-row-hover: light-dark(#faf9f7, #171717);
+
 	--gradient-main-start: light-dark(var(--color-platinum), var(--color-dune));
 	--gradient-main-end: light-dark(var(--color-whitesmoke), #000000);
 	--gradient-card-start: light-dark(
@@ -261,10 +274,15 @@
 	--color-card: var(--card);
 	--color-card-primary: var(--card-primary);
 	--color-card-secondary: var(--card-secondary);
+	--color-card-hover: var(--card-hover);
 	--color-surface: var(--surface);
 	--color-field: var(--field);
 	--color-disabled: var(--disabled);
 	--color-border: var(--border);
+	--color-table: var(--table);
+	--color-table-border: var(--table-border);
+	--color-table-header-ink: var(--table-header-ink);
+	--color-table-row-hover: var(--table-row-hover);
 
 	--color-ink: var(--ink);
 	--color-ink-subtle: var(--ink-subtle);
