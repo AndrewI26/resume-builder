@@ -208,6 +208,11 @@ class TestMe:
         assert body["id"] == str(user.id)
         assert body["email"] == user.email
 
+    def test_reports_how_the_account_signs_in(self, auth, user):
+        response = auth(user).get("/auth/me")
+
+        assert response.json()["sign_in_methods"] == ["password"]
+
     def test_requires_a_cookie(self, client: TestClient):
         assert client.get("/auth/me").status_code == 401
 
@@ -251,3 +256,40 @@ class TestMe:
         db.commit()
 
         assert client.get("/auth/me").status_code == 401
+
+
+class TestUpdateMe:
+    def test_sets_the_name(self, auth, db: Session, user: User):
+        response = auth(user).patch("/auth/me", json={"name": "Ada Lovelace"})
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "Ada Lovelace"
+
+        db.refresh(user)
+        assert user.name == "Ada Lovelace"
+
+    def test_trims_surrounding_whitespace(self, auth, user: User):
+        response = auth(user).patch("/auth/me", json={"name": "  Ada  "})
+
+        assert response.json()["name"] == "Ada"
+
+    @pytest.mark.parametrize("value", ["", "   ", None])
+    def test_an_empty_name_clears_it(self, auth, db: Session, user: User, value):
+        user.name = "Ada"
+        db.commit()
+
+        response = auth(user).patch("/auth/me", json={"name": value})
+
+        assert response.status_code == 200
+        assert response.json()["name"] is None
+
+        db.refresh(user)
+        assert user.name is None
+
+    def test_rejects_a_name_over_the_column_length(self, auth, user: User):
+        response = auth(user).patch("/auth/me", json={"name": "a" * 256})
+
+        assert response.status_code == 422
+
+    def test_requires_a_cookie(self, client: TestClient):
+        assert client.patch("/auth/me", json={"name": "Ada"}).status_code == 401

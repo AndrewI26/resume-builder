@@ -20,6 +20,13 @@ class GoogleCredential(BaseModel):
     credential: str
 
 
+class UserUpdate(BaseModel):
+    """The parts of a profile its owner may change."""
+
+    # an empty submission clears the name rather than storing ""
+    name: str | None = Field(default=None, max_length=255)
+
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -27,3 +34,5 @@ class UserRead(BaseModel):
     email: EmailStr
     name: str | None
     created_at: datetime
+    # "password" and/or an OAuth provider name, e.g. "google"
+    sign_in_methods: list[str]

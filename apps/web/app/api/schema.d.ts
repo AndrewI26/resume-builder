@@ -69,7 +69,8 @@ export interface paths {
 		delete?: never;
 		options?: never;
 		head?: never;
-		patch?: never;
+		/** Update Me */
+		patch: operations["update_me"];
 		trace?: never;
 	};
 	"/education/": {
@@ -164,6 +165,53 @@ export interface paths {
 		put?: never;
 		post?: never;
 		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/auth/google/link/start": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Start linking Google to the signed in account
+		 * @description Send the browser to Google, remembering who is linking.
+		 *
+		 *     The session is read from the cookie rather than through ``CurrentUser`` so
+		 *     that a signed out visitor lands on the login page: this is a top level
+		 *     navigation, and a JSON 401 would render as a raw page.
+		 */
+		get: operations["google_link_start"];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/auth/google/link": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		/**
+		 * Disconnect Google from the signed in account
+		 * @description Remove the Google link, unless it is the only way in.
+		 *
+		 *     A passwordless user who unlinked their sole provider could never sign in
+		 *     again, so that is refused rather than left to support.
+		 */
+		delete: operations["google_unlink"];
 		options?: never;
 		head?: never;
 		patch?: never;
@@ -871,6 +919,16 @@ export interface components {
 			 * Format: date-time
 			 */
 			created_at: string;
+			/** Sign In Methods */
+			sign_in_methods: string[];
+		};
+		/**
+		 * UserUpdate
+		 * @description The parts of a profile its owner may change.
+		 */
+		UserUpdate: {
+			/** Name */
+			name?: string | null;
 		};
 		/** ValidationError */
 		ValidationError: {
@@ -1006,6 +1064,50 @@ export interface operations {
 			};
 		};
 		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["UserRead"];
+				};
+			};
+			/** @description Unauthorized */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ErrorDetail"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	update_me: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["UserUpdate"];
+			};
+		};
 		responses: {
 			/** @description Successful Response */
 			200: {
@@ -1391,6 +1493,95 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content?: never;
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	google_link_start: {
+		parameters: {
+			query?: {
+				next?: string;
+			};
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			307: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	google_unlink: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["UserRead"];
+				};
+			};
+			/** @description Unauthorized */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ErrorDetail"];
+				};
+			};
+			/** @description Not Found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ErrorDetail"];
+				};
+			};
+			/** @description Conflict */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ErrorDetail"];
+				};
 			};
 			/** @description Validation Error */
 			422: {

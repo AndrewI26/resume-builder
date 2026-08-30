@@ -11,6 +11,7 @@ export default [
 	route("signup", "routes/signup.tsx"),
 	layout("auth/protected-layout.tsx", [
 		route("dashboard", "routes/dashboard.tsx"),
+		route("profile", "routes/profile.tsx"),
 		route("resumes", "routes/resumes.tsx"),
 		route("resumes/:resumeId", "routes/resume.$resumeId.tsx"),
 		route("sections", "routes/sections.tsx"),
