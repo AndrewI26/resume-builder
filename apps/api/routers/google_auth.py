@@ -413,7 +413,7 @@ def _get_or_create_user(db: Session, profile: GoogleProfile) -> User:
             if account is None:
                 raise
 
-        return account.user if account is not None else user
+        return account.user
 
     if account.email != profile.email:
         account.email = profile.email

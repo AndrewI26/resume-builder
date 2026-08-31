@@ -21,7 +21,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
     status_code=status.HTTP_201_CREATED,
     responses={status.HTTP_409_CONFLICT: {"model": ErrorDetail}},
 )
-def register(payload: UserCreate, response: Response, db: Db):
+def register(payload: UserCreate, response: Response, db: Db) -> User:
     existing_user = db.query(User).filter(User.email == payload.email).first()
     if existing_user is not None:
         raise HTTPException(
@@ -43,7 +43,7 @@ def register(payload: UserCreate, response: Response, db: Db):
     response_model=UserRead,
     responses={status.HTTP_401_UNAUTHORIZED: {"model": ErrorDetail}},
 )
-def login(payload: UserLogin, response: Response, db: Db):
+def login(payload: UserLogin, response: Response, db: Db) -> User:
     user = db.query(User).filter(User.email == payload.email).first()
     if (
         user is None
@@ -60,7 +60,7 @@ def login(payload: UserLogin, response: Response, db: Db):
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(response: Response):
+def logout(response: Response) -> None:
     response.delete_cookie(ACCESS_TOKEN_COOKIE_NAME)
 
 
@@ -69,7 +69,7 @@ def logout(response: Response):
     response_model=UserRead,
     responses={status.HTTP_401_UNAUTHORIZED: {"model": ErrorDetail}},
 )
-def update_me(payload: UserUpdate, current_user: CurrentUser, db: Db):
+def update_me(payload: UserUpdate, current_user: CurrentUser, db: Db) -> User:
     name = payload.name.strip() if payload.name is not None else ""
     current_user.name = name or None
 
@@ -84,5 +84,5 @@ def update_me(payload: UserUpdate, current_user: CurrentUser, db: Db):
     response_model=UserRead,
     responses={status.HTTP_401_UNAUTHORIZED: {"model": ErrorDetail}},
 )
-def me(current_user: CurrentUser):
+def me(current_user: CurrentUser) -> User:
     return current_user

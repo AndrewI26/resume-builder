@@ -6,6 +6,7 @@ API's side of the conversation: what it sends, and how it classifies what
 comes back.
 """
 
+from typing import Any
 from uuid import uuid4
 
 import httpx
@@ -13,6 +14,7 @@ import pytest
 
 from services import compiler
 from services.compiler import CompilerUnavailable, DocumentRejected
+from settings import get_settings
 
 SOURCE = r"\documentclass{article}\begin{document}Hi\end{document}"
 PDF = b"%PDF-1.5\nfake\n"
@@ -20,7 +22,7 @@ PDF = b"%PDF-1.5\nfake\n"
 
 @pytest.fixture(autouse=True)
 def configured(monkeypatch):
-    settings = compiler.get_settings()
+    settings = get_settings()
     monkeypatch.setattr(settings, "compiler_token", "a-token", raising=False)
     monkeypatch.setattr(settings, "compiler_port", 8100, raising=False)
     # Clearing on the way in is enough: monkeypatch restores the real
@@ -36,7 +38,7 @@ def stub(monkeypatch, handler):
 
 
 def test_sends_the_source_with_the_shared_token(monkeypatch):
-    seen = {}
+    seen: dict[str, Any] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen["auth"] = request.headers["authorization"]
@@ -80,7 +82,7 @@ def test_turns_a_transport_error_into_unavailable(monkeypatch):
 
 def test_refuses_to_run_without_a_token(monkeypatch):
     """PDF export is off rather than attempted when the token is unset."""
-    settings = compiler.get_settings()
+    settings = get_settings()
     monkeypatch.setattr(settings, "compiler_token", None, raising=False)
 
     with pytest.raises(CompilerUnavailable):

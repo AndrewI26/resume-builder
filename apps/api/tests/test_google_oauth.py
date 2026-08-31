@@ -8,6 +8,7 @@ genuinely verified, and only the JWKS lookup is replaced.
 import base64
 import hashlib
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
@@ -66,7 +67,7 @@ class FakeResponse:
         return self._payload
 
 
-def id_token(*, key=SIGNING_KEY, **overrides) -> str:
+def id_token(*, key: Any = SIGNING_KEY, **overrides: Any) -> str:
     claims = {
         "iss": "https://accounts.google.com",
         "aud": CLIENT_ID,
@@ -103,7 +104,7 @@ def google_keys(monkeypatch):
 @pytest.fixture
 def post(monkeypatch):
     """Capture the token-endpoint call and choose what Google answers."""
-    calls: list[dict] = []
+    calls: list[dict[str, Any]] = []
 
     def _post(*, status_code: int = 200, payload=None, raises: Exception | None = None):
         def _fake_post(url, data=None, timeout=None):
@@ -112,7 +113,7 @@ def post(monkeypatch):
                 raise raises
             return FakeResponse(status_code, payload)
 
-        monkeypatch.setattr(google_oauth.httpx, "post", _fake_post)
+        monkeypatch.setattr("services.google_oauth.httpx.post", _fake_post)
         return calls
 
     return _post

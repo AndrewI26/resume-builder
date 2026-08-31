@@ -15,6 +15,7 @@ import base64
 import hashlib
 import secrets
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Any
 from urllib.parse import urlencode
 
@@ -93,7 +94,7 @@ def exchange_code_for_id_token(code: str, code_verifier: str) -> str:
     except httpx.HTTPError as exc:
         raise GoogleOAuthError("Could not reach Google to exchange the code") from exc
 
-    if response.status_code != httpx.codes.OK:
+    if response.status_code != HTTPStatus.OK:
         raise GoogleOAuthError(
             f"Google rejected the authorization code ({response.status_code})"
         )

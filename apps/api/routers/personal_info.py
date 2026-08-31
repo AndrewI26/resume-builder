@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -14,13 +15,15 @@ router = APIRouter(prefix="/personal-info", tags=["Personal info"])
 
 
 @router.get("/", response_model=list[PersonalInfoRead])
-def get_all_personal_info(current_user: CurrentUser, db: Db):
+def get_all_personal_info(current_user: CurrentUser, db: Db) -> Sequence[PersonalInfo]:
     stmt = select(PersonalInfo).where(PersonalInfo.user_id == current_user.id)
     return db.scalars(stmt).all()
 
 
 @router.get("/{personal_info_id}", response_model=PersonalInfoRead)
-def get_personal_info(personal_info_id: UUID, current_user: CurrentUser, db: Db):
+def get_personal_info(
+    personal_info_id: UUID, current_user: CurrentUser, db: Db
+) -> PersonalInfo:
     stmt = select(PersonalInfo).where(
         PersonalInfo.id == personal_info_id,
         PersonalInfo.user_id == current_user.id,
@@ -35,7 +38,7 @@ def get_personal_info(personal_info_id: UUID, current_user: CurrentUser, db: Db)
 @router.post("/", response_model=PersonalInfoRead, status_code=status.HTTP_201_CREATED)
 def create_personal_info(
     personal_info: PersonalInfoCreate, current_user: CurrentUser, db: Db
-):
+) -> PersonalInfoRead:
     stmt = (
         insert(PersonalInfo)
         .values(user_id=current_user.id, **personal_info.model_dump())
@@ -63,7 +66,7 @@ def edit_personal_info(
     personal_info: PersonalInfoCreate,
     current_user: CurrentUser,
     db: Db,
-):
+) -> PersonalInfoRead:
     stmt = (
         update(PersonalInfo)
         .where(
@@ -84,7 +87,9 @@ def edit_personal_info(
 
 
 @router.delete("/{personal_info_id}", response_model=PersonalInfoRead)
-def delete_personal_info(personal_info_id: UUID, current_user: CurrentUser, db: Db):
+def delete_personal_info(
+    personal_info_id: UUID, current_user: CurrentUser, db: Db
+) -> PersonalInfoRead:
     stmt = (
         delete(PersonalInfo)
         .where(

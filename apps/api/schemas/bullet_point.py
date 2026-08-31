@@ -15,7 +15,9 @@ class BulletPoint(BaseModel):
 
     @field_validator("bolded")
     @classmethod
-    def validate_bolded(cls, bolded: list[tuple[int, int]], info: ValidationInfo):
+    def validate_bolded(
+        cls, bolded: list[tuple[int, int]], info: ValidationInfo
+    ) -> list[tuple[int, int]]:
         # a failed `text` validation leaves it absent, and there is nothing to
         # check offsets against
         text = info.data.get("text")

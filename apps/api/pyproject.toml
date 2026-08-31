@@ -36,6 +36,27 @@ mypy_path = "."
 plugins = ["pydantic.mypy"]
 exclude = ["^alembic/"]
 
+strict = true
+warn_unreachable = true
+
+[tool.pydantic-mypy]
+# Without ``init_typed`` the plugin types every model ``__init__`` as
+# ``**data: Any``, which hides passing an ORM row where a schema is expected —
+# ``from_attributes`` makes those coerce at runtime, so nothing else catches it.
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
+
+[[tool.mypy.overrides]]
+# pytest's fixture injection makes every test function and fixture untyped at
+# the definition site. Annotating ~600 of them buys nothing, so only those two
+# checks are relaxed here; the rest of strict still applies to tests.
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_incomplete_defs = false
+
 [tool.ruff]
 extend-exclude = ["alembic"]
 

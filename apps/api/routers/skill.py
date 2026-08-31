@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -24,7 +25,7 @@ def _next_position(db: Session, user_id: UUID) -> int:
 
 
 @router.get("/", response_model=list[SkillRead])
-def get_skills(current_user: CurrentUser, db: Db):
+def get_skills(current_user: CurrentUser, db: Db) -> Sequence[Skill]:
     stmt = (
         select(Skill)
         .where(Skill.user_id == current_user.id)
@@ -34,7 +35,7 @@ def get_skills(current_user: CurrentUser, db: Db):
 
 
 @router.get("/{skill_id}", response_model=SkillRead)
-def get_skill(skill_id: UUID, current_user: CurrentUser, db: Db):
+def get_skill(skill_id: UUID, current_user: CurrentUser, db: Db) -> Skill:
     stmt = select(Skill).where(Skill.id == skill_id, Skill.user_id == current_user.id)
     skill = db.scalars(stmt).one_or_none()
     if skill is None:
@@ -44,7 +45,7 @@ def get_skill(skill_id: UUID, current_user: CurrentUser, db: Db):
 
 
 @router.post("/", response_model=SkillRead, status_code=status.HTTP_201_CREATED)
-def create_skill(skill: SkillCreate, current_user: CurrentUser, db: Db):
+def create_skill(skill: SkillCreate, current_user: CurrentUser, db: Db) -> SkillRead:
     position = (
         _next_position(db, current_user.id)
         if skill.position is None
@@ -78,7 +79,9 @@ def create_skill(skill: SkillCreate, current_user: CurrentUser, db: Db):
 
 
 @router.put("/{skill_id}", response_model=SkillRead)
-def edit_skill(skill_id: UUID, skill: SkillEdit, current_user: CurrentUser, db: Db):
+def edit_skill(
+    skill_id: UUID, skill: SkillEdit, current_user: CurrentUser, db: Db
+) -> SkillRead:
     stmt = (
         update(Skill)
         .where(Skill.id == skill_id, Skill.user_id == current_user.id)
@@ -96,7 +99,7 @@ def edit_skill(skill_id: UUID, skill: SkillEdit, current_user: CurrentUser, db: 
 
 
 @router.delete("/{skill_id}", response_model=SkillRead)
-def delete_skill(skill_id: UUID, current_user: CurrentUser, db: Db):
+def delete_skill(skill_id: UUID, current_user: CurrentUser, db: Db) -> SkillRead:
     stmt = (
         delete(Skill)
         .where(Skill.id == skill_id, Skill.user_id == current_user.id)

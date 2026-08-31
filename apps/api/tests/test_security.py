@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 import jwt
@@ -25,7 +26,7 @@ OTHER_SECRET = "another-signing-key-that-is-long-enough"
 PASSWORD = "correct-horse-battery"
 
 
-def claims(token: str, *, secret: str | None = None) -> dict:
+def claims(token: str, *, secret: str | None = None) -> dict[str, Any]:
     return jwt.decode(
         token,
         secret or settings.secret_key,
@@ -34,7 +35,9 @@ def claims(token: str, *, secret: str | None = None) -> dict:
     )
 
 
-def encode(payload: dict, *, secret: str | None = None, algorithm: str = "") -> str:
+def encode(
+    payload: dict[str, Any], *, secret: str | None = None, algorithm: str = ""
+) -> str:
     return jwt.encode(
         payload,
         secret or settings.secret_key,

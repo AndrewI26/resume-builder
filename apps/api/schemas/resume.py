@@ -76,7 +76,9 @@ class ResumeSectionsReplace(BaseModel):
 
     @field_validator("sections")
     @classmethod
-    def validate_unique(cls, sections: list[ResumeSectionRef]):
+    def validate_unique(
+        cls, sections: list[ResumeSectionRef]
+    ) -> list[ResumeSectionRef]:
         seen = {(ref.section_type, ref.section_id) for ref in sections}
         if len(seen) != len(sections):
             raise ValueError("a section cannot be listed twice")

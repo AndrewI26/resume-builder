@@ -6,6 +6,7 @@ which is what keeps it small enough to trust with a document it did not write.
 """
 
 from functools import lru_cache
+from http import HTTPStatus
 
 import httpx
 
@@ -56,10 +57,10 @@ def compile_to_pdf(source: str) -> bytes:
     except httpx.HTTPError as error:
         raise CompilerUnavailable(str(error)) from error
 
-    if response.status_code == httpx.codes.UNPROCESSABLE_ENTITY:
+    if response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY:
         raise DocumentRejected(response.text)
 
-    if response.status_code != httpx.codes.OK:
+    if response.status_code != HTTPStatus.OK:
         raise CompilerUnavailable(
             f"compiler returned {response.status_code}: {response.text[:200]}"
         )

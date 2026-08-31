@@ -21,7 +21,7 @@ router = APIRouter(prefix="/project", tags=["Project"])
 
 
 @router.get("/", response_model=list[ProjectRead])
-def get_projects(current_user: CurrentUser, db: Db):
+def get_projects(current_user: CurrentUser, db: Db) -> list[ProjectRead]:
     stmt = select(Project).where(Project.user_id == current_user.id)
     projects = db.scalars(stmt).all()
 
@@ -32,7 +32,7 @@ def get_projects(current_user: CurrentUser, db: Db):
 
 
 @router.get("/{project_id}", response_model=ProjectRead)
-def get_project(project_id: UUID, current_user: CurrentUser, db: Db):
+def get_project(project_id: UUID, current_user: CurrentUser, db: Db) -> ProjectRead:
     stmt = select(Project).where(
         Project.id == project_id, Project.user_id == current_user.id
     )
@@ -44,7 +44,9 @@ def get_project(project_id: UUID, current_user: CurrentUser, db: Db):
 
 
 @router.post("/", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
-def create_project(project: ProjectCreate, current_user: CurrentUser, db: Db):
+def create_project(
+    project: ProjectCreate, current_user: CurrentUser, db: Db
+) -> ProjectRead:
     bullet_ids = insert_bullet_points(db, project.bullet_points)
 
     stmt = (
@@ -77,7 +79,7 @@ def create_project(project: ProjectCreate, current_user: CurrentUser, db: Db):
 @router.put("/{project_id}", response_model=ProjectRead)
 def edit_project(
     project_id: UUID, project: ProjectCreate, current_user: CurrentUser, db: Db
-):
+) -> ProjectRead:
     stale_bullet_ids = list(
         db.scalars(
             select(Project.bullet_points).where(
@@ -114,7 +116,7 @@ def edit_project(
 
 
 @router.delete("/{project_id}", response_model=ProjectRead)
-def delete_project(project_id: UUID, current_user: CurrentUser, db: Db):
+def delete_project(project_id: UUID, current_user: CurrentUser, db: Db) -> ProjectRead:
     stmt = (
         delete(Project)
         .where(Project.id == project_id, Project.user_id == current_user.id)

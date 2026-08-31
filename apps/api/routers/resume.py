@@ -55,7 +55,9 @@ SECTION_MODELS: dict[ResumeSectionType, Any] = {
 }
 
 
-def _check_personal_info(db: Session, personal_info_id: UUID | None, user_id: UUID):
+def _check_personal_info(
+    db: Session, personal_info_id: UUID | None, user_id: UUID
+) -> None:
     """Refuse to point a resume at contact details belonging to someone else."""
     if personal_info_id is None:
         return
@@ -72,7 +74,7 @@ def _check_personal_info(db: Session, personal_info_id: UUID | None, user_id: UU
 
 def _check_sections_owned(
     db: Session, ids_by_type: dict[ResumeSectionType, list[UUID]], user_id: UUID
-):
+) -> None:
     """Every referenced section must exist and belong to the caller.
 
     Without this a caller could staple another user's experience onto their own
@@ -98,7 +100,7 @@ def _ordered(rows: Sequence[Any], ids: Sequence[UUID]) -> list[Any]:
 
 
 @router.get("/", response_model=list[ResumeRead])
-def get_resumes(current_user: CurrentUser, db: Db):
+def get_resumes(current_user: CurrentUser, db: Db) -> Sequence[Resume]:
     stmt = (
         select(Resume)
         .where(Resume.user_id == current_user.id)
@@ -108,12 +110,14 @@ def get_resumes(current_user: CurrentUser, db: Db):
 
 
 @router.get("/{resume_id}", response_model=ResumeRead)
-def get_resume(current_user_resume: CurrentUserResume):
+def get_resume(current_user_resume: CurrentUserResume) -> Resume:
     return current_user_resume
 
 
 @router.post("/", response_model=ResumeRead, status_code=status.HTTP_201_CREATED)
-def create_resume(resume: ResumeCreate, current_user: CurrentUser, db: Db):
+def create_resume(
+    resume: ResumeCreate, current_user: CurrentUser, db: Db
+) -> ResumeRead:
     _check_personal_info(db, resume.personal_info_id, current_user.id)
 
     # validate before inserting anything: a bad reference should leave no
@@ -145,7 +149,9 @@ def create_resume(resume: ResumeCreate, current_user: CurrentUser, db: Db):
 
 
 @router.put("/{resume_id}", response_model=ResumeRead)
-def edit_resume(resume_id: UUID, resume: ResumeEdit, current_user: CurrentUser, db: Db):
+def edit_resume(
+    resume_id: UUID, resume: ResumeEdit, current_user: CurrentUser, db: Db
+) -> ResumeRead:
     _check_personal_info(db, resume.personal_info_id, current_user.id)
 
     stmt = (
@@ -171,7 +177,7 @@ def edit_resume(resume_id: UUID, resume: ResumeEdit, current_user: CurrentUser, 
 
 
 @router.delete("/{resume_id}", response_model=ResumeRead)
-def delete_resume(resume_id: UUID, current_user: CurrentUser, db: Db):
+def delete_resume(resume_id: UUID, current_user: CurrentUser, db: Db) -> ResumeRead:
     stmt = (
         delete(Resume)
         .where(Resume.id == resume_id, Resume.user_id == current_user.id)
@@ -188,7 +194,7 @@ def delete_resume(resume_id: UUID, current_user: CurrentUser, db: Db):
 
 
 @router.get("/{resume_id}/sections", response_model=ResumeSectionsReplace)
-def get_resume_sections(section_ids: ResumeSectionIds):
+def get_resume_sections(section_ids: ResumeSectionIds) -> ResumeSectionsReplace:
     return ResumeSectionsReplace(
         sections=[
             ResumeSectionRef(section_type=section_type, section_id=section_id)
@@ -250,7 +256,7 @@ def replace_resume_sections(
     current_user: CurrentUser,
     db: Db,
     current_user_resume: CurrentUserResume,
-):
+) -> ResumeSectionsReplace:
     """Replace the whole membership list.
 
     Position is taken from the index within each type's run, so the request
@@ -272,7 +278,7 @@ def get_resume_document(
     db: Db,
     current_user_resume: CurrentUserResume,
     ids_by_type: ResumeSectionIds,
-):
+) -> ResumeDocument:
     """The whole resume, resolved and ordered, in the shape a renderer wants.
 
     Bullet points are hydrated, blocks arrive in ``section_order`` and empty
@@ -350,7 +356,7 @@ def _pdf_filename(title: str) -> str:
 def compile_resume_pdf(
     payload: ResumeCompileRequest,
     current_user_resume: CurrentUserResume,
-):
+) -> Response:
     """Typeset LaTeX into a PDF.
 
     The resume is what authorizes the call and what names the file; the source
