@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from deps.auth import CurrentUser
 from deps.db import Db
+from deps.resume import CurrentUserResume, ResumeSectionIds
 from enums import ResumeSectionType
 from models.education import Education
 from models.expirence import Expirence
@@ -18,6 +19,7 @@ from models.resume import Resume
 from models.resume_section import ResumeSection
 from models.skill import Skill
 from schemas.education import EducationRead
+from schemas.personal_info import PersonalInfoRead
 from schemas.resume import (
     EducationBlock,
     ExperienceBlock,
@@ -41,7 +43,7 @@ from services.compiler import (
 )
 from services.sections import expirence_to_read, project_to_read
 
-router = APIRouter(prefix="/resumes", tags=["resumes"])
+router = APIRouter(prefix="/resumes", tags=["Resume"])
 
 # the table each section type's ids live in. ``resume_sections`` is polymorphic
 # by hand, so every lookup starts here.
@@ -51,15 +53,6 @@ SECTION_MODELS: dict[ResumeSectionType, Any] = {
     ResumeSectionType.PROJECT: Project,
     ResumeSectionType.SKILL: Skill,
 }
-
-
-def _owned_resume(db: Session, resume_id: UUID, user_id: UUID) -> Resume:
-    stmt = select(Resume).where(Resume.id == resume_id, Resume.user_id == user_id)
-    resume = db.scalars(stmt).one_or_none()
-    if resume is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-
-    return resume
 
 
 def _check_personal_info(db: Session, personal_info_id: UUID | None, user_id: UUID):
@@ -115,8 +108,8 @@ def get_resumes(current_user: CurrentUser, db: Db):
 
 
 @router.get("/{resume_id}", response_model=ResumeRead)
-def get_resume(resume_id: UUID, current_user: CurrentUser, db: Db):
-    return _owned_resume(db, resume_id, current_user.id)
+def get_resume(current_user_resume: CurrentUserResume):
+    return current_user_resume
 
 
 @router.post("/", response_model=ResumeRead, status_code=status.HTTP_201_CREATED)
@@ -195,18 +188,12 @@ def delete_resume(resume_id: UUID, current_user: CurrentUser, db: Db):
 
 
 @router.get("/{resume_id}/sections", response_model=ResumeSectionsReplace)
-def get_resume_sections(resume_id: UUID, current_user: CurrentUser, db: Db):
-    _owned_resume(db, resume_id, current_user.id)
-
-    stmt = (
-        select(ResumeSection)
-        .where(ResumeSection.resume_id == resume_id)
-        .order_by(ResumeSection.section_type, ResumeSection.position)
-    )
+def get_resume_sections(section_ids: ResumeSectionIds):
     return ResumeSectionsReplace(
         sections=[
-            {"section_type": row.section_type, "section_id": row.section_id}
-            for row in db.scalars(stmt)
+            ResumeSectionRef(section_type=section_type, section_id=section_id)
+            for section_type in sorted(section_ids, key=lambda t: t.value)
+            for section_id in section_ids[section_type]
         ]
     )
 
@@ -259,21 +246,20 @@ def _write_sections(
 
 @router.put("/{resume_id}/sections", response_model=ResumeSectionsReplace)
 def replace_resume_sections(
-    resume_id: UUID,
     payload: ResumeSectionsReplace,
     current_user: CurrentUser,
     db: Db,
+    current_user_resume: CurrentUserResume,
 ):
     """Replace the whole membership list.
 
     Position is taken from the index within each type's run, so the request
     body states the intended order outright rather than patching it.
     """
-    resume = _owned_resume(db, resume_id, current_user.id)
 
     ids_by_type = _grouped(payload.sections)
     _check_sections_owned(db, ids_by_type, current_user.id)
-    _write_sections(db, resume, ids_by_type)
+    _write_sections(db, current_user_resume, ids_by_type)
 
     db.commit()
 
@@ -281,33 +267,30 @@ def replace_resume_sections(
 
 
 @router.get("/{resume_id}/document", response_model=ResumeDocument)
-def get_resume_document(resume_id: UUID, current_user: CurrentUser, db: Db):
+def get_resume_document(
+    current_user: CurrentUser,
+    db: Db,
+    current_user_resume: CurrentUserResume,
+    ids_by_type: ResumeSectionIds,
+):
     """The whole resume, resolved and ordered, in the shape a renderer wants.
 
     Bullet points are hydrated, blocks arrive in ``section_order`` and empty
     ones are dropped, so a client can walk this straight into a template.
     """
-    resume = _owned_resume(db, resume_id, current_user.id)
 
-    personal_info = None
-    if resume.personal_info_id is not None:
+    personal_info: PersonalInfoRead | None = None
+    if current_user_resume.personal_info_id is not None:
         personal_info_stmt = select(PersonalInfo).where(
-            PersonalInfo.id == resume.personal_info_id,
+            PersonalInfo.id == current_user_resume.personal_info_id,
             PersonalInfo.user_id == current_user.id,
         )
-        personal_info = db.scalars(personal_info_stmt).one_or_none()
-
-    membership_stmt = (
-        select(ResumeSection)
-        .where(ResumeSection.resume_id == resume_id)
-        .order_by(ResumeSection.position, ResumeSection.created_at)
-    )
-    ids_by_type: dict[ResumeSectionType, list[UUID]] = defaultdict(list)
-    for row in db.scalars(membership_stmt):
-        ids_by_type[row.section_type].append(row.section_id)
+        row = db.scalars(personal_info_stmt).one_or_none()
+        if row is not None:
+            personal_info = PersonalInfoRead.model_validate(row)
 
     blocks: list[SectionBlock] = []
-    for value in resume.section_order:
+    for value in current_user_resume.section_order:
         ids = ids_by_type.get(ResumeSectionType(value), [])
         if not ids:
             continue
@@ -319,10 +302,10 @@ def get_resume_document(resume_id: UUID, current_user: CurrentUser, db: Db):
             blocks.append(block)
 
     return ResumeDocument(
-        id=resume.id,
-        title=resume.title,
-        template=resume.template,
-        full_name=resume.full_name or current_user.name or "",
+        id=current_user_resume.id,
+        title=current_user_resume.title,
+        template=current_user_resume.template,
+        full_name=current_user_resume.full_name or current_user.name or "",
         personal_info=personal_info,
         sections=blocks,
     )
@@ -365,10 +348,8 @@ def _pdf_filename(title: str) -> str:
     responses={200: {"content": {"application/pdf": {}}}},
 )
 def compile_resume_pdf(
-    resume_id: UUID,
     payload: ResumeCompileRequest,
-    current_user: CurrentUser,
-    db: Db,
+    current_user_resume: CurrentUserResume,
 ):
     """Typeset LaTeX into a PDF.
 
@@ -377,7 +358,6 @@ def compile_resume_pdf(
     endpoint. Nothing here can confirm it is the same document, so the compile
     service treats every request as hostile and is sandboxed for it.
     """
-    resume = _owned_resume(db, resume_id, current_user.id)
 
     try:
         pdf = compile_to_pdf(payload.source)
@@ -398,7 +378,7 @@ def compile_resume_pdf(
         media_type="application/pdf",
         headers={
             "Content-Disposition": (
-                f'attachment; filename="{_pdf_filename(resume.title)}"'
+                f'attachment; filename="{_pdf_filename(current_user_resume.title)}"'
             )
         },
     )
