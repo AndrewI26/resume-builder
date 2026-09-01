@@ -1,3 +1,9 @@
 .venv
 __pycache__
+**/__pycache__
+*.pyc
 .python-version
+tests
+.pytest_cache
+.mypy_cache
+.ruff_cache

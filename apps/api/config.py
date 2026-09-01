@@ -12,6 +12,11 @@ class Settings(BaseSettings):
 
     node_env: Literal["development", "production"]
 
+    # ``localhost`` is right when the app runs on the host against the compose
+    # database; the containers override these with the service names.
+    postgres_host: str = "localhost"
+    redis_host: str = "localhost"
+
     postgres_user: str
     postgres_password: str
     postgres_db: str
@@ -40,7 +45,7 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@localhost:{self.postgres_port}/{self.postgres_db}"
+        return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
 
     @property
     def google_oauth_configured(self) -> bool:

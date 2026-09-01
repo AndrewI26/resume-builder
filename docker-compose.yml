@@ -1,0 +1,137 @@
+# The whole application: database, queue, API, PDF worker and web app.
+#
+#   docker compose up --build
+#
+# Every setting has a default, so a fresh clone needs no .env. Drop one at the
+# repo root (see .env.example) to override — Google sign-in, for instance,
+# needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.
+#
+# Ports below are the ones published on the host; inside the network the
+# services always talk on their standard ports.
+
+name: resume-builder
+
+x-api-env: &api-env
+  NODE_ENV: ${NODE_ENV:-development}
+
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_USER: ${POSTGRES_USER:-resume_user}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-resume_pass}
+  POSTGRES_DB: ${POSTGRES_DB:-resume_db}
+
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-resume_redis_pass}
+
+  SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me-bae47daada0725cf6676db3931c5fbb}
+
+  # Browser-facing, so these are the published host ports: they end up in CORS
+  # and in the Google OAuth redirect URI.
+  BACKEND_PORT: ${BACKEND_PORT:-8000}
+  FRONTEND_PORT: ${FRONTEND_PORT:-5173}
+
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-resume_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-resume_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-resume_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-resume_user} -d ${POSTGRES_DB:-resume_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-resume_redis_pass}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-resume_redis_pass}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Runs the migrations once and exits, so the API and the worker never race
+  # each other to apply them.
+  migrate:
+    build: &api-build
+      context: ./apps/api
+    image: resume-builder-api
+    environment: *api-env
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build: *api-build
+    image: resume-builder-api
+    restart: unless-stopped
+    environment: *api-env
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://localhost:8000/openapi.json")
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Typesetting is CPU-bound and bursty, so it runs off the request path — same
+  # image as the API, because it needs the same models and the same pdfTeX.
+  worker:
+    build: *api-build
+    image: resume-builder-api
+    restart: unless-stopped
+    environment: *api-env
+    command: ["python", "worker.py"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Baked into the bundle: the SPA calls the API from the browser, so
+        # this is the API's address on the host, not on the compose network.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}}
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -190,6 +190,34 @@ apps/
 
 ## Getting started
 
+### Everything in one command
+
+```bash
+docker compose up --build
+```
+
+That builds and starts the whole application — Postgres, Redis, the API, the
+PDF worker and the web app — and applies the migrations on the way up. The app
+is at http://localhost:5173 and the API at http://localhost:8000; create an
+account from the sign-in page.
+
+No `.env` is needed: `docker-compose.yml` defaults every setting. Drop one at
+the repo root (see `.env.example`) to change ports or the database credentials,
+or to fill in `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` for Google sign-in.
+Database and queue data live in named volumes and survive `docker compose
+down`; `down -v` is what throws them away.
+
+The image the API and worker share carries a TinyTeX install with just the
+packages the resume template loads, so `pdflatex` is there without a TeX Live
+install on your machine.
+
+> This runs the app, not a development loop: the web bundle is built into the
+> image and the API runs without `--reload`, so code changes need a rebuild.
+> For day-to-day work use the setup below, which runs only the backing services
+> in Docker.
+
+### Running it for development
+
 From a fresh clone:
 
 ```bash

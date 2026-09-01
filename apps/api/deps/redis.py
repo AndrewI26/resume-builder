@@ -13,13 +13,13 @@ settings = get_settings()
 # compose starts redis with ``--requirepass``, so the password is not optional
 # against the real instance; ``or None`` keeps a passwordless local one working.
 redis_pool = redis.ConnectionPool(
-    host="localhost",
+    host=settings.redis_host,
     port=settings.redis_port,
     password=settings.redis_password or None,
     db=0,
 )
 redis_async_pool = aioredis.ConnectionPool(
-    host="localhost",
+    host=settings.redis_host,
     port=settings.redis_port,
     password=settings.redis_password or None,
     db=0,
