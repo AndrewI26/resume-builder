@@ -17,32 +17,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Turns LaTeX into PDFs, and nothing else.
-  #
-  # It runs documents it did not write, so it gets a read-only root, no
-  # capabilities, and memory and pid ceilings — a runaway \loop should take out
-  # one container, not the host. The port is bound to 127.0.0.1 rather than
-  # published on every interface, because the API reaches it from the host and
-  # nothing else should reach it at all.
-  compiler:
-    build:
-      context: ./apps/compiler
-    restart: unless-stopped
-    environment:
-      COMPILER_TOKEN: ${COMPILER_TOKEN}
-      COMPILE_CONCURRENCY: ${COMPILE_CONCURRENCY:-2}
-    ports:
-      - "127.0.0.1:${COMPILER_PORT:-8100}:8100"
-    read_only: true
-    tmpfs:
-      - /tmp:size=256m,mode=1777
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    mem_limit: 1g
-    pids_limit: 128
-
   cloudbeaver:
     image: dbeaver/cloudbeaver:26.1
     restart: unless-stopped

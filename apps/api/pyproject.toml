@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "alembic>=1.19.1",
+    "arq>=0.25.0",
     "bcrypt>=5.0.0",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
@@ -14,6 +15,7 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "pydantic[email]>=2.13.4",
     "pyjwt[crypto]>=2.13.0",
+    "redis>=8.1.0",
     "ruff>=0.16.2",
     "sqlalchemy>=2.0.51",
     "uvicorn>=0.52.1",
@@ -29,6 +31,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+# anyio ships a pytest plugin and is already a transitive dependency; the
+# ``anyio_backend`` fixture in conftest pins it to asyncio.
+markers = ["anyio"]
 
 [tool.mypy]
 explicit_package_bases = true

@@ -12,7 +12,9 @@
  */
 
 import { splitBullet } from "~/lib/resume/bullet";
-import { typeset } from "~/lib/resume/typography";
+// shared with the editing panel: if the two disagreed, the panel would name a
+// heading one thing and the page another
+import { SECTION_TITLES } from "~/lib/resume/document";
 import type {
 	BulletPoint,
 	Education,
@@ -23,13 +25,7 @@ import type {
 	SectionBlock,
 	Skill,
 } from "~/lib/resume/types";
-
-const SECTION_TITLES = {
-	education: "Education",
-	experience: "Experience",
-	project: "Projects",
-	skill: "Skills",
-} as const;
+import { typeset } from "~/lib/resume/typography";
 
 function Bullets({ items }: { items: BulletPoint[] }) {
 	if (items.length === 0) return null;
@@ -69,9 +65,10 @@ function Subheading({
 }) {
 	return (
 		<div className="resume-subheading">
-			<div className="resume-row">
+			<div className="resume-row resume-row-title">
 				<span className="font-bold">{typeset(title)}</span>
-				<span className="font-bold">{typeset(right)}</span>
+				{/* \textbf{\small #2}: the date drops to \small, the title does not */}
+				<span className="resume-subheading font-bold">{typeset(right)}</span>
 			</div>
 			<div className="resume-row italic">
 				<span>{typeset(subtitle)}</span>
@@ -85,21 +82,53 @@ function ContactEntry({ icon, label }: { icon: string; label: string }) {
 	return (
 		<span className="resume-contact-entry">
 			<Icon name={icon} />
-			<span className="underline">{typeset(label)}</span>
+			<span className="resume-underline">{typeset(label)}</span>
 		</span>
 	);
 }
 
-/** Generic glyphs standing in for the template's fontawesome icons. */
+/**
+ * Stand-ins for the template's fontawesome glyphs.
+ *
+ * `\faLinkedin` and `\faGithub` are brand marks, not generic link glyphs, so
+ * drawing them as chain links makes the contact line read wrong at a glance.
+ * These are simplified outlines at the same optical weight as the text.
+ */
 function Icon({ name }: { name: string }) {
+	if (name === "linkedin") {
+		return (
+			<svg
+				className="resume-icon"
+				viewBox="0 0 24 24"
+				fill="currentColor"
+				aria-hidden="true"
+			>
+				<path d="M20.4 0H3.6A3.6 3.6 0 0 0 0 3.6v16.8A3.6 3.6 0 0 0 3.6 24h16.8a3.6 3.6 0 0 0 3.6-3.6V3.6A3.6 3.6 0 0 0 20.4 0zM7.3 20H4.1V9.3h3.2V20zM5.7 7.9a1.9 1.9 0 1 1 0-3.8 1.9 1.9 0 0 1 0 3.8zM20 20h-3.2v-5.2c0-1.2 0-2.8-1.7-2.8s-2 1.4-2 2.8V20H9.9V9.3H13v1.5h.1a3.4 3.4 0 0 1 3-1.7c3.3 0 3.9 2.2 3.9 5V20z" />
+			</svg>
+		);
+	}
+
+	if (name === "github") {
+		return (
+			<svg
+				className="resume-icon"
+				viewBox="0 0 24 24"
+				fill="currentColor"
+				aria-hidden="true"
+			>
+				<path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C16.9 4.9 18 5.2 18 5.2c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z" />
+			</svg>
+		);
+	}
+
 	const paths: Record<string, string> = {
 		envelope: "M2 4h12v8H2z M2 4l6 4 6-4",
-		link: "M6 10a3 3 0 0 0 4 0l3-3a3 3 0 0 0-4-4L8 4 M10 6a3 3 0 0 0-4 0L3 9a3 3 0 0 0 4 4l1-1",
 		globe:
 			"M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1z M1 8h14 M8 1c4 4 4 10 0 14 M8 1C4 5 4 11 8 15",
 		phone:
 			"M3 2h3l1 4-2 1a9 9 0 0 0 4 4l1-2 4 1v3a1 1 0 0 1-1 1A12 12 0 0 1 2 3a1 1 0 0 1 1-1z",
 		pin: "M8 1a4 4 0 0 0-4 4c0 3 4 9 4 9s4-6 4-9a4 4 0 0 0-4-4z M8 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z",
+		link: "M6 10a3 3 0 0 0 4 0l3-3a3 3 0 0 0-4-4L8 4 M10 6a3 3 0 0 0-4 0L3 9a3 3 0 0 0 4 4l1-1",
 	};
 
 	return (
@@ -108,7 +137,7 @@ function Icon({ name }: { name: string }) {
 			className="resume-icon"
 			fill="none"
 			stroke="currentColor"
-			strokeWidth="1.2"
+			strokeWidth="1.4"
 			aria-hidden="true"
 		>
 			<path d={paths[name] ?? paths.globe} />
@@ -141,13 +170,13 @@ function Header({
 	if (info?.email) entries.push({ icon: "envelope", label: info.email });
 	if (info?.linkedin) {
 		entries.push({
-			icon: "link",
+			icon: "linkedin",
 			label: linkLabel(info.linkedin, displayUrl(info.linkedin.url)),
 		});
 	}
 	if (info?.github) {
 		entries.push({
-			icon: "link",
+			icon: "github",
 			label: linkLabel(info.github, displayUrl(info.github.url)),
 		});
 	}
@@ -268,7 +297,11 @@ export function ResumePreview({ document }: { document: ResumeDocument }) {
 			{document.sections
 				.filter((block) => block.items.length > 0)
 				.map((block) => (
-					<section key={block.type} className="resume-section">
+					<section
+						className="resume-section"
+						data-type={block.type}
+						key={block.type}
+					>
 						<h2 className="resume-section-title">
 							{SECTION_TITLES[block.type]}
 						</h2>

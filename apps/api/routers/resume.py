@@ -1,6 +1,5 @@
 from collections import defaultdict
 from collections.abc import Sequence
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -9,50 +8,25 @@ from sqlalchemy.orm import Session
 
 from deps.auth import CurrentUser
 from deps.db import Db
+from deps.redis import RedisQueue
 from deps.resume import CurrentUserResume, ResumeSectionIds
 from enums import ResumeSectionType
-from models.education import Education
-from models.expirence import Expirence
 from models.personal_info import PersonalInfo
-from models.project import Project
 from models.resume import Resume
 from models.resume_section import ResumeSection
-from models.skill import Skill
-from schemas.education import EducationRead
-from schemas.personal_info import PersonalInfoRead
 from schemas.resume import (
-    EducationBlock,
-    ExperienceBlock,
-    ProjectBlock,
-    ResumeCompileRequest,
     ResumeCreate,
     ResumeDocument,
     ResumeEdit,
     ResumeRead,
     ResumeSectionRef,
     ResumeSectionsReplace,
-    SectionBlock,
-    SkillBlock,
 )
-from schemas.skill import SkillRead
-from services.bullet_points import bullet_points_by_id
-from services.compiler import (
-    CompilerUnavailable,
-    DocumentRejected,
-    compile_to_pdf,
-)
-from services.sections import expirence_to_read, project_to_read
+from services.compiler import CompilerUnavailable, DocumentRejected
+from services.compiler_worker import ResumeMissing
+from services.resume_document import SECTION_MODELS, build_resume_document
 
 router = APIRouter(prefix="/resumes", tags=["Resume"])
-
-# the table each section type's ids live in. ``resume_sections`` is polymorphic
-# by hand, so every lookup starts here.
-SECTION_MODELS: dict[ResumeSectionType, Any] = {
-    ResumeSectionType.EDUCATION: Education,
-    ResumeSectionType.EXPERIENCE: Expirence,
-    ResumeSectionType.PROJECT: Project,
-    ResumeSectionType.SKILL: Skill,
-}
 
 
 def _check_personal_info(
@@ -91,12 +65,6 @@ def _check_sections_owned(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"No such {section_type.value}: {', '.join(missing)}",
             )
-
-
-def _ordered(rows: Sequence[Any], ids: Sequence[UUID]) -> list[Any]:
-    """Put fetched rows back into the order their ids were listed in."""
-    by_id = {row.id: row for row in rows}
-    return [by_id[section_id] for section_id in ids if section_id in by_id]
 
 
 @router.get("/", response_model=list[ResumeRead])
@@ -274,70 +242,21 @@ def replace_resume_sections(
 
 @router.get("/{resume_id}/document", response_model=ResumeDocument)
 def get_resume_document(
-    current_user: CurrentUser,
     db: Db,
     current_user_resume: CurrentUserResume,
     ids_by_type: ResumeSectionIds,
 ) -> ResumeDocument:
     """The whole resume, resolved and ordered, in the shape a renderer wants.
 
-    Bullet points are hydrated, blocks arrive in ``section_order`` and empty
-    ones are dropped, so a client can walk this straight into a template.
+    The PDF worker builds the same structure from the same rows, so this stays
+    a view onto shared logic rather than a second implementation of it.
     """
-
-    personal_info: PersonalInfoRead | None = None
-    if current_user_resume.personal_info_id is not None:
-        personal_info_stmt = select(PersonalInfo).where(
-            PersonalInfo.id == current_user_resume.personal_info_id,
-            PersonalInfo.user_id == current_user.id,
-        )
-        row = db.scalars(personal_info_stmt).one_or_none()
-        if row is not None:
-            personal_info = PersonalInfoRead.model_validate(row)
-
-    blocks: list[SectionBlock] = []
-    for value in current_user_resume.section_order:
-        ids = ids_by_type.get(ResumeSectionType(value), [])
-        if not ids:
-            continue
-
-        block = _build_block(db, current_user.id, ResumeSectionType(value), ids)
-        # a section whose rows were all deleted leaves stale ids behind; an
-        # empty block would render as a bare heading, so drop it
-        if block.items:
-            blocks.append(block)
-
-    return ResumeDocument(
-        id=current_user_resume.id,
-        title=current_user_resume.title,
-        template=current_user_resume.template,
-        full_name=current_user_resume.full_name or current_user.name or "",
-        personal_info=personal_info,
-        sections=blocks,
-    )
+    return build_resume_document(db, current_user_resume, ids_by_type)
 
 
-def _build_block(
-    db: Session, user_id: UUID, section_type: ResumeSectionType, ids: list[UUID]
-) -> SectionBlock:
-    model = SECTION_MODELS[section_type]
-    stmt = select(model).where(model.id.in_(set(ids)), model.user_id == user_id)
-    rows = _ordered(db.scalars(stmt).all(), ids)
-
-    if section_type is ResumeSectionType.EDUCATION:
-        return EducationBlock(items=[EducationRead.model_validate(row) for row in rows])
-
-    if section_type is ResumeSectionType.SKILL:
-        return SkillBlock(items=[SkillRead.model_validate(row) for row in rows])
-
-    by_id = bullet_points_by_id(
-        db, [bullet_id for row in rows for bullet_id in row.bullet_points]
-    )
-
-    if section_type is ResumeSectionType.EXPERIENCE:
-        return ExperienceBlock(items=[expirence_to_read(row, by_id) for row in rows])
-
-    return ProjectBlock(items=[project_to_read(row, by_id) for row in rows])
+# how long the request waits on the worker. Comfortably past the engine's own
+# ceiling, so a slow compile still lands rather than racing this.
+_RESULT_TIMEOUT = 45.0
 
 
 def _pdf_filename(title: str) -> str:
@@ -353,20 +272,41 @@ def _pdf_filename(title: str) -> str:
     response_class=Response,
     responses={200: {"content": {"application/pdf": {}}}},
 )
-def compile_resume_pdf(
-    payload: ResumeCompileRequest,
+async def compile_resume_pdf(
     current_user_resume: CurrentUserResume,
+    redis_queue: RedisQueue,
 ) -> Response:
-    """Typeset LaTeX into a PDF.
+    """Typeset the resume and hand back the PDF.
 
-    The resume is what authorizes the call and what names the file; the source
-    itself comes from the caller, generated in their browser from the document
-    endpoint. Nothing here can confirm it is the same document, so the compile
-    service treats every request as hostile and is sandboxed for it.
+    The source is generated in the worker from this resume's own rows, so
+    nothing about the document crosses the wire on the way in and there is no
+    caller-supplied LaTeX to distrust.
+
+    The wait here is deliberate: the client asked for a file and gets one in
+    the same response. The queue is not hiding the work, it is bounding how
+    much of it runs at once — a compile is CPU-bound, and unbounded exports
+    would take the host down rather than merely queue.
     """
+    # a job per request rather than one per resume: results are cached for a
+    # short while, and re-using an id would serve a stale PDF to someone who
+    # edited and exported again
+    job = await redis_queue.enqueue_job("generate_resume_pdf", current_user_resume.id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="PDF export is unavailable",
+        )
 
     try:
-        pdf = compile_to_pdf(payload.source)
+        pdf: bytes = await job.result(timeout=_RESULT_TIMEOUT)
+    except TimeoutError:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="PDF export took too long",
+        ) from None
+    except ResumeMissing:
+        # deleted between enqueueing and running
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) from None
     except DocumentRejected as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

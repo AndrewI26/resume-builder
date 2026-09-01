@@ -1,180 +1,74 @@
-"""The client for the LaTeX compile service, against a stubbed transport.
+"""The compile step, now that it runs the engine in-process.
 
-The sandboxing that makes it safe to hand the service a document someone else
-wrote lives in the service itself and is tested there, in Go. These cover the
-API's side of the conversation: what it sends, and how it classifies what
-comes back.
+These exercise the real pdflatex when one is installed and skip otherwise, so
+the sandbox flags are checked against the engine that actually enforces them
+rather than against a stub that cannot.
 """
 
-from typing import Any
-from uuid import uuid4
+import shutil
 
-import httpx
 import pytest
 
-from services import compiler
-from services.compiler import CompilerUnavailable, DocumentRejected
-from settings import get_settings
+from services.compiler import (
+    CompilerUnavailable,
+    DocumentRejected,
+    compile_to_pdf,
+)
 
-SOURCE = r"\documentclass{article}\begin{document}Hi\end{document}"
-PDF = b"%PDF-1.5\nfake\n"
+MINIMAL = r"\documentclass{article}\begin{document}Hi\end{document}"
 
-
-@pytest.fixture(autouse=True)
-def configured(monkeypatch):
-    settings = get_settings()
-    monkeypatch.setattr(settings, "compiler_token", "a-token", raising=False)
-    monkeypatch.setattr(settings, "compiler_port", 8100, raising=False)
-    # Clearing on the way in is enough: monkeypatch restores the real
-    # `_client` after this fixture tears down, so clearing on the way out
-    # would run against a stub and find no cache to clear.
-    compiler._client.cache_clear()
-    yield
+needs_latex = pytest.mark.skipif(
+    shutil.which("pdflatex") is None, reason="pdflatex is not installed"
+)
 
 
-def stub(monkeypatch, handler):
-    transport = httpx.MockTransport(handler)
-    monkeypatch.setattr(compiler, "_client", lambda: httpx.Client(transport=transport))
+@pytest.mark.anyio
+class TestCompile:
+    @needs_latex
+    async def test_returns_a_pdf(self):
+        pdf = await compile_to_pdf(MINIMAL)
 
+        assert pdf.startswith(b"%PDF-")
 
-def test_sends_the_source_with_the_shared_token(monkeypatch):
-    seen: dict[str, Any] = {}
+    @needs_latex
+    async def test_a_bad_document_carries_the_engine_log(self):
+        with pytest.raises(DocumentRejected) as caught:
+            await compile_to_pdf(r"\documentclass{article}\begin{document}\nope")
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen["auth"] = request.headers["authorization"]
-        seen["body"] = request.content
-        seen["url"] = str(request.url)
-        return httpx.Response(200, content=PDF)
+        assert "Undefined control sequence" in caught.value.log
 
-    stub(monkeypatch, handler)
+    @needs_latex
+    async def test_refuses_to_read_a_file_outside_its_directory(self):
+        """``openin_any=p`` is what stops a document exfiltrating the host."""
+        with pytest.raises(DocumentRejected) as caught:
+            await compile_to_pdf(
+                r"\documentclass{article}\begin{document}"
+                r"\input{/etc/passwd}\end{document}"
+            )
 
-    assert compiler.compile_to_pdf(SOURCE) == PDF
-    assert seen["auth"] == "Bearer a-token"
-    assert seen["body"] == SOURCE.encode()
-    assert seen["url"] == "http://localhost:8100/compile"
+        assert "root" not in caught.value.log
 
-
-def test_turns_a_422_into_a_rejected_document(monkeypatch):
-    stub(monkeypatch, lambda request: httpx.Response(422, text="! Missing $ inserted."))
-
-    with pytest.raises(DocumentRejected) as caught:
-        compiler.compile_to_pdf(SOURCE)
-
-    assert "Missing $" in caught.value.log
-
-
-def test_turns_a_503_into_unavailable(monkeypatch):
-    stub(monkeypatch, lambda request: httpx.Response(503, text="busy"))
-
-    with pytest.raises(CompilerUnavailable):
-        compiler.compile_to_pdf(SOURCE)
-
-
-def test_turns_a_transport_error_into_unavailable(monkeypatch):
-    def handler(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("connection refused")
-
-    stub(monkeypatch, handler)
-
-    with pytest.raises(CompilerUnavailable):
-        compiler.compile_to_pdf(SOURCE)
-
-
-def test_refuses_to_run_without_a_token(monkeypatch):
-    """PDF export is off rather than attempted when the token is unset."""
-    settings = get_settings()
-    monkeypatch.setattr(settings, "compiler_token", None, raising=False)
-
-    with pytest.raises(CompilerUnavailable):
-        compiler.compile_to_pdf(SOURCE)
-
-
-class TestPdfEndpoint:
-    """The endpoint's own behaviour: authorization, and how it translates the
-    compile service's answers. The sandboxing is tested in Go."""
-
-    @pytest.fixture
-    def compiles(self, monkeypatch):
-        calls = []
-
-        def _compile(source: str) -> bytes:
-            calls.append(source)
-            return PDF
-
-        monkeypatch.setattr("routers.resume.compile_to_pdf", _compile)
-        return calls
-
-    def test_requires_a_session_cookie(self, client):
-        response = client.post(f"/resumes/{uuid4()}/pdf", json={"source": SOURCE})
-
-        assert response.status_code == 401
-
-    def test_hides_another_users_resume(
-        self, auth, user, other_user, make_resume, compiles
-    ):
-        resume = make_resume(other_user)
-
-        response = auth(user).post(f"/resumes/{resume.id}/pdf", json={"source": SOURCE})
-
-        assert response.status_code == 404
-        assert compiles == [], "compiled a resume the caller does not own"
-
-    def test_returns_the_pdf(self, auth, user, make_resume, compiles):
-        resume = make_resume(user)
-
-        response = auth(user).post(f"/resumes/{resume.id}/pdf", json={"source": SOURCE})
-
-        assert response.status_code == 200
-        assert response.content == PDF
-        assert response.headers["content-type"] == "application/pdf"
-        assert compiles == [SOURCE]
-
-    def test_names_the_download_after_the_resume(
-        self, auth, user, make_resume, compiles
-    ):
-        resume = make_resume(user, title="Backend Engineer")
-
-        response = auth(user).post(f"/resumes/{resume.id}/pdf", json={"source": SOURCE})
-
-        assert (
-            'filename="backend-engineer.pdf"'
-            in (response.headers["content-disposition"])
+    @needs_latex
+    async def test_gives_up_on_a_document_that_loops(self):
+        source = (
+            r"\documentclass{article}\begin{document}"
+            r"\newcount\n\loop\advance\n by 1\relax\ifnum\n>0\repeat"
+            r"\end{document}"
         )
 
-    def test_rejects_an_oversized_source(self, auth, user, make_resume, compiles):
-        resume = make_resume(user)
+        with pytest.raises(DocumentRejected) as caught:
+            await compile_to_pdf(source, timeout=2.0)
 
-        response = auth(user).post(
-            f"/resumes/{resume.id}/pdf", json={"source": "x" * 1_000_001}
-        )
+        assert "timed out" in caught.value.log
 
-        assert response.status_code == 422
-        assert compiles == []
+    async def test_reports_a_missing_engine_rather_than_crashing(self):
+        with pytest.raises(CompilerUnavailable):
+            await compile_to_pdf(MINIMAL, engine="not-a-real-engine")
 
-    def test_a_bad_document_comes_back_with_the_log(
-        self, auth, user, make_resume, monkeypatch
-    ):
-        def _compile(source: str) -> bytes:
-            raise DocumentRejected("! Undefined control sequence.")
+    @needs_latex
+    async def test_leaves_nothing_behind(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TMPDIR", str(tmp_path))
 
-        monkeypatch.setattr("routers.resume.compile_to_pdf", _compile)
-        resume = make_resume(user)
+        await compile_to_pdf(MINIMAL)
 
-        response = auth(user).post(f"/resumes/{resume.id}/pdf", json={"source": SOURCE})
-
-        assert response.status_code == 422
-        assert "Undefined control sequence" in response.json()["detail"]
-
-    def test_an_unreachable_compiler_does_not_leak_its_message(
-        self, auth, user, make_resume, monkeypatch
-    ):
-        def _compile(source: str) -> bytes:
-            raise CompilerUnavailable("connection refused to compiler:8100")
-
-        monkeypatch.setattr("routers.resume.compile_to_pdf", _compile)
-        resume = make_resume(user)
-
-        response = auth(user).post(f"/resumes/{resume.id}/pdf", json={"source": SOURCE})
-
-        assert response.status_code == 503
-        assert "connection refused" not in response.text
+        assert list(tmp_path.iterdir()) == []

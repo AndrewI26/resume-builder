@@ -6,7 +6,7 @@ import bcrypt
 import jwt
 from fastapi import Response
 
-from settings import get_settings
+from config import get_settings
 
 settings = get_settings()
 

@@ -6,6 +6,7 @@ import jwt
 import pytest
 from fastapi import Response
 
+from config import get_settings
 from services.security import (
     ACCESS_TOKEN_COOKIE_NAME,
     OAUTH_STATE_COOKIE_NAME,
@@ -18,7 +19,6 @@ from services.security import (
     set_access_token_cookie,
     verify_password,
 )
-from settings import get_settings
 
 settings = get_settings()
 
@@ -197,7 +197,7 @@ class TestSetAccessTokenCookie:
         assert f"max-age={max_age}" in cookie_header(response).lower()
 
     def test_the_secure_flag_follows_the_setting(self, monkeypatch):
-        monkeypatch.setattr(settings, "cookie_secure", True)
+        monkeypatch.setattr(settings, "node_env", "production")
         response = Response()
 
         set_access_token_cookie(response, uuid4())
@@ -205,7 +205,7 @@ class TestSetAccessTokenCookie:
         assert "secure" in cookie_header(response).lower()
 
     def test_stays_insecure_for_local_http(self, monkeypatch):
-        monkeypatch.setattr(settings, "cookie_secure", False)
+        monkeypatch.setattr(settings, "node_env", "development")
         response = Response()
 
         set_access_token_cookie(response, uuid4())

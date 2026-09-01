@@ -8,11 +8,11 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 import deps.db
+from config import get_settings
 from deps.auth import get_current_user
 from deps.db import get_db
 from models.user import User
 from services.security import create_access_token
-from settings import get_settings
 
 settings = get_settings()
 

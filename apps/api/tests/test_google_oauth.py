@@ -16,6 +16,7 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+from config import get_settings
 from services import google_oauth
 from services.google_oauth import (
     AUTHORIZATION_ENDPOINT,
@@ -28,7 +29,6 @@ from services.google_oauth import (
     generate_pkce_pair,
     verify_id_token,
 )
-from settings import get_settings
 
 settings = get_settings()
 

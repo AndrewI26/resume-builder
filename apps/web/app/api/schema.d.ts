@@ -407,8 +407,8 @@ export interface paths {
 		 * Get Resume Document
 		 * @description The whole resume, resolved and ordered, in the shape a renderer wants.
 		 *
-		 *     Bullet points are hydrated, blocks arrive in ``section_order`` and empty
-		 *     ones are dropped, so a client can walk this straight into a template.
+		 *     The PDF worker builds the same structure from the same rows, so this stays
+		 *     a view onto shared logic rather than a second implementation of it.
 		 */
 		get: operations["get_resume_document"];
 		put?: never;
@@ -430,12 +430,16 @@ export interface paths {
 		put?: never;
 		/**
 		 * Compile Resume Pdf
-		 * @description Typeset LaTeX into a PDF.
+		 * @description Typeset the resume and hand back the PDF.
 		 *
-		 *     The resume is what authorizes the call and what names the file; the source
-		 *     itself comes from the caller, generated in their browser from the document
-		 *     endpoint. Nothing here can confirm it is the same document, so the compile
-		 *     service treats every request as hostile and is sandboxed for it.
+		 *     The source is generated in the worker from this resume's own rows, so
+		 *     nothing about the document crosses the wire on the way in and there is no
+		 *     caller-supplied LaTeX to distrust.
+		 *
+		 *     The wait here is deliberate: the client asked for a file and gets one in
+		 *     the same response. The queue is not hiding the work, it is bounding how
+		 *     much of it runs at once — a compile is CPU-bound, and unbounded exports
+		 *     would take the host down rather than merely queue.
 		 */
 		post: operations["compile_resume_pdf"];
 		delete?: never;
@@ -680,20 +684,6 @@ export interface components {
 			 * Format: uuid
 			 */
 			id: string;
-		};
-		/**
-		 * ResumeCompileRequest
-		 * @description The LaTeX to typeset.
-		 *
-		 *     The source is generated on the client from the document endpoint's own
-		 *     output, but nothing here can prove that — a caller could send anything.
-		 *     The compile service is sandboxed on the assumption that they will: it
-		 *     refuses shell escape, cannot read or write outside its scratch directory,
-		 *     and is killed if it runs long.
-		 */
-		ResumeCompileRequest: {
-			/** Source */
-			source: string;
 		};
 		/**
 		 * ResumeCreate
@@ -2290,11 +2280,7 @@ export interface operations {
 				access_token?: string | null;
 			};
 		};
-		requestBody: {
-			content: {
-				"application/json": components["schemas"]["ResumeCompileRequest"];
-			};
-		};
+		requestBody?: never;
 		responses: {
 			/** @description Successful Response */
 			200: {

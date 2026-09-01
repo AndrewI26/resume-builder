@@ -8,9 +8,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from config import get_settings
 from models.user import User
 from services.security import ACCESS_TOKEN_COOKIE_NAME, verify_password
-from settings import get_settings
 
 PASSWORD = "correct-horse-battery"
 

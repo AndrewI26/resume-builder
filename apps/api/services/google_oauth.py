@@ -22,7 +22,7 @@ from urllib.parse import urlencode
 import httpx
 import jwt
 
-from settings import get_settings
+from config import get_settings
 
 settings = get_settings()
 

@@ -391,3 +391,9 @@ def attach_section(db: Session):
         return row
 
     return _attach_section
+
+
+@pytest.fixture(scope="session")
+def anyio_backend() -> str:
+    """Run ``async def`` tests on asyncio only, not the trio leg as well."""
+    return "asyncio"

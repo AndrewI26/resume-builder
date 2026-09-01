@@ -19,6 +19,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 import models.oauth_account  # noqa: F401  (maps User.oauth_accounts)
+from config import get_settings
 from enums import DEFAULT_SECTION_ORDER, ResumeSectionType
 from models.bullet_points import BulletPoint
 from models.education import Education
@@ -30,7 +31,6 @@ from models.resume_section import ResumeSection
 from models.skill import Skill
 from models.user import User
 from services.security import hash_password
-from settings import get_settings
 
 SEED_EMAIL = "demo@example.com"
 SEED_PASSWORD = "demo1234"

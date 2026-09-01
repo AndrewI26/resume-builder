@@ -10,7 +10,7 @@
     "db.py",
     "enums.py",
     "main.py",
-    "settings.py"
+    "config.py"
   ],
   "exclude": [
     "**/__pycache__",
@@ -32,6 +32,6 @@
     "db.py",
     "enums.py",
     "main.py",
-    "settings.py"
+    "config.py"
   ]
 }
