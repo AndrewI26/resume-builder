@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from config import get_settings
 from models.oauth_account import GOOGLE_PROVIDER, OAuthAccount
 from models.user import User
 from routers import google_auth
@@ -25,7 +26,6 @@ from services.security import (
     decode_access_token,
     decode_oauth_state_token,
 )
-from settings import get_settings
 
 settings = get_settings()
 

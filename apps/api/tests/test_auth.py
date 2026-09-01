@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID, uuid4
 
 import jwt
@@ -7,9 +8,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from config import get_settings
 from models.user import User
 from services.security import ACCESS_TOKEN_COOKIE_NAME, verify_password
-from settings import get_settings
 
 PASSWORD = "correct-horse-battery"
 
@@ -26,7 +27,7 @@ def user_count(db: Session) -> int:
     return db.scalar(select(func.count()).select_from(User)) or 0
 
 
-def token(payload: dict, *, secret: str | None = None) -> str:
+def token(payload: dict[str, Any], *, secret: str | None = None) -> str:
     return jwt.encode(
         payload, secret or settings.secret_key, algorithm=settings.jwt_algorithm
     )

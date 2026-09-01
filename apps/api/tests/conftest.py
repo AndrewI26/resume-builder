@@ -12,7 +12,7 @@ endpoints' own ``commit()`` calls are contained and tests stay independent.
 import os
 from collections.abc import Generator, Iterator, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
 import pytest
@@ -129,8 +129,12 @@ def client(db: Session) -> Iterator[TestClient]:
         app.dependency_overrides.clear()
 
 
+class MakeUser(Protocol):
+    def __call__(self, email: str = ..., password: str | None = ...) -> User: ...
+
+
 @pytest.fixture
-def make_user(db: Session):
+def make_user(db: Session) -> MakeUser:
     """Insert a user directly.
 
     ``password`` is only hashed when a test actually needs to log in, since
@@ -153,12 +157,12 @@ def make_user(db: Session):
 
 
 @pytest.fixture
-def user(make_user) -> User:
+def user(make_user: MakeUser) -> User:
     return make_user()
 
 
 @pytest.fixture
-def other_user(make_user) -> User:
+def other_user(make_user: MakeUser) -> User:
     return make_user("other@example.com")
 
 
@@ -265,9 +269,9 @@ def make_personal_info(db: Session):
         email: str | None = "me@example.com",
         phone_number: str | None = "+1 555 0100",
         address: str | None = "Boston, MA",
-        github: dict | None = _UNSET,
-        linkedin: dict | None = _UNSET,
-        portfolio: dict | None = _UNSET,
+        github: dict[str, Any] | None = _UNSET,
+        linkedin: dict[str, Any] | None = _UNSET,
+        portfolio: dict[str, Any] | None = _UNSET,
     ) -> PersonalInfo:
         if github is _UNSET:
             github = {"url": "https://github.com/example", "label": "GitHub"}
@@ -387,3 +391,9 @@ def attach_section(db: Session):
         return row
 
     return _attach_section
+
+
+@pytest.fixture(scope="session")
+def anyio_backend() -> str:
+    """Run ``async def`` tests on asyncio only, not the trio leg as well."""
+    return "asyncio"

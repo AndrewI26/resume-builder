@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -15,13 +16,13 @@ router = APIRouter(prefix="/education", tags=["Education"])
 
 
 @router.get("/", response_model=list[EducationRead])
-def get_educations(current_user: CurrentUser, db: Db):
+def get_educations(current_user: CurrentUser, db: Db) -> Sequence[Education]:
     stmt = select(Education).where(Education.user_id == current_user.id)
     return db.scalars(stmt).all()
 
 
 @router.get("/{education_id}", response_model=EducationRead)
-def get_education(education_id: UUID, current_user: CurrentUser, db: Db):
+def get_education(education_id: UUID, current_user: CurrentUser, db: Db) -> Education:
     stmt = select(Education).where(
         Education.id == education_id, Education.user_id == current_user.id
     )
@@ -33,7 +34,9 @@ def get_education(education_id: UUID, current_user: CurrentUser, db: Db):
 
 
 @router.post("/", response_model=EducationRead, status_code=status.HTTP_201_CREATED)
-def create_education(education: EducationCreate, current_user: CurrentUser, db: Db):
+def create_education(
+    education: EducationCreate, current_user: CurrentUser, db: Db
+) -> EducationRead:
     stmt = (
         insert(Education)
         .values(
@@ -64,7 +67,7 @@ def create_education(education: EducationCreate, current_user: CurrentUser, db: 
 @router.put("/{education_id}", response_model=EducationRead)
 def edit_education(
     education_id: UUID, education: EducationCreate, current_user: CurrentUser, db: Db
-):
+) -> EducationRead:
     stmt = (
         update(Education)
         .where(Education.id == education_id, Education.user_id == current_user.id)
@@ -82,7 +85,9 @@ def edit_education(
 
 
 @router.delete("/{education_id}", response_model=EducationRead)
-def delete_education(education_id: UUID, current_user: CurrentUser, db: Db):
+def delete_education(
+    education_id: UUID, current_user: CurrentUser, db: Db
+) -> EducationRead:
     stmt = (
         delete(Education)
         .where(Education.id == education_id, Education.user_id == current_user.id)

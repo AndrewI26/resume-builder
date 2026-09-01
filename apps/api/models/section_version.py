@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey, Integer, UniqueConstraint
@@ -51,4 +52,4 @@ class SectionVersion(Base):
         nullable=False,
     )
 
-    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)

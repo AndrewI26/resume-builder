@@ -15,7 +15,7 @@ def record_version(
     section_id: UUID,
     operation: OperationType,
     snapshot: dict[str, Any],
-):
+) -> None:
     stmt = select(func.max(SectionVersion.version)).where(
         SectionVersion.section_id == section_id
     )

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
+from config import get_settings
 from routers.auth import router as auth_router
 from routers.education import router as education_router
 from routers.experience import router as experience_router
@@ -10,7 +11,6 @@ from routers.personal_info import router as personal_info_router
 from routers.project import router as project_router
 from routers.resume import router as resume_router
 from routers.skill import router as skill_router
-from settings import get_settings
 
 settings = get_settings()
 

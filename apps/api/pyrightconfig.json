@@ -1,0 +1,37 @@
+{
+  "typeCheckingMode": "standard",
+  "include": [
+    "deps",
+    "models",
+    "routers",
+    "schemas",
+    "services",
+    "tests",
+    "db.py",
+    "enums.py",
+    "main.py",
+    "config.py"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "alembic"
+  ],
+  "extraPaths": [
+    "."
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.14",
+  "reportMissingTypeStubs": false,
+  "strict": [
+    "deps",
+    "models",
+    "routers",
+    "schemas",
+    "services",
+    "db.py",
+    "enums.py",
+    "main.py",
+    "config.py"
+  ]
+}

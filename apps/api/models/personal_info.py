@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -27,6 +28,6 @@ class PersonalInfo(Base):
     address: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Each holds a `{"url": ..., "label": ...}` object; see schemas.link.Link.
-    github: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    linkedin: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    portfolio: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    github: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    linkedin: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    portfolio: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)

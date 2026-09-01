@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 import jwt
@@ -7,18 +8,18 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 import deps.db
+from config import get_settings
 from deps.auth import get_current_user
 from deps.db import get_db
 from models.user import User
 from services.security import create_access_token
-from settings import get_settings
 
 settings = get_settings()
 
 OTHER_SECRET = "another-signing-key-that-is-long-enough"
 
 
-def token(payload: dict, *, secret: str | None = None) -> str:
+def token(payload: dict[str, Any], *, secret: str | None = None) -> str:
     return jwt.encode(
         payload, secret or settings.secret_key, algorithm=settings.jwt_algorithm
     )

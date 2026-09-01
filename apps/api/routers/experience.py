@@ -21,7 +21,7 @@ router = APIRouter(prefix="/experience", tags=["Experience"])
 
 
 @router.get("/", response_model=list[ExpirenceRead])
-def get_experiences(current_user: CurrentUser, db: Db):
+def get_experiences(current_user: CurrentUser, db: Db) -> list[ExpirenceRead]:
     stmt = select(Expirence).where(Expirence.user_id == current_user.id)
     expirences = db.scalars(stmt).all()
 
@@ -32,7 +32,9 @@ def get_experiences(current_user: CurrentUser, db: Db):
 
 
 @router.get("/{expirence_id}", response_model=ExpirenceRead)
-def get_experience(expirence_id: UUID, current_user: CurrentUser, db: Db):
+def get_experience(
+    expirence_id: UUID, current_user: CurrentUser, db: Db
+) -> ExpirenceRead:
     stmt = select(Expirence).where(
         Expirence.id == expirence_id, Expirence.user_id == current_user.id
     )
@@ -44,7 +46,9 @@ def get_experience(expirence_id: UUID, current_user: CurrentUser, db: Db):
 
 
 @router.post("/", response_model=ExpirenceRead, status_code=status.HTTP_201_CREATED)
-def create_experience(expirence: ExpirenceCreate, current_user: CurrentUser, db: Db):
+def create_experience(
+    expirence: ExpirenceCreate, current_user: CurrentUser, db: Db
+) -> ExpirenceRead:
     bullet_ids = insert_bullet_points(db, expirence.bullet_points)
 
     stmt = (
@@ -78,7 +82,7 @@ def create_experience(expirence: ExpirenceCreate, current_user: CurrentUser, db:
 @router.put("/{expirence_id}", response_model=ExpirenceRead)
 def edit_expirence(
     expirence_id: UUID, expirence: ExpirenceCreate, current_user: CurrentUser, db: Db
-):
+) -> ExpirenceRead:
     stale_bullet_ids = list(
         db.scalars(
             select(Expirence.bullet_points).where(
@@ -116,7 +120,9 @@ def edit_expirence(
 
 
 @router.delete("/{expirence_id}", response_model=ExpirenceRead)
-def delete_expirence(expirence_id: UUID, current_user: CurrentUser, db: Db):
+def delete_expirence(
+    expirence_id: UUID, current_user: CurrentUser, db: Db
+) -> ExpirenceRead:
     stmt = (
         delete(Expirence)
         .where(Expirence.id == expirence_id, Expirence.user_id == current_user.id)

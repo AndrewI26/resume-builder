@@ -27,6 +27,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from config import get_settings
 from deps.auth import CurrentUser
 from deps.db import Db
 from models.oauth_account import GOOGLE_PROVIDER, OAuthAccount
@@ -50,7 +51,6 @@ from services.security import (
     decode_oauth_state_token,
     set_access_token_cookie,
 )
-from settings import get_settings
 
 router = APIRouter(prefix="/auth/google", tags=["Auth"])
 
@@ -413,7 +413,7 @@ def _get_or_create_user(db: Session, profile: GoogleProfile) -> User:
             if account is None:
                 raise
 
-        return account.user if account is not None else user
+        return account.user
 
     if account.email != profile.email:
         account.email = profile.email

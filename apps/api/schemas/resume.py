@@ -76,7 +76,9 @@ class ResumeSectionsReplace(BaseModel):
 
     @field_validator("sections")
     @classmethod
-    def validate_unique(cls, sections: list[ResumeSectionRef]):
+    def validate_unique(
+        cls, sections: list[ResumeSectionRef]
+    ) -> list[ResumeSectionRef]:
         seen = {(ref.section_type, ref.section_id) for ref in sections}
         if len(seen) != len(sections):
             raise ValueError("a section cannot be listed twice")
@@ -129,16 +131,3 @@ class ResumeDocument(BaseModel):
 
     personal_info: PersonalInfoRead | None = None
     sections: list[SectionBlock]
-
-
-class ResumeCompileRequest(BaseModel):
-    """The LaTeX to typeset.
-
-    The source is generated on the client from the document endpoint's own
-    output, but nothing here can prove that — a caller could send anything.
-    The compile service is sandboxed on the assumption that they will: it
-    refuses shell escape, cannot read or write outside its scratch directory,
-    and is killed if it runs long.
-    """
-
-    source: str = Field(max_length=1_000_000)
