@@ -37,3 +37,6 @@ node_modules/
 
 # Database backups (bun run db:backup)
 /backups/
+
+# Screenshot capture staging (see apps/web/scripts/capture-shots.mjs)
+apps/web/.shots-staging/

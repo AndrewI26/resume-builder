@@ -1,6 +1,7 @@
 import { $api } from "@api/api";
 import type { components } from "@api/schema.d.ts";
 import { Button } from "@components/button";
+import { ConfirmDialog } from "@components/confirm-dialog";
 import { Dropdown, type DropdownOption } from "@components/dropdown";
 import { Table } from "@components/table";
 import { useForm } from "@tanstack/react-form";
@@ -13,12 +14,12 @@ export function meta() {
 }
 
 type Resume = components["schemas"]["ResumeRead"];
-type CreateResumeError =
+type ResumeError =
 	| components["schemas"]["ErrorDetail"]
 	| components["schemas"]["HTTPValidationError"];
 
-function createResumeErrorMessage(error: unknown): string {
-	const detail = (error as CreateResumeError | undefined)?.detail;
+function resumeErrorMessage(error: unknown, fallback: string): string {
+	const detail = (error as ResumeError | undefined)?.detail;
 
 	if (typeof detail === "string") {
 		return detail;
@@ -28,7 +29,7 @@ function createResumeErrorMessage(error: unknown): string {
 		return detail.map((item) => item.msg).join(" ");
 	}
 
-	return "Could not create the resume. Please try again.";
+	return fallback;
 }
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
@@ -363,7 +364,12 @@ function CreateResumeForm() {
 				setFullName("");
 				setPersonalInfoId("");
 			} catch (error) {
-				setFormError(createResumeErrorMessage(error));
+				setFormError(
+					resumeErrorMessage(
+						error,
+						"Could not create the resume. Please try again.",
+					),
+				);
 			}
 		},
 	});
@@ -465,7 +471,44 @@ function CreateResumeForm() {
 }
 
 export default function Resumes() {
+	const queryClient = useQueryClient();
 	const { data, isPending, isError } = $api.useQuery("get", "/resumes/");
+	// the whole row rather than an id: the dialog names the resume, and the
+	// list has already been invalidated by the time the request comes back
+	const [pendingDelete, setPendingDelete] = useState<Resume | null>(null);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
+	const { mutateAsync: deleteResume, isPending: isDeleting } = $api.useMutation(
+		"delete",
+		"/resumes/{resume_id}",
+	);
+
+	const closeDeleteDialog = () => {
+		setPendingDelete(null);
+		setDeleteError(null);
+	};
+
+	const confirmDelete = async () => {
+		if (pendingDelete === null) {
+			return;
+		}
+
+		setDeleteError(null);
+		try {
+			await deleteResume({
+				params: { path: { resume_id: pendingDelete.id } },
+			});
+			await queryClient.invalidateQueries({
+				queryKey: $api.queryOptions("get", "/resumes/").queryKey,
+			});
+			closeDeleteDialog();
+		} catch (error) {
+			// the dialog stays open on failure, so the message has somewhere
+			// to land and the action can be retried
+			setDeleteError(
+				resumeErrorMessage(error, "Could not delete the resume. Try again."),
+			);
+		}
+	};
 
 	return (
 		<main className="mx-auto w-full max-w-3xl px-4 py-16">
@@ -525,11 +568,60 @@ export default function Resumes() {
 						render: (resume: Resume) =>
 							dateFormatter.format(new Date(resume.updated_at)),
 					},
+					{
+						key: "actions",
+						header: "",
+						align: "right",
+						render: (resume: Resume) => (
+							<button
+								aria-label={`Delete ${resume.title}`}
+								className="text-ink-subtle transition-colors hover:text-negative"
+								onClick={() => {
+									setDeleteError(null);
+									setPendingDelete(resume);
+								}}
+								type="button"
+							>
+								<svg
+									aria-hidden="true"
+									fill="none"
+									height="16"
+									stroke="currentColor"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth="2"
+									viewBox="0 0 24 24"
+									width="16"
+								>
+									<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" />
+									<path d="M10 11v6M14 11v6" />
+								</svg>
+							</button>
+						),
+					},
 				]}
 				data={data ?? []}
 				emptyMessage={isPending ? "Loading…" : "No resumes yet."}
 				getRowKey={(resume) => resume.id}
 				className="mt-8"
+			/>
+
+			<ConfirmDialog
+				description={
+					<>
+						<strong className="text-ink">
+							{pendingDelete?.title ?? "This resume"}
+						</strong>{" "}
+						will be deleted permanently. The education, experience, project and
+						skill entries it uses stay in your sections.
+					</>
+				}
+				error={deleteError}
+				onCancel={closeDeleteDialog}
+				onConfirm={confirmDelete}
+				open={pendingDelete !== null}
+				pending={isDeleting}
+				title="Delete this resume?"
 			/>
 		</main>
 	);
