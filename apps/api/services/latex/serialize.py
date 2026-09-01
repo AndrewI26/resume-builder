@@ -160,9 +160,9 @@ def _render_projects(items: list[ProjectRead]) -> str:
     entries: list[str] = []
     for index, project in enumerate(items):
         name = rf"\textbf{{{escape_latex(project.name)}}}"
-        # a linked project gets a chain glyph in front of the name
+        # a linked project gets a chain glyph after the name
         title = (
-            f"{_href(project.link, chr(92) + 'faLink')} {name}"
+            f"{name} {_href(project.link, chr(92) + 'faLink')}"
             if project.link
             else name
         )
