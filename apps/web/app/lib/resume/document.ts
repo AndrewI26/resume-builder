@@ -254,15 +254,23 @@ export function swap(
 	};
 }
 
+/**
+ * A value that changes exactly when the rendered resume would.
+ *
+ * Serves two questions that look alike and are not: whether there are unsaved
+ * edits, and whether a compiled PDF still matches the panel. The PDF is built
+ * server-side from saved rows, so it goes stale the moment the draft moves on
+ * — even once the draft and the server agree again.
+ */
+export function signature(draft: ResumeDraft): string {
+	const sections = draft.sections
+		.map((ref) => `${ref.section_type}:${ref.section_id}`)
+		.join(",");
+
+	return `${draft.order.join(",")}|${sections}`;
+}
+
 /** True when the draft differs from what was loaded. */
 export function isDirty(draft: ResumeDraft, saved: ResumeDraft): boolean {
-	return (
-		draft.order.join() !== saved.order.join() ||
-		draft.sections
-			.map((ref) => `${ref.section_type}:${ref.section_id}`)
-			.join() !==
-			saved.sections
-				.map((ref) => `${ref.section_type}:${ref.section_id}`)
-				.join()
-	);
+	return signature(draft) !== signature(saved);
 }

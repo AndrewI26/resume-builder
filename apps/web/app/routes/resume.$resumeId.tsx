@@ -1,21 +1,25 @@
 import { $api } from "@api/api";
 import { Button } from "@components/button";
+import { PdfPreview, type PdfState } from "@components/pdf-preview";
 import { ResumeEditor } from "@components/resume-editor";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
-import { ResumePreview } from "~/components/resume-preview";
 import { serializeToTex } from "~/lib/latex/serialize";
 import {
 	buildDocument,
 	type Catalogs,
 	isDirty,
 	type ResumeDraft,
+	signature,
 } from "~/lib/resume/document";
 import type { SectionType } from "~/lib/resume/types";
 
 const API_BASE_URL =
 	import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
+/** How long editing has to pause before the draft is written back. */
+const AUTOSAVE_DELAY_MS = 800;
 
 function save(filename: string, contents: Blob | string, type?: string) {
 	const blob =
@@ -71,16 +75,58 @@ function useCatalogs(): { catalogs: Catalogs; isPending: boolean } {
 	);
 }
 
-/** What the preview is and is not, stated where someone will read it. */
-function PreviewNotice() {
+const TIME = new Intl.DateTimeFormat(undefined, {
+	hour: "numeric",
+	minute: "2-digit",
+});
+
+/**
+ * What the autosave is doing, where the save button used to be.
+ *
+ * Editing writes itself back, so the only thing worth saying is whether the
+ * work is safe. A failure is the one state that needs a control, because it is
+ * the one the page cannot resolve on its own.
+ */
+function SaveStatus({
+	dirty,
+	failed,
+	onRetry,
+	savedAt,
+	saving,
+}: {
+	dirty: boolean;
+	failed: boolean;
+	onRetry: () => void;
+	savedAt: Date | null;
+	saving: boolean;
+}) {
+	if (failed) {
+		return (
+			<span className="flex items-center gap-2 text-negative text-sm">
+				Could not save
+				<button
+					className="underline underline-offset-2 hover:opacity-70"
+					onClick={onRetry}
+					type="button"
+				>
+					Retry
+				</button>
+			</span>
+		);
+	}
+
+	if (saving) {
+		return <span className="text-ink-subtle text-sm">Saving…</span>;
+	}
+
+	if (dirty) {
+		return <span className="text-ink-subtle text-sm">Unsaved changes</span>;
+	}
+
 	return (
-		<p className="mx-auto mb-3 max-w-[8.5in] rounded-xl bg-field px-4 py-2 text-ink-subtle text-sm">
-			<span className="font-semibold text-ink">Approximate preview.</span> This
-			is an HTML stand-in drawn to the template's own measurements. TeX breaks
-			lines, hyphenates and kerns differently, so the compiled PDF will differ
-			in places — usually where a line wraps. Download the PDF for the real
-			thing.
-		</p>
+		<span className="text-ink-subtle text-sm">
+			{savedAt ? `Saved ${TIME.format(savedAt)}` : "All changes saved"}
+		</span>
 	);
 }
 
@@ -120,8 +166,25 @@ export default function ResumeRoute() {
 
 	const [draft, setDraft] = useState<ResumeDraft | null>(null);
 	const [saving, setSaving] = useState(false);
+	const [savedAt, setSavedAt] = useState<Date | null>(null);
+	const [saveError, setSaveError] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [compiling, setCompiling] = useState(false);
+	const [pdf, setPdf] = useState<PdfState | null>(null);
+
+	// object URLs outlive the render that made them, so the previous one has to
+	// be released by hand or every recompile leaks a copy of the file
+	const objectUrl = useRef<string | null>(null);
+	// the draft an in-flight save is carrying, so a pending write is not re-sent
+	const submitted = useRef<string | null>(null);
+	useEffect(
+		() => () => {
+			if (objectUrl.current) {
+				URL.revokeObjectURL(objectUrl.current);
+			}
+		},
+		[],
+	);
 
 	// adopt the server's state once, and again whenever a save re-fetches it
 	useEffect(() => {
@@ -129,6 +192,45 @@ export default function ResumeRoute() {
 			setDraft(saved);
 		}
 	}, [saved, draft]);
+
+	/**
+	 * Save on a pause in editing.
+	 *
+	 * Dragging a row fires a change per frame, so the wait is what turns a
+	 * gesture into one request instead of dozens. `submitted` remembers which
+	 * draft is already on its way: the server's copy does not catch up until
+	 * the refetch lands, so without it the same save would fire again in the
+	 * gap and the two would race.
+	 */
+	const persistRef = useRef(persist);
+	persistRef.current = persist;
+
+	useEffect(() => {
+		if (draft === null || saved === null || !isDirty(draft, saved)) {
+			return;
+		}
+
+		if (submitted.current === signature(draft)) {
+			return;
+		}
+
+		const timer = setTimeout(() => {
+			void persistRef.current();
+		}, AUTOSAVE_DELAY_MS);
+
+		return () => clearTimeout(timer);
+	}, [draft, saved]);
+
+	// compile once on arrival so the page opens with the resume on it rather
+	// than an empty frame and a button. Guarded by a ref instead of the pdf
+	// state so a failed compile does not retry on every render.
+	const compiled = useRef(false);
+	useEffect(() => {
+		if (draft !== null && !compiled.current) {
+			compiled.current = true;
+			void compile();
+		}
+	});
 
 	const info = useMemo(
 		() =>
@@ -164,13 +266,19 @@ export default function ResumeRoute() {
 
 	const dirty = draft !== null && saved !== null && isDirty(draft, saved);
 
-	async function persist() {
+	// the PDF was typeset from whatever the draft said at the time; once the
+	// panel moves on, what is on screen is a picture of the past
+	const stale =
+		draft !== null && pdf !== null && pdf.signature !== signature(draft);
+
+	async function persist(): Promise<boolean> {
 		if (draft === null || !resume.data) {
-			return;
+			return false;
 		}
 
 		setSaving(true);
-		setError(null);
+		setSaveError(false);
+		submitted.current = signature(draft);
 
 		try {
 			// order lives on the resume, membership in the join table; both have to
@@ -207,26 +315,38 @@ export default function ResumeRoute() {
 					}).queryKey,
 				}),
 			]);
+			setSavedAt(new Date());
+			return true;
 		} catch {
-			setError("Could not save the changes. Please try again.");
+			// let the next edit — or the retry — try again
+			submitted.current = null;
+			setSaveError(true);
+			return false;
 		} finally {
 			setSaving(false);
 		}
 	}
 
 	/**
+	 * Typeset the resume and keep the result in the page.
+	 *
 	 * Fetched directly rather than through the generated client, which parses
 	 * every response as JSON. This one is a PDF.
+	 *
+	 * The worker builds the document from the saved rows, so an unsaved draft
+	 * has to land first or the compile would faithfully render the old version.
 	 */
-	async function downloadPdf() {
+	async function compile() {
+		if (draft === null) {
+			return;
+		}
+
 		setCompiling(true);
 		setError(null);
 
 		try {
-			// the worker builds the document from the saved rows, so anything still
-			// only in the draft would not appear in the file
-			if (dirty) {
-				await persist();
+			if (dirty && !(await persist())) {
+				return;
 			}
 
 			const response = await fetch(`${API_BASE_URL}/resumes/${resumeId}/pdf`, {
@@ -248,7 +368,15 @@ export default function ResumeRoute() {
 				);
 			}
 
-			save(`${slug}.pdf`, await response.blob());
+			const blob = await response.blob();
+
+			if (objectUrl.current) {
+				URL.revokeObjectURL(objectUrl.current);
+			}
+			const url = URL.createObjectURL(blob);
+			objectUrl.current = url;
+
+			setPdf({ url, blob, signature: signature(draft) });
 		} catch (caught) {
 			setError(
 				caught instanceof Error
@@ -257,6 +385,13 @@ export default function ResumeRoute() {
 			);
 		} finally {
 			setCompiling(false);
+		}
+	}
+
+	/** Saves the file already in the page — no second trip to the compiler. */
+	function downloadPdf() {
+		if (pdf !== null) {
+			save(`${slug}.pdf`, pdf.blob);
 		}
 	}
 
@@ -272,20 +407,16 @@ export default function ResumeRoute() {
 
 	return (
 		<main className="min-h-screen">
-			<div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 p-4 print:hidden">
+			<div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 p-4">
 				<h1 className="mr-auto font-semibold text-lg">{resume.data.title}</h1>
 
-				{dirty && (
-					<span className="text-ink-subtle text-sm">Unsaved changes</span>
-				)}
-
-				<Button
-					disabled={!dirty || saving}
-					onClick={persist}
-					variant="secondary"
-				>
-					{saving ? "Saving…" : "Save changes"}
-				</Button>
+				<SaveStatus
+					dirty={dirty}
+					onRetry={persist}
+					failed={saveError}
+					savedAt={savedAt}
+					saving={saving}
+				/>
 
 				<Button
 					onClick={() =>
@@ -295,38 +426,23 @@ export default function ResumeRoute() {
 				>
 					Download .tex
 				</Button>
-
-				<Button disabled={compiling || saving} onClick={downloadPdf}>
-					{compiling ? "Building PDF…" : "Download PDF"}
-				</Button>
 			</div>
 
-			{error && (
-				<div className="mx-auto mb-4 max-w-[1400px] px-4 print:hidden">
-					<p
-						className="rounded-xl bg-negative-bg px-4 py-2 text-negative text-sm"
-						role="alert"
-					>
-						{error}
-					</p>
-				</div>
-			)}
-
-			<div className="mx-auto flex max-w-[1400px] flex-col gap-6 px-4 pb-12 lg:flex-row lg:items-start print:block print:p-0">
-				<aside className="w-full shrink-0 lg:sticky lg:top-4 lg:w-[22rem] print:hidden">
+			<div className="mx-auto flex max-w-[1400px] flex-col gap-6 px-4 pb-12 lg:flex-row lg:items-start">
+				<aside className="w-full shrink-0 lg:sticky lg:top-4 lg:w-[22rem]">
 					<h2 className="mb-3 font-semibold text-sm">Sections</h2>
 					<ResumeEditor catalogs={catalogs} draft={draft} onChange={setDraft} />
 				</aside>
 
-				<div className="min-w-0 flex-1">
-					<PreviewNotice />
-					<div className="flex justify-center print:block">
-						<div className="relative origin-top shadow-lg print:shadow-none">
-							<ResumePreview document={preview} />
-							{/* shows where page one ends, before anyone bothers compiling */}
-							<div className="resume-page-break print:hidden" />
-						</div>
-					</div>
+				<div className="flex min-w-0 flex-1 flex-col">
+					<PdfPreview
+						compiling={compiling}
+						error={error}
+						onDownload={downloadPdf}
+						onRecompile={compile}
+						pdf={pdf}
+						stale={stale}
+					/>
 				</div>
 			</div>
 		</main>
