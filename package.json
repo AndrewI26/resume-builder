@@ -15,6 +15,7 @@
     "db:revision": "uv run --directory apps/api alembic revision --autogenerate -m",
     "db:upgrade": "uv run --directory apps/api alembic upgrade head",
     "db:seed": "uv run --directory apps/api python -m scripts.seed",
+    "db:backup": "uv run --directory apps/api python -m scripts.backup_db",
     "dev:api": "uv run --directory apps/api uvicorn main:app --reload",
     "format:web": "bun run --filter apps-web format",
     "lint:web": "bun run --filter apps-web lint",
