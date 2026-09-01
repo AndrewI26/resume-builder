@@ -17,8 +17,13 @@ class Settings(BaseSettings):
     postgres_db: str
     postgres_port: int
 
-    redis_password: str
-    redis_port: int
+    # How many PDF compiles may run at once. The workers are started by the
+    # API itself, so this is set when the API starts:
+    # ``PDF_WORKER_COUNT=6 bun run dev:api``.
+    pdf_worker_count: int = 3
+
+    # The image each compile runs in. Built by ``bun run docker:dev``.
+    latex_image: str = "resume-builder-latex"
 
     frontend_port: str
     backend_port: int
@@ -41,6 +46,15 @@ class Settings(BaseSettings):
     @property
     def database_url(self) -> str:
         return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@localhost:{self.postgres_port}/{self.postgres_db}"
+
+    @property
+    def async_database_url(self) -> str:
+        """The same database, for psycopg's own async connection.
+
+        ``LISTEN`` needs a connection SQLAlchemy is not driving, and psycopg
+        does not understand SQLAlchemy's ``+psycopg`` dialect suffix.
+        """
+        return self.database_url.replace("postgresql+psycopg://", "postgresql://", 1)
 
     @property
     def google_oauth_configured(self) -> bool:
