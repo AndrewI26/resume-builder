@@ -280,7 +280,7 @@ describe("projects", () => {
 		...overrides,
 	});
 
-	test("prefixes a linked project with a chain glyph", () => {
+	test("follows a linked project name with a chain glyph", () => {
 		const tex = serializeToTex(
 			document({
 				sections: [
@@ -293,7 +293,7 @@ describe("projects", () => {
 		);
 
 		expect(tex).toContain(
-			"{\\href{https://example.com/whiz}{\\faLink} \\textbf{Whiz}",
+			"{\\textbf{Whiz} \\href{https://example.com/whiz}{\\faLink}",
 		);
 	});
 

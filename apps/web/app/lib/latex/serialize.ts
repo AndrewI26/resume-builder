@@ -150,9 +150,9 @@ function renderExperience(items: Experience[]): string {
 function renderProjects(items: Project[]): string {
 	const entries = items.flatMap((project, index) => {
 		const name = `\\textbf{${escapeLatex(project.name)}}`;
-		// a linked project gets a chain glyph in front of the name
+		// a linked project gets a chain glyph after the name
 		const title = project.link
-			? `${href(project.link, "\\faLink")} ${name}`
+			? `${name} ${href(project.link, "\\faLink")}`
 			: name;
 		const technologies = project.technologies.length
 			? ` $|$ \\emph{ ${escapeLatex(project.technologies.join(", "))} }`
