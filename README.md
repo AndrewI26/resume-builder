@@ -171,22 +171,35 @@ Relevant code:
 | --- | --- |
 | Web | React 19, React Router 8, TanStack Query + Form, Tailwind 4, Vite |
 | API | FastAPI, SQLAlchemy 2, Alembic, Pydantic v2 |
-| Data | Postgres 16, Redis |
+| Data | Postgres 16 hosted, SQLite on the desktop; Redis |
 | Jobs | arq worker, pdfTeX |
 | Tooling | Bun workspaces, uv, Biome, Ruff, mypy, pytest |
 
+The application is one React app and one API, each deployed two ways. The app
+is `packages/ui`, and `apps/` holds only what differs between deployments — so
+a change to a screen reaches the browser and the desktop at once, rather than
+being made twice and drifting.
+
 ```
+packages/
+  ui/           the React Router app, shared by both deployments
+    app/routes/     pages
+    app/components/ shared UI
+    app/lib/        LaTeX serialization, resume documents
+    app/api/        generated OpenAPI types + client
 apps/
   api/          FastAPI service, worker, migrations
     routers/    HTTP endpoints
     services/   compile pipeline, LaTeX serialization, sections
     models/     SQLAlchemy tables
     schemas/    Pydantic request/response types
-  web/          React Router app
-    app/routes/     pages
-    app/components/ shared UI
-    app/api/        generated OpenAPI types + client
+  web/          the browser deployment: Dockerfile, nginx, screenshots
 ```
+
+The API is the same in both too. `MODE=cloud` is the hosted service — Postgres,
+a queue, accounts. `MODE=local` is the copy the desktop app embeds: one SQLite
+file, nobody signed in, and typesetting done in-process. The routers, services
+and schemas are the same code either way.
 
 ## Getting started
 
@@ -296,9 +309,9 @@ bun run codegen
 
 It reads `http://localhost:8000/openapi.json`, so the API must be running.
 
-The output is a single file, `apps/web/app/api/schema.d.ts` — never edit it by
-hand, since the next codegen run overwrites it. The typed client built on top
-lives in `apps/web/app/api/api.ts`.
+The output is a single file, `packages/ui/app/api/schema.d.ts` — never edit it
+by hand, since the next codegen run overwrites it. The typed client built on
+top lives in `packages/ui/app/api/api.ts`.
 
 ## Checks
 
@@ -307,8 +320,9 @@ bun run test              # pytest + bun test
 bun run verify            # format, lint and typecheck both apps
 ```
 
-The API tests need Postgres up (`bun run docker:dev`); they run against it
-directly.
+The API tests run against a throwaway SQLite file and need nothing started.
+Set `TEST_DATABASE_URL` to run the same suite against a Postgres — the hosted
+app's database — which is worth doing before changing a model.
 
 ## Landing page screenshots
 

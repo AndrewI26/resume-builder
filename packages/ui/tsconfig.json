@@ -17,7 +17,7 @@
 			"~/*": ["./app/*"],
 			"@api/*": ["./app/api/*"],
 			"@components/*": ["./app/components/*"],
-			"@routes/*": ["./.react-router/types/routes/*"]
+			"@routes/*": ["./.react-router/types/app/routes/*"]
 		},
 		"esModuleInterop": true,
 		"verbatimModuleSyntax": true,
