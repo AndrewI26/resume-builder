@@ -1,8 +1,7 @@
 import uuid
 
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import ForeignKey, Integer, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import ForeignKey, Integer, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db import Base, enum_values
@@ -31,9 +30,7 @@ class ResumeSection(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     resume_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("resumes.id", ondelete="CASCADE"), index=True
     )
@@ -44,6 +41,6 @@ class ResumeSection(Base):
         ),
         nullable=False,
     )
-    section_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    section_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
 
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

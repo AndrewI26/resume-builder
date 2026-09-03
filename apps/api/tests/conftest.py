@@ -1,15 +1,18 @@
 """Test fixtures.
 
-The models use PostgreSQL-only column types (``ARRAY``, ``JSONB``), so these
-tests run against a real Postgres rather than SQLite. By default they target a
-``<POSTGRES_DB>_test`` database on the dev Postgres from docker-compose,
-creating it on first run. Set ``TEST_DATABASE_URL`` to point somewhere else.
+The models are portable across both databases the app runs on, so this suite
+is too. It defaults to a throwaway SQLite file, which needs nothing running and
+is what the desktop app uses. Point ``TEST_DATABASE_URL`` at a Postgres to run
+the identical tests against the hosted app's database — CI does both, and that
+pairing is what keeps the two dialects honest. A ``<POSTGRES_DB>_test``
+database is created on first run if it is missing.
 
 Every test runs inside a transaction that is rolled back afterwards, so the
 endpoints' own ``commit()`` calls are contained and tests stay independent.
 """
 
 import os
+import tempfile
 from collections.abc import Generator, Iterator, Sequence
 from pathlib import Path
 from typing import Any, Protocol
@@ -21,12 +24,22 @@ from dotenv import load_dotenv
 REPO_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(REPO_ROOT / ".env")
 
+# A file rather than ``:memory:``: the suite hands the engine to a TestClient
+# that serves sync endpoints from a threadpool, and an in-memory database is
+# private to the connection that opened it.
+_SQLITE_FILE = Path(tempfile.gettempdir()) / "resume-builder-tests.sqlite"
+
 
 def _test_database_url() -> str:
     configured = os.getenv("TEST_DATABASE_URL")
     if configured:
         return configured
 
+    return f"sqlite+pysqlite:///{_SQLITE_FILE}"
+
+
+def postgres_url() -> str:
+    """The dev Postgres' test database, for tests that need a real Postgres."""
     user = os.getenv("POSTGRES_USER", "resume_user")
     password = os.getenv("POSTGRES_PASSWORD", "resume_pass")
     port = os.getenv("POSTGRES_PORT", "5432")
@@ -46,7 +59,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session
 
-from db import Base
+from db import Base, prepare_sqlite
 from deps.db import get_db
 from enums import DEFAULT_SECTION_ORDER, ResumeSectionType
 from main import app
@@ -67,6 +80,11 @@ from services.security import (
 
 
 def _create_database_if_missing(url: str) -> None:
+    if not url.startswith("postgresql"):
+        # SQLite creates its file on first connect, and there is no server to
+        # ask for a database list
+        return
+
     parts = urlsplit(url)
     name = parts.path.lstrip("/")
     admin_url = urlunsplit(parts._replace(path="/postgres"))
@@ -87,13 +105,14 @@ def _create_database_if_missing(url: str) -> None:
 def engine() -> Iterator[Engine]:
     _create_database_if_missing(TEST_DATABASE_URL)
 
-    engine = create_engine(TEST_DATABASE_URL)
+    engine = prepare_sqlite(create_engine(TEST_DATABASE_URL))
     Base.metadata.create_all(engine)
     try:
         yield engine
     finally:
         Base.metadata.drop_all(engine)
         engine.dispose()
+        _SQLITE_FILE.unlink(missing_ok=True)
 
 
 @pytest.fixture

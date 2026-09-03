@@ -1,11 +1,10 @@
 import uuid
 from typing import Any
 
-from sqlalchemy import ForeignKey, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from db import Base
+from db import Base, Json
 
 
 class PersonalInfo(Base):
@@ -16,9 +15,7 @@ class PersonalInfo(Base):
 
     __tablename__ = "personal_info"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
@@ -28,6 +25,6 @@ class PersonalInfo(Base):
     address: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Each holds a `{"url": ..., "label": ...}` object; see schemas.link.Link.
-    github: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    linkedin: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    portfolio: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    github: Mapped[dict[str, Any] | None] = mapped_column(Json, nullable=True)
+    linkedin: Mapped[dict[str, Any] | None] = mapped_column(Json, nullable=True)
+    portfolio: Mapped[dict[str, Any] | None] = mapped_column(Json, nullable=True)

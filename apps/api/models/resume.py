@@ -1,10 +1,9 @@
 import uuid
 
-from sqlalchemy import ForeignKey, String
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy import ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from db import Base
+from db import Base, string_array
 
 
 class Resume(Base):
@@ -17,9 +16,7 @@ class Resume(Base):
 
     __tablename__ = "resumes"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
@@ -41,5 +38,5 @@ class Resume(Base):
     # values. A type left out of this list is not rendered at all, which is how
     # a section is hidden without being detached.
     section_order: Mapped[list[str]] = mapped_column(
-        ARRAY(String(50)), nullable=False, default=list
+        string_array(50), nullable=False, default=list
     )

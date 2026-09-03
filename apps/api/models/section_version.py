@@ -2,11 +2,10 @@ import uuid
 from typing import Any
 
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import ForeignKey, Integer, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import ForeignKey, Integer, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from db import Base, enum_values
+from db import Base, Json, enum_values
 from enums import OperationType, SectionType
 
 
@@ -29,9 +28,7 @@ class SectionVersion(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
@@ -41,7 +38,7 @@ class SectionVersion(Base):
         SQLEnum(SectionType, name="section_version_type", values_callable=enum_values),
         nullable=False,
     )
-    section_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    section_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     operation: Mapped[OperationType] = mapped_column(
         SQLEnum(
@@ -52,4 +49,4 @@ class SectionVersion(Base):
         nullable=False,
     )
 
-    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(Json, nullable=False)
