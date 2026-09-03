@@ -87,14 +87,18 @@ def _render_header(full_name: str, info: PersonalInfoRead | None) -> str:
         if info.address:
             entries.append(_contact("faMapMarker", escape_latex(info.address)))
 
-    return "\n".join(
-        [
-            r"\begin{center}",
-            rf"    {{\Huge \scshape {escape_latex(full_name)}}} \\ \vspace{{1pt}}",
-            *(f"    {entry} ~" for entry in entries),
-            r"\end{center}",
-        ]
-    )
+    lines = [r"\begin{center}"]
+
+    if full_name.strip():
+        # the line break belongs to the contact line that follows it; ending a
+        # ``center`` block on ``\\`` is the fatal "There's no line here to end"
+        rule = r" \\ \vspace{1pt}" if entries else ""
+        lines.append(rf"    {{\Huge \scshape {escape_latex(full_name)}}}{rule}")
+
+    lines.extend(f"    {entry} ~" for entry in entries)
+    lines.append(r"\end{center}")
+
+    return "\n".join(lines)
 
 
 def _render_skills(items: list[SkillRead]) -> str:

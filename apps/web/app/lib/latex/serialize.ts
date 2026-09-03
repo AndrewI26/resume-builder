@@ -86,12 +86,19 @@ function renderHeader(
 		entries.push(contact("faMapMarker", escapeLatex(info.address)));
 	}
 
-	return [
-		"\\begin{center}",
-		`    {\\Huge \\scshape ${escapeLatex(fullName)}} \\\\ \\vspace{1pt}`,
-		...entries.map((entry) => `    ${entry} ~`),
-		"\\end{center}",
-	].join("\n");
+	const lines = ["\\begin{center}"];
+
+	if (fullName?.trim()) {
+		// the line break belongs to the contact line that follows it; ending a
+		// `center` block on `\\` is the fatal "There's no line here to end"
+		const rule = entries.length > 0 ? " \\\\ \\vspace{1pt}" : "";
+		lines.push(`    {\\Huge \\scshape ${escapeLatex(fullName)}}${rule}`);
+	}
+
+	for (const entry of entries) lines.push(`    ${entry} ~`);
+	lines.push("\\end{center}");
+
+	return lines.join("\n");
 }
 
 function renderSkills(items: Skill[]): string {

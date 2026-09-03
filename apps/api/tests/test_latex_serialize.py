@@ -65,6 +65,35 @@ class TestDocumentStructure:
         assert "\\section{Skills}" not in body(tex)
 
 
+def center_block(tex: str) -> str:
+    """The header's ``center`` environment, braces included."""
+    start = tex.index("\\begin{center}")
+    return tex[start : tex.index("\\end{center}", start) + len("\\end{center}")]
+
+
+class TestHeader:
+    def test_a_name_with_contact_details_breaks_the_line_after_it(self):
+        info = {"id": "50000000-0000-0000-0000-0000000000ff", "email": "ada@x.com"}
+        block = center_block(serialize_to_tex(document(personal_info=info)))
+
+        assert "{\\Huge \\scshape Ada Lovelace} \\\\ \\vspace{1pt}" in block
+
+    def test_a_name_with_no_contact_details_does_not_end_the_block_on_a_break(self):
+        # a trailing "\\" with nothing after it is the fatal LaTeX error
+        # "There's no line here to end", which fails the whole compile
+        block = center_block(serialize_to_tex(document(personal_info=None)))
+
+        assert "{\\Huge \\scshape Ada Lovelace}" in block
+        assert "\\\\" not in block
+
+    def test_neither_a_name_nor_contact_details_leaves_the_block_empty(self):
+        block = center_block(
+            serialize_to_tex(document(full_name="", personal_info=None))
+        )
+
+        assert block == "\\begin{center}\n\\end{center}"
+
+
 class TestEscaping:
     @pytest.mark.parametrize(
         ("raw", "expected"),
