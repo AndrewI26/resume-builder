@@ -14,9 +14,7 @@ import {
 	signature,
 } from "~/lib/resume/document";
 import type { SectionType } from "~/lib/resume/types";
-
-const API_BASE_URL =
-	import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+import { apiBaseUrl, apiHeaders } from "~/platform/host";
 
 /** How long editing has to pause before the draft is written back. */
 const AUTOSAVE_DELAY_MS = 800;
@@ -349,9 +347,12 @@ export default function ResumeRoute() {
 				return;
 			}
 
-			const response = await fetch(`${API_BASE_URL}/resumes/${resumeId}/pdf`, {
+			// outside the typed client because the response is a file rather
+			// than JSON, so it carries the same headers by hand
+			const response = await fetch(`${apiBaseUrl}/resumes/${resumeId}/pdf`, {
 				method: "POST",
 				credentials: "include",
+				headers: apiHeaders(),
 			});
 
 			if (!response.ok) {

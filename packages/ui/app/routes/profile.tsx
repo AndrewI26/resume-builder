@@ -7,6 +7,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useAuth } from "~/auth/auth-context";
+import { apiBaseUrl } from "~/platform/host";
 
 export function meta() {
 	return [{ title: "Profile · Resume Builder" }];
@@ -228,7 +229,7 @@ function GoogleSignInMethod({ methods }: { methods: string[] }) {
 							onClick={() => {
 								dismissAuthError();
 								window.location.assign(
-									`${import.meta.env.VITE_API_BASE_URL}/auth/google/link/start?next=/profile`,
+									`${apiBaseUrl}/auth/google/link/start?next=/profile`,
 								);
 							}}
 							variant="secondary"

@@ -1,0 +1,15 @@
+{
+	"include": ["src/**/*", "electron.vite.config.ts"],
+	"compilerOptions": {
+		"lib": ["ES2023", "DOM"],
+		"types": ["node", "electron"],
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"esModuleInterop": true,
+		"verbatimModuleSyntax": false,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"strict": true
+	}
+}

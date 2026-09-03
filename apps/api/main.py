@@ -14,6 +14,7 @@ from routers.personal_info import router as personal_info_router
 from routers.project import router as project_router
 from routers.resume import router as resume_router
 from routers.skill import router as skill_router
+from services.sidecar_guard import sidecar_token_guard
 
 settings = get_settings()
 
@@ -37,6 +38,12 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(generate_unique_id_function=operation_id, lifespan=lifespan)
+
+# Added before CORS so that CORS ends up the outer layer: middleware added
+# later wraps what came before it, and a preflight has to be answered by CORS
+# rather than turned away for carrying no token it was still asking to send.
+if settings.is_local and settings.sidecar_token:
+    app.middleware("http")(sidecar_token_guard(settings.sidecar_token))
 
 
 def _allowed_origins() -> list[str]:

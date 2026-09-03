@@ -1,0 +1,26 @@
+{
+	"name": "apps-desktop",
+	"private": true,
+	"type": "module",
+	"main": "dist/main/main.cjs",
+	"scripts": {
+		"start": "electron .",
+		"build": "electron-vite build && node scripts/stage-renderer.mjs",
+		"stage-renderer": "node scripts/stage-renderer.mjs",
+		"typecheck": "tsc --noEmit",
+		"format": "biome format --write .",
+		"lint": "biome lint --write ."
+	},
+	"dependencies": {
+		"@resume-builder/ui": "workspace:*"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.7",
+		"@types/node": "^22",
+		"electron": "^40.0.0",
+		"electron-vite": "^4.0.0",
+		"typescript": "5.9.3",
+		"vite": "^8.0.3"
+	},
+	"productName": "Resume Builder"
+}

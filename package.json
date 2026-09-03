@@ -21,9 +21,9 @@
     "db:backup": "uv run --directory apps/api python -m scripts.backup_db",
     "resumes:export": "uv run --directory apps/api python -m scripts.export_resumes",
     "dev:api": "uv run --directory apps/api uvicorn main:app --reload",
-    "format:web": "bun run --filter @resume-builder/ui format && bun run --filter apps-web format",
-    "lint:web": "bun run --filter @resume-builder/ui lint && bun run --filter apps-web lint",
-    "typecheck:web": "bun run --filter @resume-builder/ui typecheck",
+    "format:web": "bun run --filter @resume-builder/ui format && bun run --filter apps-web format && bun run --filter apps-desktop format",
+    "lint:web": "bun run --filter @resume-builder/ui lint && bun run --filter apps-web lint && bun run --filter apps-desktop lint",
+    "typecheck:web": "bun run --filter @resume-builder/ui typecheck && bun run --filter apps-desktop typecheck",
     "format:api": "uv run --directory apps/api ruff format .",
     "lint:api": "uv run --directory apps/api ruff check --fix .",
     "typecheck:api": "uv run --directory apps/api mypy .",
@@ -31,7 +31,9 @@
     "test:web": "bun run --filter @resume-builder/ui test",
     "test": "bun run test:api && bun run test:web",
     "verify": "bun run format:web && bun run lint:web && bun run typecheck:web && bun run format:api && bun run lint:api && bun run typecheck:api",
-    "prepare": "husky"
+    "prepare": "husky",
+    "build:desktop": "bun run build:web && bun run --filter apps-desktop build",
+    "dev:desktop": "bun run build:desktop && bun run --filter apps-desktop start"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",

@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     # so the desktop app ships its own and says where it is.
     texlive_bin: Path | None = None
 
+    # A secret the desktop shell generates per run and requires on every
+    # request. The sidecar listens on loopback, which is private to the machine
+    # but not to the person using it: any other program running as them could
+    # otherwise read the whole library by asking. See ``require_sidecar_token``.
+    sidecar_token: str | None = None
+
     @model_validator(mode="after")
     def _check_mode_requirements(self) -> Self:
         if self.mode == "cloud":
