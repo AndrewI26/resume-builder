@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { canSync } from "~/platform/host";
+import { isDesktop } from "~/platform/host";
 import { useAuth } from "~/auth/auth-context";
 import { ThemeToggle } from "~/components/theme-toggle";
 
@@ -29,21 +29,6 @@ function ProfileLink() {
 	);
 }
 
-/**
- * Only on the desktop: the browser app has no second copy of anything, so a
- * link to reconcile them would lead to a screen explaining that it cannot.
- */
-function SyncLink() {
-	return (
-		<Link
-			className="rounded-full px-3 py-1.5 text-ink-subtle text-sm hover:text-ink"
-			to="/sync"
-		>
-			Sync
-		</Link>
-	);
-}
-
 export function Navbar() {
 	const { isAuthenticated } = useAuth();
 
@@ -55,8 +40,8 @@ export function Navbar() {
 				</Link>
 				<div className="flex items-center gap-2">
 					<ThemeToggle />
-					{canSync && <SyncLink />}
-					{isAuthenticated && <ProfileLink />}
+					{/* the desktop has no account to have a profile of */}
+					{isAuthenticated && !isDesktop && <ProfileLink />}
 				</div>
 			</div>
 		</header>

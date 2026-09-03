@@ -15,7 +15,6 @@ export default [
 		route("resumes", "routes/resumes.tsx"),
 		route("resumes/:resumeId", "routes/resume.$resumeId.tsx"),
 		route("sections", "routes/sections.tsx"),
-		route("sync", "routes/sync.tsx"),
 		route("sections/education/new", "routes/sections.education.tsx", {
 			id: "routes/sections.education.new",
 		}),

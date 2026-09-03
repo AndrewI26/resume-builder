@@ -33,16 +33,6 @@ const host: DesktopHost | undefined =
 /** Running inside the desktop shell rather than a browser tab. */
 export const isDesktop = host !== undefined;
 
-/**
- * Whether there is a library on this machine that could be kept in step with
- * an account.
- *
- * Only the desktop has one. The browser app's data is already the account, so
- * there is nothing for it to sync with and the screens for doing so would be
- * asking about something that cannot happen.
- */
-export const canSync = isDesktop;
-
 export const apiBaseUrl: string =
 	host?.apiBaseUrl ??
 	import.meta.env.VITE_API_BASE_URL ??

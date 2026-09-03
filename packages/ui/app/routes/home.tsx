@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, Navigate } from "react-router";
 import { useAuth } from "~/auth/auth-context";
+import { isDesktop } from "~/platform/host";
 
 export function meta() {
 	return [
@@ -229,6 +230,14 @@ function Cta() {
 }
 
 export default function Home() {
+	// The desktop app opens straight into the library. This page exists to
+	// explain the product to somebody deciding whether to use it — which, in an
+	// application they have already installed and can use offline without an
+	// account, is a page about a decision they have made.
+	if (isDesktop) {
+		return <Navigate replace to="/dashboard" />;
+	}
+
 	return (
 		<main className="mx-auto w-full max-w-6xl px-6">
 			{/* Hero ------------------------------------------------------------ */}
