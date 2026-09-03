@@ -1,6 +1,7 @@
+import asyncio
 from collections import defaultdict
 from collections.abc import Sequence
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import delete, insert, select, update
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from deps.auth import CurrentUser
 from deps.db import Db
-from deps.redis import RedisQueue
+from deps.notify import Notifier
 from deps.resume import CurrentUserResume, ResumeSectionIds
 from enums import ResumeSectionType
 from models.personal_info import PersonalInfo
@@ -22,8 +23,9 @@ from schemas.resume import (
     ResumeSectionRef,
     ResumeSectionsReplace,
 )
+from services import pdf_queue
 from services.compiler import CompilerUnavailable, DocumentRejected
-from services.compiler_worker import ResumeMissing
+from services.pdf_queue import ResumeMissing
 from services.resume_document import SECTION_MODELS, build_resume_document
 
 router = APIRouter(prefix="/resumes", tags=["Resume"])
@@ -274,12 +276,13 @@ def _pdf_filename(title: str) -> str:
 )
 async def compile_resume_pdf(
     current_user_resume: CurrentUserResume,
-    redis_queue: RedisQueue,
+    db: Db,
+    notifier: Notifier,
 ) -> Response:
     """Typeset the resume and hand back the PDF.
 
-    The source is generated in the worker from this resume's own rows, so
-    nothing about the document crosses the wire on the way in and there is no
+    The source is generated in a worker from this resume's own rows, so nothing
+    about the document crosses the wire on the way in and there is no
     caller-supplied LaTeX to distrust.
 
     The wait here is deliberate: the client asked for a file and gets one in
@@ -287,23 +290,33 @@ async def compile_resume_pdf(
     much of it runs at once — a compile is CPU-bound, and unbounded exports
     would take the host down rather than merely queue.
     """
-    # a job per request rather than one per resume: results are cached for a
-    # short while, and re-using an id would serve a stale PDF to someone who
+    # a job per request rather than one per resume: a finished job is kept for
+    # a short while, and re-using an id would serve a stale PDF to someone who
     # edited and exported again
-    job = await redis_queue.enqueue_job("generate_resume_pdf", current_user_resume.id)
-    if job is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="PDF export is unavailable",
-        )
+    job_id = uuid4()
+
+    # registered before the job exists, so a compile that finishes immediately
+    # still finds someone listening
+    finished = notifier.expect(job_id)
 
     try:
-        pdf: bytes = await job.result(timeout=_RESULT_TIMEOUT)
+        # the session is the synchronous one, and this is an async endpoint;
+        # a blocking write here would stall the workers sharing this loop
+        await asyncio.to_thread(pdf_queue.enqueue, db, current_user_resume.id, job_id)
+    except Exception:
+        notifier.forget(job_id)
+        raise
+
+    try:
+        await notifier.wait(job_id, finished, _RESULT_TIMEOUT)
     except TimeoutError:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="PDF export took too long",
         ) from None
+
+    try:
+        pdf: bytes = await asyncio.to_thread(pdf_queue.result, db, job_id)
     except ResumeMissing:
         # deleted between enqueueing and running
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) from None

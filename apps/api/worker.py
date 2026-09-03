@@ -1,31 +1,33 @@
-"""Entrypoint for the PDF worker: ``uv run python worker.py``.
+"""Entrypoint for a standalone PDF worker: ``uv run python worker.py``.
 
-Not ``arq services.compiler_worker.WorkerSettings``. arq 0.25 builds its
-``Worker`` with ``asyncio.get_event_loop()``, which on Python 3.14 raises
-rather than creating a loop on demand, so its CLI cannot start a worker on the
-version this API runs. Constructing the worker inside a running loop is the
-same object by a different route.
+Not needed in development — the API starts its own workers, and
+``PDF_WORKER_COUNT`` says how many. This is for the compose deployment, where
+the compile runs in a container of its own rather than in a container the API
+spawns: the image here ships pdfTeX, so ``LATEX_BACKEND=local`` runs the engine
+as a child process and the container is the sandbox.
+
+Same pool as the API runs, pointed at the same table. Nothing coordinates the
+two beyond Postgres, which is the point: a job is claimed by whoever gets the
+row lock first.
 """
 
 import asyncio
-from typing import Any, cast
+import logging
 
-from arq.worker import Worker, get_kwargs
+from config import get_settings
+from deps.notify import PdfNotifier
+from services.pdf_worker import run_pool
 
-from services.compiler_worker import WorkerSettings
+settings = get_settings()
 
 
 async def main() -> None:
-    # arq reads settings off the class __dict__ and accepts that as a plain
-    # mapping; its own annotations for both ends of this are wrong, hence the
-    # casts rather than a type: ignore that would hide a real mismatch too
-    declared = {
-        name: value
-        for name, value in vars(WorkerSettings).items()
-        if not name.startswith("_")
-    }
-    worker = Worker(**cast(dict[str, Any], get_kwargs(declared)))
-    await worker.async_run()
+    logging.basicConfig(level=logging.INFO)
+
+    notifier = PdfNotifier()
+    async with run_pool(notifier, settings.pdf_worker_count):
+        # nothing else to do here; the pool is the process
+        await asyncio.Event().wait()
 
 
 if __name__ == "__main__":

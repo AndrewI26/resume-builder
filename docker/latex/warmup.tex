@@ -1,0 +1,33 @@
+% Pulls every package the resume template uses, so a missing one fails the
+% image build rather than the first export.
+%
+% Keep this list in step with the preamble in
+% apps/api/services/latex/preamble.py. The container compiles with no network
+% at all, so a package that is not installed here can never be fetched later.
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{fontawesome5}
+\usepackage{multicol}
+\input{glyphtounicode}
+\usepackage[top=.5cm, bottom=0cm, left=1cm, right=1cm]{geometry}
+
+\pdfgentounicode=1
+
+\begin{document}
+\faEnvelope\ \faLinkedin\ \faGithub\ \faInternetExplorer\ \faLink\ \faPhone\ \faMapMarker
+\section{Warmup}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}X}
+  Cache the packages.
+\end{tabularx}
+\end{document}
