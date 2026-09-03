@@ -17,10 +17,10 @@ from sqlalchemy.orm import Session
 from enums import OperationType, SectionType
 from models.section_version import SectionVersion
 
-# How many times to retry a sequence number that someone else took first. Two
-# requests from the same person at the same instant is already unusual; three
-# collisions in a row is not something to keep trying through.
-_MAX_ATTEMPTS = 3
+# How many times to redo work whose sequence number someone else took first.
+# Two requests from the same person at the same instant is already unusual;
+# three collisions in a row is not something to keep trying through.
+MAX_ATTEMPTS = 3
 
 
 def _next_version(db: Session, section_id: UUID) -> int:
@@ -41,6 +41,35 @@ def _next_seq(db: Session, user_id: UUID) -> int:
     return (latest or 0) + 1
 
 
+def stage_version(
+    db: Session,
+    user_id: UUID,
+    section_type: SectionType,
+    section_id: UUID,
+    operation: OperationType,
+    snapshot: dict[str, Any],
+) -> SectionVersion:
+    """Add a history entry to the session without committing it.
+
+    For callers that are writing the record itself in the same transaction and
+    need the two to land together or not at all. They own the retry, because
+    retrying only this half would record a change that never happened to the
+    data — see ``record_version``, which may only retry because it is the whole
+    of its own transaction.
+    """
+    section_version = SectionVersion(
+        user_id=user_id,
+        section_type=section_type,
+        section_id=section_id,
+        version=_next_version(db, section_id),
+        seq=_next_seq(db, user_id),
+        operation=operation,
+        snapshot=snapshot,
+    )
+    db.add(section_version)
+    return section_version
+
+
 def record_version(
     db: Session,
     user_id: UUID,
@@ -51,29 +80,25 @@ def record_version(
 ) -> SectionVersion:
     """Record what just happened to a record, and return the entry.
 
+    The routers call this after their own commit, so the only thing pending is
+    the entry itself and rolling back to retry costs nothing else.
+
     Both counters are read and written without a lock, which two requests
     arriving together could get away with — SQLite has no ``FOR UPDATE`` and
     the desktop has no concurrency to speak of, so a unique constraint and a
     retry is the portable way to be sure rather than the cheap one. The
     constraint is what makes this correct; the retry only makes it quiet.
     """
-    for attempt in range(_MAX_ATTEMPTS):
-        section_version = SectionVersion(
-            user_id=user_id,
-            section_type=section_type,
-            section_id=section_id,
-            version=_next_version(db, section_id),
-            seq=_next_seq(db, user_id),
-            operation=operation,
-            snapshot=snapshot,
+    for attempt in range(MAX_ATTEMPTS):
+        section_version = stage_version(
+            db, user_id, section_type, section_id, operation, snapshot
         )
 
-        db.add(section_version)
         try:
             db.commit()
         except IntegrityError:
             db.rollback()
-            if attempt == _MAX_ATTEMPTS - 1:
+            if attempt == MAX_ATTEMPTS - 1:
                 raise
             continue
 

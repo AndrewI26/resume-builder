@@ -1,5 +1,6 @@
 """What crosses between a desktop and an account."""
 
+from enum import Enum
 from typing import Any
 from uuid import UUID
 
@@ -45,3 +46,60 @@ class ChangeFeed(BaseModel):
 class PullQuery(BaseModel):
     since: int = Field(default=0, ge=0)
     limit: int = Field(default=500, ge=1, le=2000)
+
+
+class PushChange(BaseModel):
+    """A change made elsewhere, offered to this database.
+
+    ``base_version`` is the version of this record the client last agreed with
+    the server. It is the whole of conflict detection: if the server has moved
+    past it, somebody else changed the same record in the meantime and nobody
+    but a person can say which of the two was meant.
+
+    ``None`` means "I believe you have never seen this record" — a record
+    created offline. It is checked rather than trusted, so claiming it for a
+    record the server does know about is a conflict like any other.
+    """
+
+    record_type: SectionType
+    record_id: UUID
+    base_version: int | None = None
+    operation: OperationType
+    snapshot: dict[str, Any] = Field(default_factory=dict)
+
+
+class PushOutcome(str, Enum):
+    APPLIED = "applied"
+    CONFLICT = "conflict"
+    REJECTED = "rejected"
+
+
+class PushResult(BaseModel):
+    """What became of one offered change."""
+
+    record_id: UUID
+    record_type: SectionType
+    outcome: PushOutcome
+
+    #: The version the record now has here. Set when applied, so the client can
+    #: record what it has agreed to without pulling its own write back.
+    version: int | None = None
+
+    #: Where the applied change sits in the caller's history, so a client can
+    #: advance its cursor past its own writes rather than replaying them.
+    seq: int | None = None
+
+    #: What the server has instead, when the two disagree. This is the other
+    #: side of the prompt a person is shown.
+    theirs: Change | None = None
+
+    #: Why it was refused, when it was.
+    reason: str | None = None
+
+
+class PushRequest(BaseModel):
+    changes: list[PushChange]
+
+
+class PushResponse(BaseModel):
+    results: list[PushResult]

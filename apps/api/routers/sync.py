@@ -13,14 +13,28 @@ to reconstruct here.
 """
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from deps.auth import CurrentUser
 from deps.db import Db
+from enums import OperationType
 from models.section_version import SectionVersion
-from schemas.sync import Change, ChangeFeed, PullQuery
+from schemas.sync import (
+    Change,
+    ChangeFeed,
+    PullQuery,
+    PushChange,
+    PushOutcome,
+    PushRequest,
+    PushResponse,
+    PushResult,
+)
+from services.record_section import MAX_ATTEMPTS, stage_version
+from services.sync_apply import UnapplicableChange, apply_delete, apply_snapshot
 
 router = APIRouter(prefix="/sync", tags=["Sync"])
 
@@ -60,19 +74,127 @@ def pull_changes(
     page = rows[: query.limit]
 
     return ChangeFeed(
-        changes=[
-            Change(
-                record_type=row.section_type,
-                record_id=row.section_id,
-                version=row.version,
-                operation=row.operation,
-                snapshot=row.snapshot,
-                seq=row.seq,
-            )
-            for row in page
-        ],
+        changes=[_as_change(row) for row in page],
         # staying put when there is nothing new is what makes it safe for a
         # client to store this unconditionally
         cursor=page[-1].seq if page else query.since,
         more=more,
     )
+
+
+def _as_change(row: SectionVersion) -> Change:
+    return Change(
+        record_type=row.section_type,
+        record_id=row.section_id,
+        version=row.version,
+        operation=row.operation,
+        snapshot=row.snapshot,
+        seq=row.seq,
+    )
+
+
+def _latest(db: Db, user_id: UUID, record_id: UUID) -> SectionVersion | None:
+    """The most recent thing this account did to a record, if anything."""
+    return db.scalars(
+        select(SectionVersion)
+        .where(
+            SectionVersion.user_id == user_id,
+            SectionVersion.section_id == record_id,
+        )
+        .order_by(SectionVersion.version.desc())
+        .limit(1)
+    ).first()
+
+
+def _apply_one(
+    db: Db, user_id: UUID, change: PushChange, latest: SectionVersion | None
+) -> PushResult:
+    """Write one offered change, or say why it was not written."""
+    # The record and the entry describing it are written in one transaction,
+    # so a retry has to redo both. Retrying only the entry would leave the
+    # history claiming a change that was rolled back with it.
+    for attempt in range(MAX_ATTEMPTS):
+        try:
+            if change.operation is OperationType.DELETE:
+                apply_delete(db, user_id, change.record_type, change.record_id)
+            else:
+                apply_snapshot(
+                    db, user_id, change.record_type, change.record_id, change.snapshot
+                )
+
+            entry = stage_version(
+                db,
+                user_id,
+                change.record_type,
+                change.record_id,
+                change.operation,
+                change.snapshot,
+            )
+            db.commit()
+        except UnapplicableChange as error:
+            db.rollback()
+            return PushResult(
+                record_id=change.record_id,
+                record_type=change.record_type,
+                outcome=PushOutcome.REJECTED,
+                reason=str(error),
+            )
+        except IntegrityError:
+            # somebody else took the sequence number between reading it and
+            # writing it; everything here is redone against what they left
+            db.rollback()
+            if attempt == MAX_ATTEMPTS - 1:
+                raise
+            continue
+
+        return PushResult(
+            record_id=change.record_id,
+            record_type=change.record_type,
+            outcome=PushOutcome.APPLIED,
+            version=entry.version,
+            seq=entry.seq,
+        )
+
+    # unreachable: the loop either returns or raises on its last attempt
+    raise AssertionError("push fell out of its retry loop")
+
+
+@router.post("/push", response_model=PushResponse, status_code=status.HTTP_200_OK)
+def push_changes(
+    current_user: CurrentUser, db: Db, payload: PushRequest
+) -> PushResponse:
+    """Offer changes made elsewhere, and be told what became of each.
+
+    Each change carries the version of its record that the client last agreed
+    with this server. If that is still the version here, nobody else has
+    touched it and the change is applied. If it is not, both sides changed the
+    same record and this says so rather than choosing — the response carries
+    what the server has, which is the other half of the question a person then
+    gets asked.
+
+    Applied one at a time rather than as a single transaction, because the
+    answer is per record: one conflicted resume should not send back a whole
+    library that would otherwise have gone through. A client re-offers what did
+    not land.
+    """
+    results: list[PushResult] = []
+
+    for change in payload.changes:
+        latest = _latest(db, current_user.id, change.record_id)
+        server_version = None if latest is None else latest.version
+
+        if server_version != change.base_version:
+            results.append(
+                PushResult(
+                    record_id=change.record_id,
+                    record_type=change.record_type,
+                    outcome=PushOutcome.CONFLICT,
+                    version=server_version,
+                    theirs=None if latest is None else _as_change(latest),
+                )
+            )
+            continue
+
+        results.append(_apply_one(db, current_user.id, change, latest))
+
+    return PushResponse(results=results)
