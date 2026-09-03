@@ -1,0 +1,67 @@
+# Turning the built shell, the API binary and a TeX distribution into something
+# a person can install.
+#
+#   bun run build:desktop && bun run --filter apps-desktop package
+#
+# Both of the large things this ships are executed as child processes, so
+# neither can live inside an asar archive: the operating system runs a file, and
+# there is no file inside an archive to run. That is what extraResources means
+# here — copied beside the app, left as they are.
+
+appId: com.resumebuilder.desktop
+productName: Resume Builder
+copyright: ""
+
+directories:
+  output: release
+  buildResources: build
+
+# The main process, the preload script, and the built app the window loads.
+# Nothing else from the checkout belongs in the bundle.
+files:
+  - dist/**
+  - package.json
+
+extraResources:
+  # PyInstaller's output. The whole directory, not just the executable: it
+  # carries the Python runtime and the alembic migrations the first launch
+  # needs to create a database.
+  - from: ../api/dist/resume-api
+    to: api
+  # A TeX distribution, so a compile works on a machine that has never had
+  # LaTeX installed. Most of the installer's size, and the reason the app can
+  # produce a real PDF offline.
+  - from: resources/texlive
+    to: texlive
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  # The app runs a Python binary and a TeX engine it ships. Under the hardened
+  # runtime that needs saying explicitly, or the system refuses to execute
+  # them — and the failure looks like the app hanging at startup.
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Every binary inside extraResources has to be signed too, not just the app.
+  # Notarisation checks all of them.
+  signIgnore: []
+
+dmg:
+  writeUpdateInfo: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  target:
+    - AppImage
+  category: Office

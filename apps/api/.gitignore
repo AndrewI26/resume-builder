@@ -1,0 +1,4 @@
+# PyInstaller output — the sidecar binary the desktop app ships, built by
+# resume-api.spec rather than committed.
+dist/
+build/

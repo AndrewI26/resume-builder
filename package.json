@@ -33,7 +33,8 @@
     "verify": "bun run format:web && bun run lint:web && bun run typecheck:web && bun run format:api && bun run lint:api && bun run typecheck:api",
     "prepare": "husky",
     "build:desktop": "bun run build:web && bun run --filter apps-desktop build",
-    "dev:desktop": "bun run build:desktop && bun run --filter apps-desktop start"
+    "dev:desktop": "bun run build:desktop && bun run --filter apps-desktop start",
+    "package:desktop": "bun run --filter apps-desktop bundle-api && bun run --filter apps-desktop bundle-tex && bun run build:desktop && bun run --filter apps-desktop package"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",

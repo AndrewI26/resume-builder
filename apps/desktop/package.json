@@ -1,5 +1,9 @@
 {
 	"name": "apps-desktop",
+	"productName": "Resume Builder",
+	"version": "0.1.0",
+	"description": "Keep every role, project and bullet point in one library, then tailor a typeset resume for each application.",
+	"author": "Resume Builder",
 	"private": true,
 	"type": "module",
 	"main": "dist/main/main.cjs",
@@ -9,7 +13,10 @@
 		"stage-renderer": "node scripts/stage-renderer.mjs",
 		"typecheck": "tsc --noEmit",
 		"format": "biome format --write .",
-		"lint": "biome lint --write ."
+		"lint": "biome lint --write .",
+		"bundle-tex": "scripts/bundle-texlive.sh",
+		"bundle-api": "cd ../api && uv run pyinstaller resume-api.spec --noconfirm --distpath dist --workpath build",
+		"package": "electron-builder --config electron-builder.yml"
 	},
 	"dependencies": {
 		"@resume-builder/ui": "workspace:*"
@@ -17,10 +24,10 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.7",
 		"@types/node": "^22",
-		"electron": "^40.0.0",
+		"electron": "40.10.6",
+		"electron-builder": "^26.15.3",
 		"electron-vite": "^4.0.0",
 		"typescript": "5.9.3",
 		"vite": "^8.0.3"
-	},
-	"productName": "Resume Builder"
+	}
 }

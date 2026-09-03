@@ -31,7 +31,7 @@ RECORD_TYPE_VALUES = (
 )
 
 
-def record_type_column() -> sa.Column:
+def record_type_column() -> sa.Column[str]:
     """The record kind, reusing the type the history already declares.
 
     Postgres would otherwise try to create ``section_version_type`` a second
@@ -39,7 +39,7 @@ def record_type_column() -> sa.Column:
     all and stores the value as text either way.
     """
     if op.get_bind().dialect.name == "postgresql":
-        enum: sa.types.TypeEngine = postgresql.ENUM(
+        enum: sa.types.TypeEngine[str] = postgresql.ENUM(
             *RECORD_TYPE_VALUES, name="section_version_type", create_type=False
         )
     else:

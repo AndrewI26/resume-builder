@@ -1,3 +1,7 @@
 dist/
 out/
 release/
+
+# Built by scripts/bundle-texlive.sh — a few hundred megabytes of TeX Live,
+# fetched rather than committed.
+resources/

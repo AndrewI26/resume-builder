@@ -22,7 +22,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { randomBytes } from "node:crypto";
 import { app } from "electron";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 export type Sidecar = {
@@ -91,10 +91,26 @@ function command(port: number): { file: string; args: string[]; cwd?: string } {
 	};
 }
 
-/** Where the bundled TeX distribution's binaries are, if this build has one. */
+/**
+ * Where the bundled TeX distribution's binaries are, if this build has one.
+ *
+ * Under a platform-named directory — universal-darwin, windows, and so on —
+ * which is read rather than assumed. It could be flattened to a fixed path,
+ * but TeX resolves its own files by walking up from the running binary, so
+ * moving it puts every one of those lookups a directory too high and pdfTeX
+ * cannot find its own format file.
+ */
 function texliveBin(): string | undefined {
-	const bundled = join(process.resourcesPath, "texlive", "bin");
-	return existsSync(bundled) ? bundled : undefined;
+	const root = join(process.resourcesPath, "texlive", "bin");
+	if (!existsSync(root)) {
+		return undefined;
+	}
+
+	const platform = readdirSync(root, { withFileTypes: true }).find((entry) =>
+		entry.isDirectory(),
+	);
+
+	return platform ? join(root, platform.name) : undefined;
 }
 
 async function waitUntilAnswering(
