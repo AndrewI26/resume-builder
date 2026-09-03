@@ -439,7 +439,10 @@ export interface paths {
 		 *     The wait here is deliberate: the client asked for a file and gets one in
 		 *     the same response. The queue is not hiding the work, it is bounding how
 		 *     much of it runs at once — a compile is CPU-bound, and unbounded exports
-		 *     would take the host down rather than merely queue.
+		 *     would take the host down rather than merely queue. A local install has no
+		 *     host to protect and no queue to reach, so it typesets in this process
+		 *     instead; both paths raise the same failures, which is why only the call
+		 *     differs and none of the handling below does.
 		 */
 		post: operations["compile_resume_pdf"];
 		delete?: never;
@@ -485,6 +488,172 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	"/sync/changes": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Pull Changes
+		 * @description Everything that has happened to this account's records since ``since``.
+		 *
+		 *     Paged rather than complete, because a library that has been edited for
+		 *     years is not something to assemble in memory on either end. Changes are not
+		 *     collapsed to the latest state of each record: replaying an intermediate
+		 *     version costs a write the client would have made anyway, and collapsing
+		 *     within a page would mean deciding what "latest" means without having seen
+		 *     the pages after it.
+		 */
+		get: operations["pull_changes"];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/sync/push": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Push Changes
+		 * @description Offer changes made elsewhere, and be told what became of each.
+		 *
+		 *     Each change carries the version of its record that the client last agreed
+		 *     with this server. If that is still the version here, nobody else has
+		 *     touched it and the change is applied. If it is not, both sides changed the
+		 *     same record and this says so rather than choosing — the response carries
+		 *     what the server has, which is the other half of the question a person then
+		 *     gets asked.
+		 *
+		 *     Applied one at a time rather than as a single transaction, because the
+		 *     answer is per record: one conflicted resume should not send back a whole
+		 *     library that would otherwise have gone through. A client re-offers what did
+		 *     not land.
+		 */
+		post: operations["push_changes"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/sync/status": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Sync Status
+		 * @description Whether this library is connected to an account, and what is outstanding.
+		 */
+		get: operations["sync_status"];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/sync/connect": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Connect Account
+		 * @description Sign this library in to an account.
+		 *
+		 *     Nothing is transferred here. Connecting only records who this library
+		 *     belongs to; the first sync afterwards is what carries the work across, and
+		 *     it is the same code as every sync after it rather than a special first one.
+		 */
+		post: operations["connect_account"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/sync/disconnect": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Disconnect Account
+		 * @description Forget the account. The library stays exactly as it is.
+		 */
+		post: operations["disconnect_account"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/sync/run": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Run Sync
+		 * @description Bring this library and the account level with each other.
+		 */
+		post: operations["run_sync"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/sync/conflicts/{record_id}/resolve": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Resolve
+		 * @description Say which side of a disagreement was meant.
+		 *
+		 *     The choice is recorded here and carried out by the next sync, so answering
+		 *     a pile of conflicts is not a pile of network calls that can half fail.
+		 */
+		post: operations["resolve"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -503,6 +672,79 @@ export interface components {
 			text: string;
 			/** Bolded */
 			bolded: [number, number][];
+		};
+		/**
+		 * Change
+		 * @description One thing that happened to one record.
+		 *
+		 *     The snapshot is the record as it stood, not a pointer to it, which is what
+		 *     lets a delete be transferred at all: by the time anyone asks, the row it
+		 *     describes is gone.
+		 */
+		Change: {
+			record_type: components["schemas"]["SectionType"];
+			/**
+			 * Record Id
+			 * Format: uuid
+			 */
+			record_id: string;
+			/** Version */
+			version: number;
+			operation: components["schemas"]["OperationType"];
+			/** Snapshot */
+			snapshot: {
+				[key: string]: unknown;
+			};
+			/** Seq */
+			seq: number;
+		};
+		/**
+		 * ChangeFeed
+		 * @description A page of history, oldest first.
+		 */
+		ChangeFeed: {
+			/** Changes */
+			changes: components["schemas"]["Change"][];
+			/** Cursor */
+			cursor: number;
+			/** More */
+			more: boolean;
+		};
+		/**
+		 * ConflictRead
+		 * @description A record both sides changed, and both answers to choose between.
+		 */
+		ConflictRead: {
+			/**
+			 * Record Id
+			 * Format: uuid
+			 */
+			record_id: string;
+			record_type: components["schemas"]["SectionType"];
+			/** Local Version */
+			local_version: number;
+			/** Cloud Version */
+			cloud_version: number;
+			/** Local Snapshot */
+			local_snapshot: {
+				[key: string]: unknown;
+			};
+			/** Cloud Snapshot */
+			cloud_snapshot: {
+				[key: string]: unknown;
+			};
+		};
+		/**
+		 * ConnectRequest
+		 * @description Sign this library in to an account.
+		 */
+		ConnectRequest: {
+			/** Base Url */
+			base_url: string;
+			/** Email */
+			email: string;
+			/** Password */
+			password: string;
 		};
 		/** EducationBlock */
 		EducationBlock: {
@@ -614,6 +856,12 @@ export interface components {
 			label?: string | null;
 		};
 		/**
+		 * OperationType
+		 * @description What a version snapshot records the section as having undergone.
+		 * @enum {string}
+		 */
+		OperationType: "create" | "update" | "delete";
+		/**
 		 * PersonalInfoCreate
 		 * @description The full representation, used to create a row and to replace one.
 		 *
@@ -684,6 +932,77 @@ export interface components {
 			 * Format: uuid
 			 */
 			id: string;
+		};
+		/**
+		 * PushChange
+		 * @description A change made elsewhere, offered to this database.
+		 *
+		 *     ``base_version`` is the version of this record the client last agreed with
+		 *     the server. It is the whole of conflict detection: if the server has moved
+		 *     past it, somebody else changed the same record in the meantime and nobody
+		 *     but a person can say which of the two was meant.
+		 *
+		 *     ``None`` means "I believe you have never seen this record" — a record
+		 *     created offline. It is checked rather than trusted, so claiming it for a
+		 *     record the server does know about is a conflict like any other.
+		 */
+		PushChange: {
+			record_type: components["schemas"]["SectionType"];
+			/**
+			 * Record Id
+			 * Format: uuid
+			 */
+			record_id: string;
+			/** Base Version */
+			base_version?: number | null;
+			operation: components["schemas"]["OperationType"];
+			/** Snapshot */
+			snapshot?: {
+				[key: string]: unknown;
+			};
+		};
+		/**
+		 * PushOutcome
+		 * @enum {string}
+		 */
+		PushOutcome: "applied" | "conflict" | "rejected";
+		/** PushRequest */
+		PushRequest: {
+			/** Changes */
+			changes: components["schemas"]["PushChange"][];
+		};
+		/** PushResponse */
+		PushResponse: {
+			/** Results */
+			results: components["schemas"]["PushResult"][];
+		};
+		/**
+		 * PushResult
+		 * @description What became of one offered change.
+		 */
+		PushResult: {
+			/**
+			 * Record Id
+			 * Format: uuid
+			 */
+			record_id: string;
+			record_type: components["schemas"]["SectionType"];
+			outcome: components["schemas"]["PushOutcome"];
+			/** Version */
+			version?: number | null;
+			/** Seq */
+			seq?: number | null;
+			theirs?: components["schemas"]["Change"] | null;
+			/** Reason */
+			reason?: string | null;
+		};
+		/** ResolveRequest */
+		ResolveRequest: {
+			/**
+			 * Choice
+			 * @enum {string}
+			 */
+			choice: "mine" | "theirs";
 		};
 		/**
 		 * ResumeCreate
@@ -822,6 +1141,44 @@ export interface components {
 			/** Sections */
 			sections: components["schemas"]["ResumeSectionRef"][];
 		};
+		/**
+		 * RunReport
+		 * @description What one sync did.
+		 */
+		RunReport: {
+			/** Pulled */
+			pulled: number;
+			/** Pushed */
+			pushed: number;
+			/** Conflicts */
+			conflicts: string[];
+			/** Rejected */
+			rejected: string[];
+		};
+		/**
+		 * SectionType
+		 * @description The kinds of record that carry version history.
+		 *
+		 *     Mostly section kinds, plus the resume itself — a resume is not a section of
+		 *     anything, but it is a thing a person edits and therefore a thing that has
+		 *     to be carried between a desktop and an account, in the same order as
+		 *     everything else. One history is what lets a sync read a user's changes as a
+		 *     single sequence rather than merging several.
+		 *
+		 *     The member values are the stored labels in both Postgres and JSON: the
+		 *     column passes ``db.enum_values`` to ``values_callable`` so the type's
+		 *     labels are these rather than the member names, and Pydantic serializes a
+		 *     ``str`` enum by its value. Adding a member therefore changes the API
+		 *     contract and the database type together.
+		 * @enum {string}
+		 */
+		SectionType:
+			| "education"
+			| "experience"
+			| "personal_info"
+			| "project"
+			| "skill"
+			| "resume";
 		/** SkillBlock */
 		SkillBlock: {
 			/**
@@ -869,6 +1226,28 @@ export interface components {
 			items: string[];
 			/** Position */
 			position: number;
+		};
+		/**
+		 * SyncStatus
+		 * @description Everything the window needs to say where this library stands.
+		 */
+		SyncStatus: {
+			/** Connected */
+			connected: boolean;
+			/** Account Email */
+			account_email?: string | null;
+			/**
+			 * Cloud Cursor
+			 * @default 0
+			 */
+			cloud_cursor: number;
+			/**
+			 * Local Cursor
+			 * @default 0
+			 */
+			local_cursor: number;
+			/** Conflicts */
+			conflicts?: components["schemas"]["ConflictRead"][];
 		};
 		/** UserCreate */
 		UserCreate: {
@@ -2458,6 +2837,238 @@ export interface operations {
 				};
 				content: {
 					"application/json": components["schemas"]["SkillRead"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	pull_changes: {
+		parameters: {
+			query?: {
+				since?: number;
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ChangeFeed"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	push_changes: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["PushRequest"];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["PushResponse"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	sync_status: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["SyncStatus"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	connect_account: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["ConnectRequest"];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["SyncStatus"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	disconnect_account: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	run_sync: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["RunReport"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	resolve: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				record_id: string;
+			};
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["ResolveRequest"];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["SyncStatus"];
 				};
 			};
 			/** @description Validation Error */
