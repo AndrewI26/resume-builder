@@ -34,11 +34,18 @@ extraResources:
   - from: resources/texlive
     to: texlive
 
+# One architecture per build, and it has to be the machine's own.
+#
+# electron-builder will happily cross-build the Electron shell, but the two
+# things in extraResources are copied as they are — and PyInstaller cannot
+# cross-compile, so an x64 dmg built on an Apple Silicon machine ships an arm64
+# API inside it and fails on the first launch of a machine that cannot run it.
+# The same goes for TeX. So no arch list here: the CLI names one, and CI builds
+# each on a runner of that architecture.
 mac:
   category: public.app-category.productivity
   target:
-    - target: dmg
-      arch: [arm64, x64]
+    - dmg
   # The app runs a Python binary and a TeX engine it ships. Under the hardened
   # runtime that needs saying explicitly, or the system refuses to execute
   # them — and the failure looks like the app hanging at startup.
@@ -54,8 +61,7 @@ dmg:
 
 win:
   target:
-    - target: nsis
-      arch: [x64]
+    - nsis
 
 nsis:
   oneClick: false

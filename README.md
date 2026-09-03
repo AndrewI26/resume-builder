@@ -324,6 +324,56 @@ The API tests run against a throwaway SQLite file and need nothing started.
 Set `TEST_DATABASE_URL` to run the same suite against a Postgres — the hosted
 app's database — which is worth doing before changing a model.
 
+## The desktop app
+
+The same app, in a window, with everything on your own machine. No account, no
+network: it starts the API as a child process against a SQLite file in your
+application data directory, and carries its own TeX distribution so a resume
+typesets to a real PDF on a computer that has never had LaTeX installed.
+
+```bash
+bun run dev:desktop     # builds the app and opens it
+```
+
+In a checkout the API runs from source through `uv`, so an edit to a router
+shows up without repackaging anything.
+
+### Building installers
+
+```bash
+bun run package:desktop
+```
+
+Three things go in, and two of them cannot be cross-built — PyInstaller
+produces a binary for the machine it runs on, and the TeX distribution is
+per-platform. **So an installer can only be built on the kind of machine it is
+for.** Building an x64 installer on an Apple Silicon Mac produces a `.dmg` that
+fails on the first launch of the machine it was meant for.
+
+| | |
+| --- | --- |
+| [`resume-api.spec`](apps/api/resume-api.spec) | the API as a single binary |
+| [`bundle-texlive.sh`](apps/desktop/scripts/bundle-texlive.sh) | TinyTeX plus the packages the template needs |
+| [`electron-builder.yml`](apps/desktop/electron-builder.yml) | the shell, and what gets shipped beside it |
+
+The TeX bundle is most of the download — around 235MB installed.
+
+### Releases
+
+Pushing a tag builds macOS and Windows installers on their own runners and
+attaches them to a draft release:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+The workflow can also be run by hand from the Actions tab, which builds the
+installers and leaves them as artifacts without publishing anything. See
+[`release-desktop.yml`](.github/workflows/release-desktop.yml).
+
+Nothing is signed or notarised, so both systems warn on first launch. Signing
+needs a certificate in the repository's secrets and a change to that workflow.
+
 ## Landing page screenshots
 
 The screenshots on the marketing page — and in this README — are captures of

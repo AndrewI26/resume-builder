@@ -1,0 +1,170 @@
+# Builds the desktop app for macOS and Windows and attaches the installers to
+# a GitHub release.
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# or run it by hand from the Actions tab, which builds the installers and
+# leaves them as workflow artifacts without publishing anything.
+#
+# One job per platform *and* architecture, because two of the three things that
+# go into an installer cannot be cross-built: PyInstaller produces a binary for
+# the machine it runs on, and the bundled TeX distribution is likewise
+# per-platform. An x64 installer built on an arm64 machine would carry an arm64
+# API inside it and fail on the first launch of the machine it was built for.
+
+name: Release desktop app
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# The release job needs to create a release and upload to it.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    # One platform failing should still leave the others to look at, rather
+    # than cancelling a 20-minute build because a runner label went stale.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Apple Silicon)
+            runner: macos-14
+            arch: arm64
+            platform: mac
+          - name: macOS (Intel)
+            # GitHub retires Intel macOS runners periodically; if this label
+            # stops resolving, it is the thing to change.
+            runner: macos-15-intel
+            arch: x64
+            platform: mac
+          - name: Windows
+            runner: windows-latest
+            arch: x64
+            platform: win
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Take the version from the tag
+        # electron-builder reads the version from package.json, and a release
+        # whose installers disagree with the tag they were built from is worse
+        # than no version at all.
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          node -e "
+            const fs = require('node:fs');
+            const path = 'apps/desktop/package.json';
+            const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+            manifest.version = process.argv[1];
+            fs.writeFileSync(path, JSON.stringify(manifest, null, '\t') + '\n');
+          " "$version"
+          echo "Building version $version"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build the API into a binary
+        working-directory: apps/api
+        run: uv run pyinstaller resume-api.spec --noconfirm --distpath dist --workpath build
+
+      # A few hundred megabytes fetched from CTAN. Worth keeping between runs:
+      # it is most of the build's wall time and none of its variability.
+      - name: Cache the TeX distribution
+        id: tex-cache
+        uses: actions/cache@v4
+        with:
+          path: apps/desktop/resources/texlive
+          key: texlive-${{ matrix.runner }}-${{ hashFiles('apps/desktop/scripts/bundle-texlive.sh', 'apps/desktop/scripts/bundle-texlive.ps1') }}
+
+      - name: Bundle TeX (macOS)
+        if: matrix.platform == 'mac' && steps.tex-cache.outputs.cache-hit != 'true'
+        run: apps/desktop/scripts/bundle-texlive.sh
+
+      - name: Bundle TeX (Windows)
+        if: matrix.platform == 'win' && steps.tex-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: apps/desktop/scripts/bundle-texlive.ps1
+
+      - name: Build the app
+        run: bun run build:desktop
+
+      - name: Package the installer
+        working-directory: apps/desktop
+        # Nothing is signed. Without this, electron-builder looks for an
+        # identity in the runner's keychain, finds none, and the failure reads
+        # like a build error rather than a missing certificate.
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: bunx electron-builder --config electron-builder.yml --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish the release
+    needs: build
+    # Only for a tag. A manual run builds the installers and stops, so the
+    # build can be exercised without publishing anything.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          merge-multiple: true
+
+      - name: Attach the installers to a release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installers/*
+          draft: true
+          generate_release_notes: true
+          body: |
+            ## Installing
+
+            **macOS** — download the `arm64` build for Apple Silicon or the
+            `x64` build for Intel, open the `.dmg`, and drag the app to
+            Applications.
+
+            **Windows** — download and run the `.exe` installer.
+
+            ### These builds are not signed
+
+            macOS will refuse to open the app on the first try, because it was
+            not notarised by Apple. Right-click the app and choose Open, then
+            confirm. Windows SmartScreen will warn for the same reason: choose
+            More info, then Run anyway.
+
+            ### What it does
+
+            Everything is stored on your own computer and the app works with no
+            account and no network. It carries its own TeX distribution, so
+            resumes typeset to a real PDF without installing LaTeX — which is
+            why the download is large.
