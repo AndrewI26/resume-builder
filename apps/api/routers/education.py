@@ -81,6 +81,15 @@ def edit_education(
     result = EducationRead.model_validate(edited_education)
     db.commit()
 
+    record_version(
+        db,
+        current_user.id,
+        SectionType.EDUCATION,
+        education_id,
+        OperationType.UPDATE,
+        result.model_dump(mode="json"),
+    )
+
     return result
 
 
@@ -100,5 +109,14 @@ def delete_education(
     result = EducationRead.model_validate(deleted_education)
     detach_section(db, ResumeSectionType.EDUCATION, education_id)
     db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.EDUCATION,
+        education_id,
+        OperationType.DELETE,
+        result.model_dump(mode="json"),
+    )
 
     return result

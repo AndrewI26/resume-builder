@@ -192,3 +192,123 @@ class TestResumesAreRecorded:
                 "position": 0,
             }
         ]
+
+
+class TestEveryChangeIsRecorded:
+    """Not only creations.
+
+    The history was written on create and nowhere else, so a section edited or
+    deleted left no trace — the two operations the enum names but nothing ever
+    wrote. Nothing read the history, so nothing noticed. Sync reads it, and a
+    library edited offline would have had nothing to send.
+    """
+
+    def test_editing_a_section(self, auth, db: Session, user: User, make_education):
+        education = make_education(user, name="State University")
+
+        response = auth(user).put(
+            f"/education/{education.id}",
+            json={
+                "name": "Renamed",
+                "subheading": "BSc",
+                "duration": "2016 - 2020",
+                "location": "Boston, MA",
+            },
+        )
+        assert response.status_code == 200
+
+        recorded = entries(db, user)
+        assert [e.operation for e in recorded] == [OperationType.UPDATE]
+        assert recorded[-1].snapshot["name"] == "Renamed"
+
+    def test_deleting_a_section_keeps_what_it_was(
+        self, auth, db: Session, user: User, make_education
+    ):
+        """The history is the only place a deleted section still exists."""
+        education = make_education(user, name="State University")
+
+        assert auth(user).delete(f"/education/{education.id}").status_code == 200
+
+        recorded = entries(db, user)
+        assert recorded[-1].operation == OperationType.DELETE
+        assert recorded[-1].snapshot["name"] == "State University"
+
+    def test_a_records_versions_count_up_through_its_life(
+        self, auth, db: Session, user: User
+    ):
+        client = auth(user)
+        created = client.post(
+            "/education/",
+            json={
+                "name": "First",
+                "subheading": "BSc",
+                "duration": "2016 - 2020",
+                "location": "Boston, MA",
+            },
+        ).json()
+
+        client.put(
+            f"/education/{created['id']}",
+            json={
+                "name": "Second",
+                "subheading": "BSc",
+                "duration": "2016 - 2020",
+                "location": "Boston, MA",
+            },
+        )
+        client.delete(f"/education/{created['id']}")
+
+        recorded = entries(db, user)
+        assert [(e.version, e.operation) for e in recorded] == [
+            (1, OperationType.CREATE),
+            (2, OperationType.UPDATE),
+            (3, OperationType.DELETE),
+        ]
+
+    @pytest.mark.parametrize(
+        ("path", "payload", "record_type"),
+        [
+            (
+                "/skill/",
+                {"name": "Languages", "items": ["Python"], "position": 0},
+                SectionType.SKILL,
+            ),
+            (
+                "/personal-info/",
+                {"email": "ada@example.com"},
+                SectionType.PERSONAL_INFO,
+            ),
+            (
+                "/project/",
+                {"name": "A project", "technologies": [], "bullet_points": []},
+                SectionType.PROJECT,
+            ),
+            (
+                "/experience/",
+                {
+                    "company": "Acme",
+                    "position": "Engineer",
+                    "duration": "2020 - 2022",
+                    "location": "New York, NY",
+                    "bullet_points": [],
+                },
+                SectionType.EXPERIENCE,
+            ),
+        ],
+    )
+    def test_every_kind_of_section_records_all_three(
+        self, auth, db: Session, user: User, path, payload, record_type
+    ):
+        """One router doing it and another not is exactly how sync loses work."""
+        client = auth(user)
+        created = client.post(path, json=payload).json()
+
+        client.put(f"{path}{created['id']}", json=payload)
+        client.delete(f"{path}{created['id']}")
+
+        recorded = [e for e in entries(db, user) if e.section_type == record_type]
+        assert [e.operation for e in recorded] == [
+            OperationType.CREATE,
+            OperationType.UPDATE,
+            OperationType.DELETE,
+        ]

@@ -116,6 +116,15 @@ def edit_expirence(
     )
     db.commit()
 
+    record_version(
+        db,
+        current_user.id,
+        SectionType.EXPERIENCE,
+        expirence_id,
+        OperationType.UPDATE,
+        result.model_dump(mode="json"),
+    )
+
     return result
 
 
@@ -138,5 +147,14 @@ def delete_expirence(
     delete_bullet_points(db, bullet_ids)
     detach_section(db, ResumeSectionType.EXPERIENCE, expirence_id)
     db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.EXPERIENCE,
+        expirence_id,
+        OperationType.DELETE,
+        result.model_dump(mode="json"),
+    )
 
     return result

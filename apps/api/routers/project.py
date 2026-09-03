@@ -112,6 +112,15 @@ def edit_project(
     )
     db.commit()
 
+    record_version(
+        db,
+        current_user.id,
+        SectionType.PROJECT,
+        project_id,
+        OperationType.UPDATE,
+        result.model_dump(mode="json"),
+    )
+
     return result
 
 
@@ -132,5 +141,14 @@ def delete_project(project_id: UUID, current_user: CurrentUser, db: Db) -> Proje
     delete_bullet_points(db, bullet_ids)
     detach_section(db, ResumeSectionType.PROJECT, project_id)
     db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.PROJECT,
+        project_id,
+        OperationType.DELETE,
+        result.model_dump(mode="json"),
+    )
 
     return result

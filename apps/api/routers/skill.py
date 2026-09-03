@@ -95,6 +95,15 @@ def edit_skill(
     result = SkillRead.model_validate(edited_skill)
     db.commit()
 
+    record_version(
+        db,
+        current_user.id,
+        SectionType.SKILL,
+        skill_id,
+        OperationType.UPDATE,
+        result.model_dump(mode="json"),
+    )
+
     return result
 
 
@@ -112,5 +121,14 @@ def delete_skill(skill_id: UUID, current_user: CurrentUser, db: Db) -> SkillRead
     result = SkillRead.model_validate(deleted_skill)
     detach_section(db, ResumeSectionType.SKILL, skill_id)
     db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.SKILL,
+        skill_id,
+        OperationType.DELETE,
+        result.model_dump(mode="json"),
+    )
 
     return result

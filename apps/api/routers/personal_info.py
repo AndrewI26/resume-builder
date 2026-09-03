@@ -83,6 +83,15 @@ def edit_personal_info(
     result = PersonalInfoRead.model_validate(edited_personal_info)
     db.commit()
 
+    record_version(
+        db,
+        current_user.id,
+        SectionType.PERSONAL_INFO,
+        personal_info_id,
+        OperationType.UPDATE,
+        result.model_dump(mode="json"),
+    )
+
     return result
 
 
@@ -104,5 +113,14 @@ def delete_personal_info(
 
     result = PersonalInfoRead.model_validate(deleted_personal_info)
     db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.PERSONAL_INFO,
+        personal_info_id,
+        OperationType.DELETE,
+        result.model_dump(mode="json"),
+    )
 
     return result
