@@ -49,9 +49,16 @@ try {
     # TINYTEX_DIR does on unix. Without it the installer picks %APPDATA%.
     $env:TINYTEX_DIR = $workspace
 
-    $installer = Join-Path $workspace "install-bin-windows.bat"
-    Invoke-WebRequest -Uri "https://yihui.org/tinytex/install-bin-windows.bat" -OutFile $installer
-    & cmd.exe /c $installer
+    # The PowerShell installer directly, rather than the .bat wrapper around
+    # it. The wrapper fetches this same script with
+    #   curl.exe -fsSLO 'https://...'
+    # and cmd.exe does not strip single quotes, so curl is handed a literal
+    # quoted string, downloads nothing, and the failure surfaces one step later
+    # as PowerShell being unable to find a file it was never given. We are
+    # already in PowerShell, so the detour buys nothing anyway.
+    $installer = Join-Path $workspace "install-bin-windows.ps1"
+    Invoke-WebRequest -Uri "https://tinytex.yihui.org/install-bin-windows.ps1" -OutFile $installer
+    & powershell.exe -ExecutionPolicy Bypass -File $installer
     if ($LASTEXITCODE -ne 0) { throw "the TinyTeX installer exited with $LASTEXITCODE" }
 
     $installed = Join-Path $workspace "TinyTeX"
