@@ -92,57 +92,83 @@ system light/dark preference or an explicit toggle.
 ## How the PDF gets made
 
 Typesetting is slow and bursty — a run is CPU-bound for a second or two — so it
-does not belong on the request path. The API hands the job to a **Redis-backed
-[arq](https://arq-docs.helpmanual.io/) queue** and a separate **worker process**
-does the work.
+does not belong on the request path. The API writes a job into **Postgres** and
+a pool of **workers** claims it. There is no separate queue server: the table
+is the queue, `LISTEN`/`NOTIFY` is the doorbell, and `FOR UPDATE SKIP LOCKED`
+is what hands each job to exactly one worker.
 
 ```mermaid
 sequenceDiagram
     participant C as Browser
     participant A as FastAPI
-    participant R as Redis / arq
-    participant W as Worker
     participant P as Postgres
+    participant W as Worker
     participant T as pdfTeX
 
     C->>A: POST /resumes/:id/pdf
     A->>A: verify the resume belongs to the caller
-    A->>R: enqueue generate_resume_pdf with resume_id
-    R->>W: dispatch, at most 2 at once
+    A->>P: INSERT pdf_jobs + NOTIFY pdf_jobs
+    P->>W: notification wakes an idle worker
+    W->>P: claim with FOR UPDATE SKIP LOCKED
     W->>P: load resume, sections, bullet points
     W->>W: build document, serialize to LaTeX
-    W->>T: pdflatex in a throwaway sandbox, 20s cap
+    W->>T: pdflatex in a sandbox, 20s cap
     T-->>W: PDF bytes
-    W-->>R: store result, kept 60s
-    R-->>A: awaited result, 45s cap
+    W->>P: UPDATE pdf_jobs + NOTIFY pdf_jobs_done
+    P-->>A: notification, awaited up to 45s
     A-->>C: 200 application/pdf
 ```
 
 **The job carries a resume id and nothing else.** It re-reads the rows itself
 rather than trusting a document sent in from outside, so there is no
-caller-supplied LaTeX anywhere in the pipeline — which is what lets the compile
-step drop the token and network fencing a standalone service would need.
-Ownership is settled by the endpoint before the job is ever enqueued.
+caller-supplied LaTeX anywhere in the pipeline. Ownership is settled by the
+endpoint before the job is ever queued.
 
 **The queue bounds work rather than hiding it.** The request waits for its own
 result, because the client asked for a file and gets one in the same response.
-What the queue buys is `max_jobs = 2`: a compile is CPU-bound, so running more
-at once makes each one slower rather than finishing sooner, and unbounded
-exports would take the host down instead of merely queueing. Jobs run with
-`max_tries = 1` — the document is identical on a retry, so a retry cannot fix
-what failed.
+What the queue buys is a ceiling on how many compiles run at once: a compile is
+CPU-bound, so running more of them makes each one slower rather than finishing
+sooner, and unbounded exports would take the host down instead of merely
+queueing. Jobs run with `max_tries = 1` — the document is identical on a retry,
+so a retry cannot fix what failed.
 
-**Each compile is sandboxed.** The engine runs as a child process of the worker
-inside a temporary directory that is deleted afterwards, with:
+**How many workers is set when the API starts.** `PDF_WORKER_COUNT` defaults to
+3, and the API's lifespan starts that many:
+
+```bash
+PDF_WORKER_COUNT=6 bun run dev:api
+```
+
+Zero is a real answer, and it is what `docker-compose.yml` gives the API: there
+a separate `worker` container claims the jobs instead. Either way the API keeps
+one `LISTEN` connection open, because a request waiting here has to hear that
+its job finished wherever it ran.
+
+**The engine runs in a container.** A TeX document is a program, and the engine
+that runs it is the least trustworthy thing in the application. Which sandbox
+it gets depends on where the worker is:
+
+| `LATEX_BACKEND` | Used by | The fence |
+| --- | --- | --- |
+| `docker` (default) | the API on the host | a container per compile: `--network=none`, read-only root, `--cap-drop=ALL`, `--memory=512m`, `--pids-limit=128`, nothing mounted. The document goes in on stdin and the PDF comes back on stdout |
+| `local` | the `worker` container | the engine as a child process — that container is already the boundary, and starting containers from inside one would mean giving it a Docker socket, a far larger privilege than the one being contained |
+
+Both are fenced the same way from the engine's side:
 
 | Fence | Why |
 | --- | --- |
 | `openin_any=p`, `openout_any=p` | paranoid mode — `\input{/etc/passwd}` cannot reach the PDF |
 | `-no-shell-escape` | no `\write18`, whatever the document says |
-| a minimal environment | the engine inherits none of the worker's variables, so a stray secret cannot leak into a document |
+| a minimal environment | the engine inherits nothing the worker was started with, so a stray secret cannot leak into a document |
 | `-halt-on-error` | fail on the first error instead of cascading |
-| 20s timeout, own process group | a hung run is killed along with anything it spawned |
+| 20s timeout | a hung run is killed, container and all |
 | `SOURCE_DATE_EPOCH=0` | identical input produces an identical file |
+
+Build the compile image once before exporting on the host:
+
+```bash
+bun run docker:latex
+```
 
 **The engine has to be pdfTeX.** The template calls `\pdfgentounicode`, a pdfTeX
 primitive that emits the glyph-to-Unicode map making the PDF readable by
@@ -150,20 +176,28 @@ applicant tracking systems — which for a resume is close to the whole point.
 XeTeX-based engines such as Tectonic reject it.
 
 Failures come back as themselves rather than a generic 500: a document the
-engine rejected returns `422` with the tail of the TeX log, a missing engine or
-a down queue returns `503`, a compile that outlives the wait returns `504`, and
-a resume deleted between enqueueing and running returns `404`.
+engine rejected returns `422` with the tail of the TeX log, a missing engine
+returns `503`, a compile that outlives the wait returns `504`, and a resume
+deleted between queueing and running returns `404`. The worker cannot throw
+across a table, so it records which failure it hit and the endpoint raises it
+again on the other side.
+
+Finished rows are deleted a minute after they are read, and a job whose worker
+died is failed rather than left running, both by a reaper that runs alongside
+the workers.
 
 Relevant code:
 
 | | |
 | --- | --- |
-| [`routers/resume.py`](apps/api/routers/resume.py) | the endpoint that enqueues and waits |
-| [`services/compiler_worker.py`](apps/api/services/compiler_worker.py) | the job, and the worker's settings |
-| [`services/compiler.py`](apps/api/services/compiler.py) | the sandboxed pdfTeX run |
+| [`routers/resume.py`](apps/api/routers/resume.py) | the endpoint that queues and waits |
+| [`services/pdf_queue.py`](apps/api/services/pdf_queue.py) | the queue: enqueue, claim, result, reap |
+| [`services/pdf_worker.py`](apps/api/services/pdf_worker.py) | the worker loop and the pool |
+| [`deps/notify.py`](apps/api/deps/notify.py) | the one LISTEN connection everything waits on |
+| [`services/compiler.py`](apps/api/services/compiler.py) | the sandboxed pdfTeX run, both backends |
 | [`services/latex/`](apps/api/services/latex) | document → LaTeX source |
-| [`worker.py`](apps/api/worker.py) | the worker entrypoint |
-| [`deps/redis.py`](apps/api/deps/redis.py) | the sync and arq Redis pools |
+| [`docker/latex/`](docker/latex) | the compile sandbox image |
+| [`worker.py`](apps/api/worker.py) | standalone worker, for the compose deployment |
 
 ## Stack
 
@@ -171,8 +205,8 @@ Relevant code:
 | --- | --- |
 | Web | React 19, React Router 8, TanStack Query + Form, Tailwind 4, Vite |
 | API | FastAPI, SQLAlchemy 2, Alembic, Pydantic v2 |
-| Data | Postgres 16, Redis |
-| Jobs | arq worker, pdfTeX |
+| Data | Postgres 16 |
+| Jobs | Postgres queue (LISTEN/NOTIFY, SKIP LOCKED), pdfTeX |
 | Tooling | Bun workspaces, uv, Biome, Ruff, mypy, pytest |
 
 ```
@@ -196,20 +230,22 @@ apps/
 docker compose up --build
 ```
 
-That builds and starts the whole application — Postgres, Redis, the API, the
-PDF worker and the web app — and applies the migrations on the way up. The app
+That builds and starts the whole application — Postgres, the API, the PDF
+worker and the web app — and applies the migrations on the way up. The app
 is at http://localhost:5173 and the API at http://localhost:8000; create an
 account from the sign-in page.
 
 No `.env` is needed: `docker-compose.yml` defaults every setting. Drop one at
 the repo root (see `.env.example`) to change ports or the database credentials,
 or to fill in `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` for Google sign-in.
-Database and queue data live in named volumes and survive `docker compose
-down`; `down -v` is what throws them away.
+The database lives in a named volume and survives `docker compose down`;
+`down -v` is what throws it away. The job queue is a table in that same
+database, so there is no second service to run.
 
 The image the API and worker share carries a TinyTeX install with just the
 packages the resume template loads, so `pdflatex` is there without a TeX Live
-install on your machine.
+install on your machine. `PDF_WORKER_COUNT` sets how many compiles the worker
+container runs at once (default 3).
 
 > This runs the app, not a development loop: the web bundle is built into the
 > image and the API runs without `--reload`, so code changes need a rebuild.
@@ -224,26 +260,29 @@ From a fresh clone:
 cp .env.example .env      # dev defaults work as-is
 bun install
 uv sync --directory apps/api
-bun run docker:dev        # postgres + redis + cloudbeaver; leave this running
+bun run docker:dev        # postgres + cloudbeaver; leave this running
+bun run docker:latex      # the compile sandbox image, once
 bun run db:upgrade        # apply migrations
 bun run db:seed           # sample data + demo account
 ```
 
-Then, in three more terminals:
+Then, in two more terminals:
 
 ```bash
 bun run dev:api           # http://localhost:8000
 bun run dev:web           # http://localhost:5173
-cd apps/api && uv run python worker.py    # the PDF worker
 ```
 
 Sign in at http://localhost:5173 as **demo@example.com** / **demo1234**.
 
-> The worker is a separate process. Without it the app runs fine, but the PDF
-> preview and export sit unresolved until the request times out — if the editor
-> reports that the last compile failed, check that it is running. It also needs
-> `pdflatex` on `PATH` (a TeX Live install); the endpoint returns `503` when the
-> engine is missing.
+> There is no separate worker to start: the API runs its own, three by default.
+> `PDF_WORKER_COUNT=6 bun run dev:api` runs six instead, and `0` runs none —
+> useful if you want a standalone `uv run python worker.py` to do the work.
+>
+> Each compile runs in the `resume-builder-latex` container, so `bun run
+> docker:latex` has to have been run at least once; the endpoint returns `503`
+> when the image or Docker itself is missing. Set `LATEX_BACKEND=local` to use
+> a `pdflatex` on your `PATH` instead.
 
 ### Sample data
 

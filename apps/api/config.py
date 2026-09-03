@@ -13,9 +13,8 @@ class Settings(BaseSettings):
     node_env: Literal["development", "production"]
 
     # ``localhost`` is right when the app runs on the host against the compose
-    # database; the containers override these with the service names.
+    # database; the containers override this with the service name.
     postgres_host: str = "localhost"
-    redis_host: str = "localhost"
 
     postgres_user: str
     postgres_password: str
@@ -27,7 +26,13 @@ class Settings(BaseSettings):
     # ``PDF_WORKER_COUNT=6 bun run dev:api``.
     pdf_worker_count: int = 3
 
-    # The image each compile runs in. Built by ``bun run docker:dev``.
+    # How the engine is fenced. "docker" gives each compile a container of its
+    # own and is right when the API runs on the host; the worker container sets
+    # "local", because it is already the boundary and starting containers from
+    # inside one would mean handing it a Docker socket.
+    latex_backend: Literal["docker", "local"] = "docker"
+
+    # The image a "docker" compile runs in. Built by ``bun run docker:latex``.
     latex_image: str = "resume-builder-latex"
 
     frontend_port: str

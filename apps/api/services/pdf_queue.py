@@ -32,8 +32,9 @@ CHANNEL_DONE = "pdf_jobs_done"
 # reason retrying cannot change: the document is the same every time.
 MAX_TRIES = 1
 
-# How long a finished row sticks around for its waiting request to read.
-# Matches what arq's ``keep_result`` gave us.
+# How long a finished row sticks around for its waiting request to read. Long
+# enough to outlive the request's own wait, short enough that PDF bytes are
+# never the largest thing in the database.
 RESULT_TTL = timedelta(seconds=60)
 
 # A claimed job whose worker never came back — the process was killed, or the
@@ -71,13 +72,18 @@ def _notify(db: Session, channel: str, payload: str = "") -> None:
     )
 
 
-def enqueue(db: Session, resume_id: uuid.UUID) -> uuid.UUID:
+def enqueue(db: Session, resume_id: uuid.UUID, job_id: uuid.UUID) -> uuid.UUID:
     """Queue a compile for ``resume_id`` and wake a worker. Returns the job id.
+
+    The caller supplies the id rather than being told it, so it can start
+    listening for the result before the job exists. A worker can finish before
+    the insert's caller is scheduled again, and a waiter registered afterwards
+    would have missed the only notification it was ever going to get.
 
     The insert and the wake-up share a transaction, so there is no moment where
     the row is visible but no notification is coming, nor the reverse.
     """
-    job = PdfJob(resume_id=resume_id, status=PdfJobStatus.QUEUED)
+    job = PdfJob(id=job_id, resume_id=resume_id, status=PdfJobStatus.QUEUED)
     db.add(job)
     db.flush()
 

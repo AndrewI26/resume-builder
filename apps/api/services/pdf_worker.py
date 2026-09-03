@@ -17,7 +17,12 @@ one, because a worker that exits is a queue that silently stops draining.
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
+from typing import TypeVar
 from uuid import UUID
+
+from sqlalchemy.orm import Session
 
 from deps.db import SessionLocal
 from deps.notify import PdfNotifier
@@ -30,6 +35,8 @@ from services.pdf_queue import ClaimedJob, ResumeMissing
 from services.resume_document import build_resume_document
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 # How long an idle worker waits before looking again regardless of
 # notifications. The wake-up is what makes the queue prompt; this is what makes
@@ -59,17 +66,33 @@ def _build_source(resume_id: UUID) -> str:
         return serialize_to_tex(build_resume_document(db, resume))
 
 
-def _in_session[T](work) -> T:  # type: ignore[no-untyped-def]
+def _in_session(work: Callable[[Session], T]) -> T:
+    """Run one unit of queue work on a session of its own."""
     with SessionLocal() as db:
         return work(db)
 
 
-async def _record(work) -> None:  # type: ignore[no-untyped-def]
-    """Run a pdf_queue write on a thread, without letting it kill the worker."""
+async def _record(work: Callable[[Session], None]) -> None:
+    """Run a pdf_queue write on a thread, without letting it kill the worker.
+
+    Recording an outcome is the last thing a job does, and failing to record it
+    is not a reason to take the worker down: the row is left for the reaper and
+    the waiting request falls back to its timeout.
+    """
     try:
         await asyncio.to_thread(_in_session, work)
     except Exception:
         logger.exception("could not record the outcome of a PDF job")
+
+
+async def _fail(job_id: UUID, kind: PdfJobErrorKind, detail: str) -> None:
+    """Write down a failure in the terms the endpoint answers in.
+
+    Takes the detail as a plain value rather than closing over the exception:
+    Python unbinds an ``except ... as`` name at the end of its block, and the
+    write below runs after that.
+    """
+    await _record(lambda db: pdf_queue.fail(db, job_id, kind, detail))
 
 
 async def process(job: ClaimedJob) -> None:
@@ -83,33 +106,21 @@ async def process(job: ClaimedJob) -> None:
         source = await asyncio.to_thread(_build_source, job.resume_id)
     except ResumeMissing:
         # deleted between enqueueing and running
-        await _record(
-            lambda db: pdf_queue.fail(db, job.id, PdfJobErrorKind.MISSING, "")
-        )
+        await _fail(job.id, PdfJobErrorKind.MISSING, "")
         return
-    except Exception:
+    except Exception as error:
         logger.exception("could not build the document for job %s", job.id)
-        await _record(
-            lambda db: pdf_queue.fail(
-                db, job.id, PdfJobErrorKind.UNAVAILABLE, str(error)
-            )
-        )
+        await _fail(job.id, PdfJobErrorKind.UNAVAILABLE, str(error))
         return
 
     try:
         pdf = await compile_to_pdf(source)
-    except DocumentRejected:
-        await _record(
-            lambda db: pdf_queue.fail(db, job.id, PdfJobErrorKind.REJECTED, error.log)
-        )
+    except DocumentRejected as rejection:
+        await _fail(job.id, PdfJobErrorKind.REJECTED, rejection.log)
         return
-    except CompilerUnavailable as error:
-        logger.warning("PDF engine unavailable for job %s: %s", job.id, error)
-        await _record(
-            lambda db: pdf_queue.fail(
-                db, job.id, PdfJobErrorKind.UNAVAILABLE, str(error)
-            )
-        )
+    except CompilerUnavailable as unavailable:
+        logger.warning("PDF engine unavailable for job %s: %s", job.id, unavailable)
+        await _fail(job.id, PdfJobErrorKind.UNAVAILABLE, str(unavailable))
         return
 
     await _record(lambda db: pdf_queue.succeed(db, job.id, pdf))
@@ -158,3 +169,37 @@ async def reaper_loop() -> None:
             raise
         except Exception:
             logger.exception("could not reap finished PDF jobs")
+
+
+@asynccontextmanager
+async def run_pool(
+    notifier: PdfNotifier, count: int, *, reap: bool = True
+) -> AsyncIterator[None]:
+    """Run the listener, ``count`` workers and the reaper for as long as the block.
+
+    The listener runs even when ``count`` is zero: the API still has to hear
+    that a job finished so the request waiting on it can answer, whether the
+    compile happened in this process or in a worker container elsewhere.
+
+    Everything started here is cancelled on the way out, so a reload or a
+    shutdown does not leave a worker holding a claimed job.
+    """
+    tasks = [asyncio.create_task(notifier.run(), name="pdf-listener")]
+
+    for index in range(count):
+        name = f"pdf-worker-{index}"
+        tasks.append(asyncio.create_task(worker_loop(notifier, name), name=name))
+
+    if reap:
+        tasks.append(asyncio.create_task(reaper_loop(), name="pdf-reaper"))
+
+    logger.info("PDF queue: %d worker(s) listening", count)
+
+    try:
+        yield
+    finally:
+        for task in tasks:
+            task.cancel()
+
+        # let each one finish unwinding; they only ever raise CancelledError
+        await asyncio.gather(*tasks, return_exceptions=True)
