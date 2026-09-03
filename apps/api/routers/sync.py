@@ -15,26 +15,42 @@ to reconstruct here.
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from config import get_settings
 from deps.auth import CurrentUser
 from deps.db import Db
 from enums import OperationType
 from models.section_version import SectionVersion
+from models.sync_state import SyncConflict, SyncState
 from schemas.sync import (
     Change,
     ChangeFeed,
+    ConflictRead,
+    ConnectRequest,
     PullQuery,
     PushChange,
     PushOutcome,
     PushRequest,
     PushResponse,
     PushResult,
+    ResolveRequest,
+    RunReport,
+    SyncStatus,
+)
+from services.cloud_client import (
+    CloudApi,
+    CloudRejectedCredentials,
+    CloudUnreachable,
+    sign_in,
 )
 from services.record_section import MAX_ATTEMPTS, stage_version
 from services.sync_apply import UnapplicableChange, apply_delete, apply_snapshot
+from services.sync_engine import Resolution, resolve_conflict, sync
+
+settings = get_settings()
 
 router = APIRouter(prefix="/sync", tags=["Sync"])
 
@@ -198,3 +214,165 @@ def push_changes(
         results.append(_apply_one(db, current_user.id, change, latest))
 
     return PushResponse(results=results)
+
+
+# ---------------------------------------------------------------------------
+# The desktop's own controls.
+#
+# Only a local install has two copies to reconcile: the hosted API is one of
+# the two, and asking it to sync with itself is meaningless rather than merely
+# unnecessary. These say so rather than quietly doing nothing.
+# ---------------------------------------------------------------------------
+
+
+def _local_only() -> None:
+    if not settings.is_local:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="this API is the account; there is nothing for it to sync with",
+        )
+
+
+def _state(db: Db, user_id: UUID) -> SyncState | None:
+    return db.scalar(select(SyncState).where(SyncState.user_id == user_id))
+
+
+def _conflicts(db: Db, user_id: UUID) -> list[ConflictRead]:
+    rows = db.scalars(select(SyncConflict).where(SyncConflict.user_id == user_id)).all()
+    return [
+        ConflictRead(
+            record_id=row.record_id,
+            record_type=row.record_type,
+            local_version=row.local_version,
+            cloud_version=row.cloud_version,
+            local_snapshot=row.local_snapshot,
+            cloud_snapshot=row.cloud_snapshot,
+        )
+        for row in rows
+    ]
+
+
+@router.get("/status", response_model=SyncStatus)
+def sync_status(current_user: CurrentUser, db: Db) -> SyncStatus:
+    """Whether this library is connected to an account, and what is outstanding."""
+    _local_only()
+    state = _state(db, current_user.id)
+
+    if state is None:
+        return SyncStatus(connected=False)
+
+    return SyncStatus(
+        connected=True,
+        account_email=state.account_email,
+        cloud_cursor=state.cloud_cursor,
+        local_cursor=state.local_cursor,
+        conflicts=_conflicts(db, current_user.id),
+    )
+
+
+@router.post("/connect", response_model=SyncStatus)
+def connect_account(
+    payload: ConnectRequest, current_user: CurrentUser, db: Db
+) -> SyncStatus:
+    """Sign this library in to an account.
+
+    Nothing is transferred here. Connecting only records who this library
+    belongs to; the first sync afterwards is what carries the work across, and
+    it is the same code as every sync after it rather than a special first one.
+    """
+    _local_only()
+
+    try:
+        token, email = sign_in(payload.base_url, payload.email, payload.password)
+    except CloudRejectedCredentials as error:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error)
+        ) from error
+    except CloudUnreachable as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
+        ) from error
+
+    state = _state(db, current_user.id)
+    if state is None:
+        state = SyncState(user_id=current_user.id, account_email=email)
+        db.add(state)
+
+    state.account_email = email
+    state.access_token = token
+    state.cloud_base_url = payload.base_url
+    db.commit()
+
+    return sync_status(current_user, db)
+
+
+@router.post("/disconnect", status_code=status.HTTP_204_NO_CONTENT)
+def disconnect_account(current_user: CurrentUser, db: Db) -> None:
+    """Forget the account. The library stays exactly as it is."""
+    _local_only()
+
+    state = _state(db, current_user.id)
+    if state is not None:
+        db.delete(state)
+        db.commit()
+
+
+@router.post("/run", response_model=RunReport)
+def run_sync(current_user: CurrentUser, db: Db) -> RunReport:
+    """Bring this library and the account level with each other."""
+    _local_only()
+
+    state = _state(db, current_user.id)
+    if state is None or state.access_token is None or state.cloud_base_url is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="this library is not connected to an account",
+        )
+
+    try:
+        with CloudApi(state.cloud_base_url, state.access_token) as cloud:
+            report = sync(db, state, cloud)
+    except CloudRejectedCredentials as error:
+        # the session expired; the library is still connected, but somebody has
+        # to sign in again
+        state.access_token = None
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error)
+        ) from error
+    except CloudUnreachable as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
+        ) from error
+
+    return RunReport(
+        pulled=report.pulled,
+        pushed=report.pushed,
+        conflicts=report.conflicts,
+        rejected=report.rejected,
+    )
+
+
+@router.post("/conflicts/{record_id}/resolve", response_model=SyncStatus)
+def resolve(
+    record_id: UUID, payload: ResolveRequest, current_user: CurrentUser, db: Db
+) -> SyncStatus:
+    """Say which side of a disagreement was meant.
+
+    The choice is recorded here and carried out by the next sync, so answering
+    a pile of conflicts is not a pile of network calls that can half fail.
+    """
+    _local_only()
+
+    try:
+        resolve_conflict(db, current_user.id, record_id, Resolution(payload.choice))
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(error)
+        ) from error
+    except UnapplicableChange as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
+        ) from error
+
+    return sync_status(current_user, db)

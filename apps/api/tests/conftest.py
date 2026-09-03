@@ -71,7 +71,10 @@ from models.project import Project
 from models.resume import Resume
 from models.resume_section import ResumeSection
 from models.skill import Skill
+from models.sync_state import SyncState
 from models.user import User
+from routers.sync import pull_changes, push_changes
+from schemas.sync import PullQuery, PushRequest
 from services.security import (
     ACCESS_TOKEN_COOKIE_NAME,
     create_access_token,
@@ -416,3 +419,84 @@ def attach_section(db: Session):
 def anyio_backend() -> str:
     """Run ``async def`` tests on asyncio only, not the trio leg as well."""
     return "asyncio"
+
+
+# ---------------------------------------------------------------------------
+# Syncing needs a second database to sync with. These build one: its own
+# engine, its own user, reached through the real endpoints, so a test can watch
+# two libraries converge rather than trusting one side's report of it.
+# ---------------------------------------------------------------------------
+
+
+class Account:
+    """The hosted side, answering exactly what the desktop would ask it."""
+
+    def __init__(self, session: Session, user: User) -> None:
+        self.session = session
+        self.user = user
+
+    def pull(self, since: int, limit: int) -> dict[str, Any]:
+        feed = pull_changes(
+            self.user, self.session, PullQuery(since=since, limit=limit)
+        )
+        return dict(feed.model_dump(mode="json"))
+
+    def push(self, changes: list[dict[str, Any]]) -> dict[str, Any]:
+        request = PushRequest.model_validate({"changes": changes})
+        response = push_changes(self.user, self.session, request)
+        return dict(response.model_dump(mode="json"))
+
+
+@pytest.fixture
+def cloud_engine(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Engine]:
+    """A second database, with nothing in common with the local one but its schema."""
+    path = tmp_path_factory.mktemp("cloud") / "cloud.sqlite"
+    engine = prepare_sqlite(create_engine(f"sqlite+pysqlite:///{path}"))
+    Base.metadata.create_all(engine)
+
+    yield engine
+
+    Base.metadata.drop_all(engine)
+    engine.dispose()
+
+
+@pytest.fixture
+def cloud_session(cloud_engine: Engine) -> Iterator[Session]:
+    with Session(cloud_engine) as session:
+        yield session
+
+
+@pytest.fixture
+def account(cloud_session: Session) -> Account:
+    """The account, on its own database, with its own user."""
+    cloud_user = User(email="account@example.com", hashed_password="x")
+    cloud_session.add(cloud_user)
+    cloud_session.commit()
+
+    return Account(cloud_session, cloud_user)
+
+
+@pytest.fixture
+def state(db: Session, user: User) -> SyncState:
+    row = SyncState(
+        user_id=user.id,
+        account_email="account@example.com",
+        cloud_base_url="https://example.invalid",
+    )
+    db.add(row)
+    db.commit()
+    return row
+
+
+def local_education(client: TestClient, name: str) -> dict[str, Any]:
+    response = client.post(
+        "/education/",
+        json={
+            "name": name,
+            "subheading": "BSc",
+            "duration": "2016 - 2020",
+            "location": "Boston, MA",
+        },
+    )
+    assert response.status_code == 201, response.text
+    return dict(response.json())

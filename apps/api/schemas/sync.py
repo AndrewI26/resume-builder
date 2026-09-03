@@ -1,7 +1,7 @@
 """What crosses between a desktop and an account."""
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -103,3 +103,45 @@ class PushRequest(BaseModel):
 
 class PushResponse(BaseModel):
     results: list[PushResult]
+
+
+class ConnectRequest(BaseModel):
+    """Sign this library in to an account."""
+
+    base_url: str
+    email: str
+    password: str
+
+
+class ConflictRead(BaseModel):
+    """A record both sides changed, and both answers to choose between."""
+
+    record_id: UUID
+    record_type: SectionType
+    local_version: int
+    cloud_version: int
+    local_snapshot: dict[str, Any]
+    cloud_snapshot: dict[str, Any]
+
+
+class SyncStatus(BaseModel):
+    """Everything the window needs to say where this library stands."""
+
+    connected: bool
+    account_email: str | None = None
+    cloud_cursor: int = 0
+    local_cursor: int = 0
+    conflicts: list[ConflictRead] = Field(default_factory=list)
+
+
+class ResolveRequest(BaseModel):
+    choice: Literal["mine", "theirs"]
+
+
+class RunReport(BaseModel):
+    """What one sync did."""
+
+    pulled: int
+    pushed: int
+    conflicts: list[UUID]
+    rejected: list[str]
