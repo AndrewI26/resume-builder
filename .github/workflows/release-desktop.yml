@@ -84,7 +84,10 @@ jobs:
         with:
           node-version: "24"
 
-      - uses: astral-sh/setup-uv@v10
+      # Pinned to a full version, not a major: setup-uv does not publish a
+      # moving v10 tag the way the actions/* ones publish theirs, and a
+      # reference that does not resolve fails the job before any step runs.
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
 
