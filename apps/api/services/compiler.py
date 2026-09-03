@@ -17,6 +17,10 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from config import get_settings
+
+settings = get_settings()
+
 # how much of main.log to keep. It opens with pages of configuration, so the
 # part that explains a failure is at the end.
 _LOG_TAIL = 4000
@@ -38,6 +42,31 @@ class CompilerUnavailable(CompilerError):
     """The engine is missing, or the run could not be started."""
 
 
+def _with_bundled_tex(path: str) -> str:
+    """``path``, preceded by the bundled TeX distribution if there is one.
+
+    A server has a TeX distribution installed where the process can already see
+    it. A desktop install cannot assume one — most people have never had a
+    reason to install LaTeX — so the app ships its own, and ``texlive_bin``
+    says where it ended up, which is inside the application bundle and so
+    different on every machine.
+    """
+    if settings.texlive_bin is None:
+        return path
+
+    return os.pathsep.join([str(settings.texlive_bin), path])
+
+
+def _lookup_path() -> str:
+    """Where to look for the engine, which is the environment this runs in.
+
+    Deliberately not the path the child is given below. Finding the binary is
+    this process' business and it may use everything it knows; what the engine
+    then inherits is a different and much smaller question.
+    """
+    return _with_bundled_tex(os.environ.get("PATH", os.defpath))
+
+
 def _environment(directory: Path) -> dict[str, str]:
     """A deliberately small environment for the child process.
 
@@ -46,7 +75,7 @@ def _environment(directory: Path) -> dict[str, str]:
     one.
     """
     return {
-        "PATH": os.defpath,
+        "PATH": _with_bundled_tex(os.defpath),
         "HOME": str(directory),
         "TMPDIR": str(directory),
         # TeX wants somewhere writable for generated font files; pointing it at
@@ -87,7 +116,7 @@ async def compile_to_pdf(
     afterwards, so two compiles cannot see each other's files and nothing
     accumulates between them.
     """
-    binary = shutil.which(engine)
+    binary = shutil.which(engine, path=_lookup_path())
     if binary is None:
         raise CompilerUnavailable(f"{engine} is not installed")
 

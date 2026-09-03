@@ -1,39 +1,102 @@
+import secrets
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
+# What a hosted deployment cannot start without. These have defaults so that a
+# desktop install — which has no Postgres, no queue and no .env to read — can
+# leave them out, but a cloud one leaving them out is a misconfiguration worth
+# refusing to boot over rather than discovering at the first query.
+CLOUD_REQUIRED = (
+    "node_env",
+    "postgres_user",
+    "postgres_password",
+    "postgres_db",
+    "postgres_port",
+    "redis_password",
+    "redis_port",
+    "frontend_port",
+    "backend_port",
+    "secret_key",
+)
+
 
 class Settings(BaseSettings):
+    """How this instance is deployed, and everything that follows from it.
+
+    The same application runs two ways. ``cloud`` is the hosted API: Postgres,
+    a queue, accounts, several people. ``local`` is the copy inside the desktop
+    app, which has one person, no network and no server — a SQLite file next to
+    their documents. Every setting below that a local install cannot supply has
+    a default for that reason: the desktop app ships without a .env, and asking
+    someone to write one before their resume tool opens is not an option.
+    """
+
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
-    node_env: Literal["development", "production"]
+    node_env: Literal["development", "production"] = "production"
+    mode: Literal["cloud", "local"] = "cloud"
 
     # ``localhost`` is right when the app runs on the host against the compose
     # database; the containers override these with the service names.
     postgres_host: str = "localhost"
     redis_host: str = "localhost"
 
-    postgres_user: str
-    postgres_password: str
-    postgres_db: str
-    postgres_port: int
+    postgres_user: str = ""
+    postgres_password: str = ""
+    postgres_db: str = ""
+    postgres_port: int = 5432
 
-    redis_password: str
-    redis_port: int
+    redis_password: str = ""
+    redis_port: int = 6379
 
-    frontend_port: str
-    backend_port: int
+    frontend_port: str = "5173"
+    backend_port: int = 8000
 
-    secret_key: str
+    secret_key: str = ""
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 1 week
 
     google_client_id: str | None = None
     google_client_secret: str | None = None
+
+    # Where the desktop app keeps its database. The shell passes its own
+    # per-user application data directory; the default is only for running
+    # local mode by hand.
+    local_data_dir: Path = Path.home() / ".resume-builder"
+
+    # The bundled TeX distribution's bin directory. A local install cannot
+    # count on pdfTeX being on PATH — most people have never installed one —
+    # so the desktop app ships its own and says where it is.
+    texlive_bin: Path | None = None
+
+    @model_validator(mode="after")
+    def _check_mode_requirements(self) -> Self:
+        if self.mode == "cloud":
+            missing = [
+                name for name in CLOUD_REQUIRED if name not in self.model_fields_set
+            ]
+            if missing:
+                raise ValueError(
+                    "cloud mode needs " + ", ".join(sorted(missing)).upper()
+                )
+        elif not self.secret_key:
+            # Nothing local signs a token — there is no account to sign in to,
+            # and get_current_user never reads a cookie — but the security
+            # module wants a key at import. A per-process one is the honest
+            # value: anything it signed would be meaningless outside this run.
+            self.secret_key = secrets.token_hex(32)
+
+        return self
+
+    @property
+    def is_local(self) -> bool:
+        return self.mode == "local"
 
     @property
     def frontend_url(self) -> str:
@@ -44,7 +107,14 @@ class Settings(BaseSettings):
         return f"http://localhost:{self.backend_port}/auth/google/callback"
 
     @property
+    def database_path(self) -> Path:
+        return self.local_data_dir / "resume-builder.sqlite"
+
+    @property
     def database_url(self) -> str:
+        if self.is_local:
+            return f"sqlite+pysqlite:///{self.database_path}"
+
         return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
 
     @property
@@ -58,4 +128,4 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()  # pyright: ignore[reportCallIssue]
+    return Settings()

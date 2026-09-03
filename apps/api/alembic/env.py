@@ -14,6 +14,9 @@ from config import get_settings
 for module_info in pkgutil.iter_modules(models.__path__):
     importlib.import_module(f"models.{module_info.name}")
 
+# the value alembic.ini ships with, which means "nobody has said yet"
+_INI_PLACEHOLDER = "driver://user:pass@localhost/dbname"
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -24,8 +27,11 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # drive the connection URL from the app's typesafe settings instead of
-# duplicating it as a static value in alembic.ini
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+# duplicating it as a static value in alembic.ini. A caller that set one itself
+# keeps it: the desktop app migrates a database it names at runtime, which is a
+# per-user file this process has no other way of knowing about.
+if config.get_main_option("sqlalchemy.url") == _INI_PLACEHOLDER:
+    config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
 target_metadata = Base.metadata
 
@@ -73,7 +79,15 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            # SQLite cannot ALTER a column, so a change that alters one has to
+            # be done by rebuilding the table. Alembic will do that itself in
+            # batch mode; without this the desktop app's database could never
+            # take a migration that was not a plain add or drop.
+            render_as_batch=connection.dialect.name == "sqlite",
+        )
 
         with context.begin_transaction():
             context.run_migrations()

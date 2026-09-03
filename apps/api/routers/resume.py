@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.orm import Session
 
+from config import get_settings
 from deps.auth import CurrentUser
 from deps.db import Db
 from deps.redis import RedisQueue
@@ -24,7 +25,10 @@ from schemas.resume import (
 )
 from services.compiler import CompilerUnavailable, DocumentRejected
 from services.compiler_worker import ResumeMissing
+from services.local_compile import compile_resume_pdf_locally
 from services.resume_document import SECTION_MODELS, build_resume_document
+
+settings = get_settings()
 
 router = APIRouter(prefix="/resumes", tags=["Resume"])
 
@@ -285,27 +289,35 @@ async def compile_resume_pdf(
     The wait here is deliberate: the client asked for a file and gets one in
     the same response. The queue is not hiding the work, it is bounding how
     much of it runs at once — a compile is CPU-bound, and unbounded exports
-    would take the host down rather than merely queue.
+    would take the host down rather than merely queue. A local install has no
+    host to protect and no queue to reach, so it typesets in this process
+    instead; both paths raise the same failures, which is why only the call
+    differs and none of the handling below does.
     """
-    # a job per request rather than one per resume: results are cached for a
-    # short while, and re-using an id would serve a stale PDF to someone who
-    # edited and exported again
-    job = await redis_queue.enqueue_job("generate_resume_pdf", current_user_resume.id)
-    if job is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="PDF export is unavailable",
-        )
-
     try:
-        pdf: bytes = await job.result(timeout=_RESULT_TIMEOUT)
+        if settings.is_local:
+            pdf = await compile_resume_pdf_locally(current_user_resume.id)
+        else:
+            # a job per request rather than one per resume: results are cached
+            # for a short while, and re-using an id would serve a stale PDF to
+            # someone who edited and exported again
+            job = await redis_queue.enqueue_job(
+                "generate_resume_pdf", current_user_resume.id
+            )
+            if job is None:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="PDF export is unavailable",
+                )
+
+            pdf = await job.result(timeout=_RESULT_TIMEOUT)
     except TimeoutError:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="PDF export took too long",
         ) from None
     except ResumeMissing:
-        # deleted between enqueueing and running
+        # deleted between being asked for and being built
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) from None
     except DocumentRejected as error:
         raise HTTPException(

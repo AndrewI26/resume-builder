@@ -1,3 +1,6 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
@@ -19,13 +22,41 @@ def operation_id(route: APIRoute) -> str:
     return route.name
 
 
-app = FastAPI(generate_unique_id_function=operation_id)
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """A local install has to prepare its own database; a hosted one is given one."""
+    if settings.is_local:
+        # imported here rather than at module scope: it pulls in alembic, which
+        # the hosted API has no reason to load into every process
+        from deps.db import engine
+        from services.local_bootstrap import bootstrap_local_database
+
+        bootstrap_local_database(engine)
+
+    yield
+
+
+app = FastAPI(generate_unique_id_function=operation_id, lifespan=lifespan)
+
+
+def _allowed_origins() -> list[str]:
+    """Who may call this API from a browser.
+
+    A local install is reached from the desktop app's own window, which is not
+    served over http and so has no origin the API could be told to expect. It
+    is also bound to loopback and gated by a secret the shell generates per
+    run, which is the actual boundary here — CORS is not what keeps anything
+    out on one person's machine.
+    """
+    if settings.is_local or settings.node_env == "development":
+        return ["*"]
+
+    return [settings.frontend_url]
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*" if settings.node_env == "development" else settings.frontend_url
-    ],
+    allow_origins=_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -29,6 +29,11 @@ settings = get_settings()
 # reason retrying cannot change: the document is the same every time.
 MAX_TRIES = 1
 
+# A compile is CPU-bound, so more of them at once makes every one slower rather
+# than finishing sooner. The desktop app has no queue but applies the same
+# ceiling in-process, so it lives out here where both can read it.
+MAX_CONCURRENT_COMPILES = 2
+
 
 class ResumeMissing(Exception):
     """The resume was deleted between enqueueing the job and running it."""
@@ -69,9 +74,7 @@ class WorkerSettings:
     functions: ClassVar = [generate_resume_pdf]
     max_tries = MAX_TRIES
 
-    # a compile is CPU-bound, so more of them at once makes every one slower
-    # rather than finishing sooner
-    max_jobs = 2
+    max_jobs = MAX_CONCURRENT_COMPILES
 
     # long enough to cover the engine's own 20s ceiling plus the queries
     job_timeout = 30
