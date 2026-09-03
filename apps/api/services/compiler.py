@@ -1,9 +1,24 @@
 """Turning LaTeX source into a PDF.
 
-Runs the engine as a child process of the worker rather than calling out to a
-separate service. The document is generated from the caller's own rows a few
-lines earlier, so the trust boundary that justified a standalone container is
-gone; what remains is the engine's own behaviour, which is fenced below.
+A TeX document is a program, and the engine that runs it is the least
+trustworthy thing here. There are two ways to fence it, and which one applies
+depends on what the process running this is already inside:
+
+``docker``
+    Each compile gets a container of its own — no network, read-only root, no
+    capabilities, its own memory and process ceilings, nothing mounted in. This
+    is the default, and it is what the API uses when it runs on the host in
+    development: a compile is then isolated from the machine it was started on.
+
+``local``
+    The engine runs as a child process, fenced with paranoid mode and a
+    stripped environment. Used *inside* the worker container, where the
+    container is already the boundary and starting another one would mean
+    handing the worker a Docker socket — which would trade a sandbox for a
+    privilege far larger than the one being contained.
+
+Both paths raise the same three exceptions, so nothing above this module has to
+know which one ran.
 
 The engine has to be pdfTeX. The template calls ``\\pdfgentounicode``, a pdfTeX
 primitive, to emit the glyph-to-Unicode map that makes the PDF readable by
@@ -15,11 +30,42 @@ import asyncio
 import os
 import shutil
 import tempfile
+import uuid
 from pathlib import Path
 
-# how much of main.log to keep. It opens with pages of configuration, so the
-# part that explains a failure is at the end.
+from config import get_settings
+
+settings = get_settings()
+
+# how much of the engine's log to keep. It opens with pages of configuration,
+# so the part that explains a failure is at the end.
 _LOG_TAIL = 4000
+
+# The container exits 3, and only 3, when the document is at fault. Docker's
+# own failures use its exit codes, which is what keeps "this resume will not
+# typeset" apart from "there was no engine to typeset it with".
+_REJECTED = 3
+
+# What the sandbox is allowed. A resume compiles in well under a second and a
+# few tens of megabytes; these are generous and still far short of enough to
+# trouble the host.
+_LIMITS = (
+    # a document has no business talking to anything, and the image needs
+    # nothing at runtime
+    "--network=none",
+    "--read-only",
+    # the one writable place, and it dies with the container
+    "--tmpfs=/tmp:size=256m,mode=1777,exec",
+    "--cap-drop=ALL",
+    "--security-opt=no-new-privileges",
+    "--memory=512m",
+    # a fork bomb in a document should hit a wall, not the host's process table
+    "--pids-limit=128",
+    # the sandbox image is built locally, never fetched. Without this a wrong
+    # or missing image name sends Docker to a registry, and the compile's own
+    # timeout then reports a slow network as a broken document.
+    "--pull=never",
+)
 
 
 class CompilerError(Exception):
@@ -36,6 +82,114 @@ class DocumentRejected(CompilerError):
 
 class CompilerUnavailable(CompilerError):
     """The engine is missing, or the run could not be started."""
+
+
+async def compile_to_pdf(
+    source: str,
+    *,
+    timeout: float = 20.0,
+    backend: str | None = None,
+    image: str | None = None,
+) -> bytes:
+    """Typeset ``source`` and return the PDF bytes.
+
+    ``backend`` and ``image`` default to the configured ones and are only
+    passed explicitly by the tests that exercise each path.
+    """
+    if (backend or settings.latex_backend) == "local":
+        return await _compile_locally(source, timeout=timeout)
+
+    return await _compile_in_container(source, timeout=timeout, image=image)
+
+
+async def _compile_in_container(
+    source: str, *, timeout: float, image: str | None = None
+) -> bytes:
+    """Run the engine in a throwaway container.
+
+    The document goes in on stdin and the PDF comes back on stdout, so there is
+    nothing on disk for two compiles to share and nothing mounted for one to
+    escape through.
+    """
+    docker = shutil.which("docker")
+    if docker is None:
+        raise CompilerUnavailable("docker is not installed")
+
+    # named so a run that outlives its timeout can still be found and killed;
+    # killing the client alone would leave the container behind
+    name = f"resume-latex-{uuid.uuid4().hex}"
+
+    try:
+        process = await asyncio.create_subprocess_exec(
+            docker,
+            "run",
+            "--rm",
+            # stdin is the document; there is no terminal here
+            "--interactive",
+            f"--name={name}",
+            *_LIMITS,
+            image or settings.latex_image,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except OSError as error:
+        raise CompilerUnavailable(f"could not start docker: {error}") from error
+
+    try:
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(source.encode("utf-8")), timeout
+        )
+    except TimeoutError:
+        await _remove_container(docker, name, process)
+        raise DocumentRejected(f"timed out after {timeout:g}s") from None
+
+    log = stderr.decode(errors="replace")[-_LOG_TAIL:]
+
+    if process.returncode == _REJECTED:
+        raise DocumentRejected(log)
+
+    if process.returncode != 0:
+        # 125 is "no such image" or an unreachable daemon; 137 is the kernel
+        # taking the container out. None of them are the resume's fault.
+        raise CompilerUnavailable(
+            f"docker exited {process.returncode}: {log}"
+            if log
+            else "the compile did not run"
+        )
+
+    if not stdout.startswith(b"%PDF-"):
+        # a clean exit with no PDF means the engine gave up quietly
+        raise DocumentRejected(log or "the engine produced no PDF")
+
+    return stdout
+
+
+async def _remove_container(
+    docker: str, name: str, process: asyncio.subprocess.Process
+) -> None:
+    """Remove a container that outstayed its welcome, and reap its client.
+
+    ``docker run`` is only a client; killing it would orphan the container it
+    started, which would go on burning a core until it finished.
+    """
+    try:
+        killer = await asyncio.create_subprocess_exec(
+            docker,
+            "rm",
+            "--force",
+            name,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await killer.wait()
+    except OSError:
+        pass
+
+    if process.returncode is None:
+        process.kill()
+
+    await process.wait()
 
 
 def _environment(directory: Path) -> dict[str, str]:
@@ -78,10 +232,10 @@ def _diagnostics(directory: Path, stderr: str) -> str:
     return f"{stderr}\n{log}" if stderr else log
 
 
-async def compile_to_pdf(
-    source: str, *, engine: str = "pdflatex", timeout: float = 20.0
+async def _compile_locally(
+    source: str, *, timeout: float, engine: str = "pdflatex"
 ) -> bytes:
-    """Typeset ``source`` and return the PDF bytes.
+    """Run the engine as a child process, fenced by paranoid mode.
 
     Everything the run touches lives in a directory created for it and removed
     afterwards, so two compiles cannot see each other's files and nothing

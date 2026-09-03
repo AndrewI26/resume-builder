@@ -2,10 +2,10 @@
 
 Run with ``bun run resumes:export <email> <directory>``.
 
-Compiles in-process rather than through the arq queue: the queue exists to
-bound how many exports a live API serves at once, which a one-off local run
-does not need, and going direct means the script works without redis or a
-worker running.
+Compiles directly rather than through the job queue: the queue exists to bound
+how many exports a live API serves at once, which a one-off local run does not
+need, and going direct means the script works without the API running. It still
+uses the configured sandbox, so ``bun run docker:latex`` applies here too.
 
 The directory is emptied of PDFs first, so what lands there is the export and
 nothing else. That is destructive, hence the prompt.

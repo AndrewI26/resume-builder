@@ -13,17 +13,27 @@ class Settings(BaseSettings):
     node_env: Literal["development", "production"]
 
     # ``localhost`` is right when the app runs on the host against the compose
-    # database; the containers override these with the service names.
+    # database; the containers override this with the service name.
     postgres_host: str = "localhost"
-    redis_host: str = "localhost"
 
     postgres_user: str
     postgres_password: str
     postgres_db: str
     postgres_port: int
 
-    redis_password: str
-    redis_port: int
+    # How many PDF compiles may run at once. The workers are started by the
+    # API itself, so this is set when the API starts:
+    # ``PDF_WORKER_COUNT=6 bun run dev:api``.
+    pdf_worker_count: int = 3
+
+    # How the engine is fenced. "docker" gives each compile a container of its
+    # own and is right when the API runs on the host; the worker container sets
+    # "local", because it is already the boundary and starting containers from
+    # inside one would mean handing it a Docker socket.
+    latex_backend: Literal["docker", "local"] = "docker"
+
+    # The image a "docker" compile runs in. Built by ``bun run docker:latex``.
+    latex_image: str = "resume-builder-latex"
 
     frontend_port: str
     backend_port: int
@@ -46,6 +56,15 @@ class Settings(BaseSettings):
     @property
     def database_url(self) -> str:
         return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+
+    @property
+    def async_database_url(self) -> str:
+        """The same database, for psycopg's own async connection.
+
+        ``LISTEN`` needs a connection SQLAlchemy is not driving, and psycopg
+        does not understand SQLAlchemy's ``+psycopg`` dialect suffix.
+        """
+        return self.database_url.replace("postgresql+psycopg://", "postgresql://", 1)
 
     @property
     def google_oauth_configured(self) -> bool:
