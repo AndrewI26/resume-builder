@@ -11,7 +11,7 @@ from deps.auth import CurrentUser
 from deps.db import Db
 from deps.redis import RedisQueue
 from deps.resume import CurrentUserResume, ResumeSectionIds
-from enums import ResumeSectionType
+from enums import OperationType, ResumeSectionType, SectionType
 from models.personal_info import PersonalInfo
 from models.resume import Resume
 from models.resume_section import ResumeSection
@@ -26,7 +26,9 @@ from schemas.resume import (
 from services.compiler import CompilerUnavailable, DocumentRejected
 from services.compiler_worker import ResumeMissing
 from services.local_compile import compile_resume_pdf_locally
+from services.record_section import record_version
 from services.resume_document import SECTION_MODELS, build_resume_document
+from services.resume_snapshot import resume_snapshot, section_refs
 
 settings = get_settings()
 
@@ -115,7 +117,18 @@ def create_resume(
         _write_sections(db, new_resume, ids_by_type)
 
     result = ResumeRead.model_validate(new_resume)
+    db.flush()
+    snapshot = resume_snapshot(new_resume, section_refs(db, new_resume.id))
     db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.RESUME,
+        new_resume.id,
+        OperationType.CREATE,
+        snapshot,
+    )
 
     return result
 
@@ -143,7 +156,17 @@ def edit_resume(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     result = ResumeRead.model_validate(edited_resume)
+    snapshot = resume_snapshot(edited_resume, section_refs(db, edited_resume.id))
     db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.RESUME,
+        edited_resume.id,
+        OperationType.UPDATE,
+        snapshot,
+    )
 
     return result
 
@@ -155,12 +178,26 @@ def delete_resume(resume_id: UUID, current_user: CurrentUser, db: Db) -> ResumeR
         .where(Resume.id == resume_id, Resume.user_id == current_user.id)
         .returning(Resume)
     )
+    # read the membership first: deleting the resume cascades these away, and
+    # the history is the only place a deleted resume still exists
+    sections = section_refs(db, resume_id)
+
     deleted_resume = db.scalars(stmt).one_or_none()
     if deleted_resume is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     result = ResumeRead.model_validate(deleted_resume)
+    snapshot = resume_snapshot(deleted_resume, sections)
     db.commit()
+
+    record_version(
+        db,
+        current_user.id,
+        SectionType.RESUME,
+        resume_id,
+        OperationType.DELETE,
+        snapshot,
+    )
 
     return result
 
@@ -239,7 +276,22 @@ def replace_resume_sections(
     _check_sections_owned(db, ids_by_type, current_user.id)
     _write_sections(db, current_user_resume, ids_by_type)
 
+    db.flush()
+    snapshot = resume_snapshot(
+        current_user_resume, section_refs(db, current_user_resume.id)
+    )
     db.commit()
+
+    # the membership is part of the resume rather than a record of its own, so
+    # changing it is a new version of the resume
+    record_version(
+        db,
+        current_user.id,
+        SectionType.RESUME,
+        current_user_resume.id,
+        OperationType.UPDATE,
+        snapshot,
+    )
 
     return payload
 

@@ -26,6 +26,8 @@ class SectionVersion(Base):
             "version",
             name="uq_section_versions_section_version",
         ),
+        # what makes ``seq`` an ordering rather than a hint
+        UniqueConstraint("user_id", "seq", name="uq_section_versions_user_seq"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -39,7 +41,19 @@ class SectionVersion(Base):
         nullable=False,
     )
     section_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+
+    # Two counters, because they answer different questions.
+    #
+    # ``version`` counts this record's own history. It is what decides whether
+    # two sides of a sync disagree: an edit made against version 4 can only be
+    # applied to something still at version 4.
+    #
+    # ``seq`` orders everything one user has ever changed. It is what lets a
+    # sync ask for "everything since 812" and get it in the order it happened,
+    # across every kind of record at once. Timestamps cannot do this — they tie,
+    # and clocks move.
     version: Mapped[int] = mapped_column(Integer, nullable=False)
+    seq: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     operation: Mapped[OperationType] = mapped_column(
         SQLEnum(
             OperationType,
