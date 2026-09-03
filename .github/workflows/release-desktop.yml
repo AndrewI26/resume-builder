@@ -16,8 +16,14 @@ name: Release desktop app
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+
+# Deliberately no `paths:` filter. It would apply to tag pushes as well as
+# branch ones, and a tag push often fails a path check — which would mean a
+# release quietly never building. Cost is kept down by building one platform
+# on main instead, below.
 
 # The release job needs to create a release and upload to it.
 permissions:
@@ -27,6 +33,15 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
+    # A push to main builds one platform: enough to notice that packaging
+    # broke, which is not something the tests or the typechecker can tell you —
+    # the sidecar and the bundled TeX only fail when something actually builds
+    # and runs them. Tags and manual runs build everything, because that is
+    # what people download.
+    if: >-
+      matrix.on_main
+      || github.ref_type == 'tag'
+      || github.event_name == 'workflow_dispatch' 
     # One platform failing should still leave the others to look at, rather
     # than cancelling a 20-minute build because a runner label went stale.
     strategy:
@@ -37,6 +52,8 @@ jobs:
             runner: macos-14
             arch: arm64
             platform: mac
+            # the one that also runs on a push to main
+            on_main: true
           - name: macOS (Intel)
             # GitHub retires Intel macOS runners periodically; if this label
             # stops resolving, it is the thing to change.
@@ -49,17 +66,17 @@ jobs:
             platform: win
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v10
         with:
           enable-cache: true
 
@@ -91,7 +108,7 @@ jobs:
       # it is most of the build's wall time and none of its variability.
       - name: Cache the TeX distribution
         id: tex-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: apps/desktop/resources/texlive
           key: texlive-${{ matrix.runner }}-${{ hashFiles('apps/desktop/scripts/bundle-texlive.sh', 'apps/desktop/scripts/bundle-texlive.ps1') }}
@@ -117,7 +134,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: bunx electron-builder --config electron-builder.yml --${{ matrix.platform }} --${{ matrix.arch }} --publish never
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: installer-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
@@ -135,13 +152,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: installers
           merge-multiple: true
 
       - name: Attach the installers to a release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: installers/*
           draft: true
