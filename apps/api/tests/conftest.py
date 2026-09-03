@@ -13,7 +13,8 @@ endpoints' own ``commit()`` calls are contained and tests stay independent.
 
 import os
 import tempfile
-from collections.abc import Generator, Iterator, Sequence
+from collections.abc import AsyncIterator, Generator, Iterator, Sequence
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
@@ -38,6 +39,19 @@ def _test_database_url() -> str:
     return f"sqlite+pysqlite:///{_SQLITE_FILE}"
 
 
+#: For the tests that cannot run anywhere else. The job queue is Postgres —
+#: ``FOR UPDATE SKIP LOCKED`` and ``LISTEN/NOTIFY`` are the whole mechanism and
+#: SQLite has no equivalent to stand in for them — so on the default SQLite run
+#: they skip, and the Postgres pass is what covers them.
+def requires_postgres():
+    import pytest as _pytest
+
+    return _pytest.mark.skipif(
+        not TEST_DATABASE_URL.startswith("postgresql"),
+        reason="needs Postgres: set TEST_DATABASE_URL to run this",
+    )
+
+
 def postgres_url() -> str:
     """The dev Postgres' test database, for tests that need a real Postgres."""
     user = os.getenv("POSTGRES_USER", "resume_user")
@@ -59,6 +73,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session
 
+import main
 from db import Base, prepare_sqlite
 from deps.db import get_db
 from enums import DEFAULT_SECTION_ORDER, ResumeSectionType
@@ -419,6 +434,29 @@ def attach_section(db: Session):
 def anyio_backend() -> str:
     """Run ``async def`` tests on asyncio only, not the trio leg as well."""
     return "asyncio"
+
+
+@pytest.fixture(autouse=True)
+def _no_pdf_queue(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the real worker pool out of the tests.
+
+    ``TestClient`` runs the app's lifespan, which would otherwise start the
+    workers, the reaper and a ``LISTEN`` connection — all of them pointed at
+    the development database, because the worker opens its own sessions from
+    ``deps.db`` rather than the one the fixtures override. Those workers would
+    claim and compile real queued jobs.
+
+    The tests that care about the queue drive it directly or override
+    ``get_notifier``, so there is nothing here worth starting.
+    """
+
+    @asynccontextmanager
+    async def no_pool(
+        notifier: object, count: int, *, reap: bool = True
+    ) -> AsyncIterator[None]:
+        yield
+
+    monkeypatch.setattr(main, "run_pool", no_pool)
 
 
 # ---------------------------------------------------------------------------

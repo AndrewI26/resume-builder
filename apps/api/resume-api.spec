@@ -44,22 +44,23 @@ analysis = Analysis(
     datas=datas,
     hiddenimports=hiddenimports,
     excludes=[
-        # Postgres belongs to the hosted deployment. A desktop install opens a
-        # SQLite file and never builds a Postgres engine, so this is tens of
-        # megabytes of driver that would never be called.
-        "psycopg",
+        # psycopg is NOT excluded. A desktop install opens a SQLite file and
+        # never builds a Postgres engine, but routers/resume.py takes the
+        # queue's notifier as a dependency and so imports deps.notify — and
+        # that imports psycopg — whatever the mode. Leaving it out stops the
+        # binary before it serves anything. The module-scope import is the
+        # thing to fix if the driver is worth the megabytes.
         "psycopg2",
-        "psycopg_binary",
         # test and lint tooling that the dependency tree drags along
         "pytest",
         "mypy",
         "ruff",
+        # The queue is Postgres now and a desktop install has neither. Nothing
+        # imports these any more, so excluding them only makes sure they cannot
+        # come back by accident.
+        "redis",
+        "arq",
     ],
-    # redis and arq are deliberately NOT excluded. Nothing local uses a queue,
-    # but routers/resume.py imports deps.redis at module scope whatever the
-    # mode, so leaving them out stops the binary before it serves anything.
-    # They are pure Python and small; the import is the thing to fix, and it is
-    # being removed along with Redis itself.
     noarchive=False,
 )
 

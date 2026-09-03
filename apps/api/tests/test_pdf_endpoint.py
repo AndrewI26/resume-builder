@@ -1,76 +1,108 @@
-"""The PDF endpoint and the job behind it.
+"""The PDF endpoint and the queue behind it.
 
-The endpoint's own job is authorization and translating what the worker raises
-into a status code. The queue is stood in for: arq's own delivery is not what
-these are checking, so the fake runs the job inline and hands back its result
-the way ``job.result()`` would.
+The endpoint's own job is authorization, queueing, and translating what the
+worker wrote down into a status code. The worker is stood in for — running a
+real compile here would test pdfTeX, not this — but the queue is not: the job
+row goes into the real table and the outcome is read back out of it, because
+that round trip is the part that replaced Redis.
 """
 
+import asyncio
 from uuid import uuid4
 
 import pytest
 
-from deps.redis import get_arq
+from deps.notify import get_notifier
+from enums import PdfJobErrorKind
 from main import app
+from models.pdf_job import PdfJob
+from services import pdf_queue
 from services.compiler import CompilerUnavailable, DocumentRejected
-from services.compiler_worker import ResumeMissing
+from services.pdf_queue import ResumeMissing
+from tests.conftest import requires_postgres
+
+# The queue is Postgres and has no SQLite equivalent; the Postgres pass is
+# what runs these. See conftest.requires_postgres.
+pytestmark = requires_postgres()
+
 
 PDF = b"%PDF-1.7 fake"
 
-
-class FakeJob:
-    def __init__(self, outcome: bytes | Exception):
-        self._outcome = outcome
-
-    async def result(self, timeout: float | None = None) -> bytes:
-        if isinstance(self._outcome, Exception):
-            raise self._outcome
-        return self._outcome
+# tells the fake worker to never answer, so the endpoint hits its own timeout
+NEVER = object()
 
 
-class FakeQueue:
-    """Stands in for ArqRedis, recording what was enqueued."""
+class FakeNotifier:
+    """Stands in for the listener, playing the worker's part inline.
 
-    def __init__(self, outcome: bytes | Exception | None):
-        self.outcome = outcome
-        self.jobs: list[tuple[str, tuple[object, ...]]] = []
+    ``wait`` is where a worker would have finished the job, so that is where
+    this writes the outcome — through the same ``pdf_queue`` calls a real
+    worker uses, so the endpoint reads a row that was completed the real way.
+    """
 
-    async def enqueue_job(self, function: str, *args: object, **kwargs: object):
-        self.jobs.append((function, args))
-        return None if self.outcome is None else FakeJob(self.outcome)
+    def __init__(self, db):
+        self.db = db
+        self.outcome: object = PDF
+        self.waited: list[object] = []
+
+    def expect(self, job_id):
+        return asyncio.get_running_loop().create_future()
+
+    def forget(self, job_id):
+        pass
+
+    async def wait(self, job_id, future, timeout):
+        self.waited.append(job_id)
+
+        if self.outcome is NEVER:
+            raise TimeoutError
+
+        outcome = self.outcome
+        if isinstance(outcome, bytes):
+            pdf_queue.succeed(self.db, job_id, outcome)
+        elif isinstance(outcome, DocumentRejected):
+            pdf_queue.fail(self.db, job_id, PdfJobErrorKind.REJECTED, outcome.log)
+        elif isinstance(outcome, ResumeMissing):
+            pdf_queue.fail(self.db, job_id, PdfJobErrorKind.MISSING, "")
+        else:
+            pdf_queue.fail(self.db, job_id, PdfJobErrorKind.UNAVAILABLE, str(outcome))
 
 
 @pytest.fixture
-def queue(client):
-    """Override the queue dependency; set ``.outcome`` to steer the job."""
-    fake = FakeQueue(PDF)
+def queue(client, db):
+    """Override the notifier; set ``.outcome`` to steer what the worker did."""
+    fake = FakeNotifier(db)
 
     async def override():
         return fake
 
-    app.dependency_overrides[get_arq] = override
+    app.dependency_overrides[get_notifier] = override
     try:
         yield fake
     finally:
-        app.dependency_overrides.pop(get_arq, None)
+        app.dependency_overrides.pop(get_notifier, None)
+
+
+def jobs(db):
+    return db.query(PdfJob).all()
 
 
 class TestAuthorization:
-    def test_requires_a_session_cookie(self, client, queue):
+    def test_requires_a_session_cookie(self, client, db, queue):
         response = client.post(f"/resumes/{uuid4()}/pdf")
 
         assert response.status_code == 401
-        assert queue.jobs == []
+        assert jobs(db) == []
 
     def test_hides_another_users_resume(
-        self, auth, user, other_user, make_resume, queue
+        self, auth, user, other_user, make_resume, db, queue
     ):
         resume = make_resume(other_user)
 
         response = auth(user).post(f"/resumes/{resume.id}/pdf")
 
         assert response.status_code == 404
-        assert queue.jobs == [], "queued a resume the caller does not own"
+        assert jobs(db) == [], "queued a resume the caller does not own"
 
 
 class TestSuccess:
@@ -83,24 +115,22 @@ class TestSuccess:
         assert response.content == PDF
         assert response.headers["content-type"] == "application/pdf"
 
-    def test_queues_the_resume_id_under_the_registered_task_name(
-        self, auth, user, make_resume, queue
-    ):
-        """The name has to match ``generate_resume_pdf.__name__`` or arq drops it."""
+    def test_queues_a_job_for_the_resume(self, auth, user, make_resume, db, queue):
         resume = make_resume(user)
 
         auth(user).post(f"/resumes/{resume.id}/pdf")
 
-        assert queue.jobs == [("generate_resume_pdf", (resume.id,))]
+        queued = jobs(db)
+        assert [job.resume_id for job in queued] == [resume.id]
+        assert queue.waited == [queued[0].id], "waited on a different job"
 
-    def test_sends_no_document_of_its_own(self, auth, user, make_resume, queue):
+    def test_sends_no_document_of_its_own(self, auth, user, make_resume, db, queue):
         """The worker reads the rows; nothing about the resume crosses the wire."""
         resume = make_resume(user)
 
         auth(user).post(f"/resumes/{resume.id}/pdf", json={"source": "\\evil"})
 
-        _, args = queue.jobs[0]
-        assert args == (resume.id,)
+        assert [job.resume_id for job in jobs(db)] == [resume.id]
 
     def test_names_the_download_after_the_resume(self, auth, user, make_resume, queue):
         resume = make_resume(user, title="Backend Engineer")
@@ -128,36 +158,26 @@ class TestFailures:
     def test_an_unavailable_engine_does_not_leak_its_message(
         self, auth, user, make_resume, queue
     ):
-        queue.outcome = CompilerUnavailable("pdflatex is not installed at /opt/secret")
+        queue.outcome = CompilerUnavailable("pdflatex is not installed at /opt/tex")
         resume = make_resume(user)
 
         response = auth(user).post(f"/resumes/{resume.id}/pdf")
 
         assert response.status_code == 503
-        assert "/opt/secret" not in response.text
+        assert "/opt/tex" not in response.json()["detail"]
 
-    def test_a_resume_deleted_mid_job_is_a_404(self, auth, user, make_resume, queue):
-        queue.outcome = ResumeMissing(str(uuid4()))
+    def test_a_resume_deleted_mid_flight_is_a_404(self, auth, user, make_resume, queue):
+        queue.outcome = ResumeMissing("gone")
         resume = make_resume(user)
 
         response = auth(user).post(f"/resumes/{resume.id}/pdf")
 
         assert response.status_code == 404
 
-    def test_a_slow_compile_times_out(self, auth, user, make_resume, queue):
-        queue.outcome = TimeoutError()
+    def test_a_job_that_never_finishes_times_out(self, auth, user, make_resume, queue):
+        queue.outcome = NEVER
         resume = make_resume(user)
 
         response = auth(user).post(f"/resumes/{resume.id}/pdf")
 
         assert response.status_code == 504
-
-    def test_a_queue_that_refuses_the_job_is_unavailable(
-        self, auth, user, make_resume, queue
-    ):
-        queue.outcome = None
-        resume = make_resume(user)
-
-        response = auth(user).post(f"/resumes/{resume.id}/pdf")
-
-        assert response.status_code == 503

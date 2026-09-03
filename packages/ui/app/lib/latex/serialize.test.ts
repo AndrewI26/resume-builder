@@ -33,6 +33,13 @@ function body(tex: string): string {
 	return tex.slice(PREAMBLE.length);
 }
 
+/** The header's `center` environment, braces included. */
+function centerBlock(tex: string): string {
+	const start = tex.indexOf("\\begin{center}");
+	const end = tex.indexOf("\\end{center}", start);
+	return tex.slice(start, end + "\\end{center}".length);
+}
+
 function document(overrides: Partial<ResumeDocument> = {}): ResumeDocument {
 	return {
 		id: "00000000-0000-0000-0000-000000000001",
@@ -115,6 +122,35 @@ describe("header", () => {
 
 		expect(tex).toContain("\\begin{center}");
 		expect(tex).not.toContain("\\faEnvelope");
+	});
+
+	test("breaks the line after a name that has contact details under it", () => {
+		const tex = serializeToTex(
+			document({ personal_info: { ...emptyInfo, email: "ada@example.com" } }),
+		);
+
+		expect(centerBlock(tex)).toContain(
+			"{\\Huge \\scshape Ada Lovelace} \\\\ \\vspace{1pt}",
+		);
+	});
+
+	test("does not end the block on a break when the name stands alone", () => {
+		// a trailing `\\` with nothing after it is the fatal LaTeX error
+		// "There's no line here to end", which fails the whole compile
+		const block = centerBlock(
+			serializeToTex(document({ personal_info: null })),
+		);
+
+		expect(block).toContain("{\\Huge \\scshape Ada Lovelace}");
+		expect(block).not.toContain("\\\\");
+	});
+
+	test("leaves the block empty with neither a name nor contact details", () => {
+		const tex = serializeToTex(
+			document({ full_name: "", personal_info: null }),
+		);
+
+		expect(centerBlock(tex)).toBe("\\begin{center}\n\\end{center}");
 	});
 
 	test("omits every field that is null", () => {

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
 from config import get_settings
+from deps.notify import PdfNotifier
 from routers.auth import router as auth_router
 from routers.education import router as education_router
 from routers.experience import router as experience_router
@@ -15,6 +16,7 @@ from routers.project import router as project_router
 from routers.resume import router as resume_router
 from routers.skill import router as skill_router
 from routers.sync import router as sync_router
+from services.pdf_worker import run_pool
 from services.sidecar_guard import sidecar_token_guard
 
 settings = get_settings()
@@ -25,8 +27,19 @@ def operation_id(route: APIRoute) -> str:
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """A local install has to prepare its own database; a hosted one is given one."""
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Prepare whatever this deployment needs before the first request.
+
+    A hosted install brings up the PDF queue: the workers live in this process,
+    so how many there are is a property of how the API was started —
+    ``PDF_WORKER_COUNT=6 bun run dev:api``. Zero is a real answer, and what the
+    compose deployment sets, where a worker container claims the jobs instead;
+    the listener still runs, because a request waiting here has to hear that
+    its job finished wherever it ran.
+
+    A local install has neither a queue nor anyone to have started a database
+    for it, so it makes its own and compiles on the request itself.
+    """
     if settings.is_local:
         # imported here rather than at module scope: it pulls in alembic, which
         # the hosted API has no reason to load into every process
@@ -34,8 +47,14 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         from services.local_bootstrap import bootstrap_local_database
 
         bootstrap_local_database(engine)
+        yield
+        return
 
-    yield
+    notifier = PdfNotifier()
+    app.state.pdf_notifier = notifier
+
+    async with run_pool(notifier, settings.pdf_worker_count):
+        yield
 
 
 app = FastAPI(generate_unique_id_function=operation_id, lifespan=lifespan)

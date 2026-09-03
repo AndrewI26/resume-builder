@@ -18,8 +18,6 @@ CLOUD_REQUIRED = (
     "postgres_password",
     "postgres_db",
     "postgres_port",
-    "redis_password",
-    "redis_port",
     "frontend_port",
     "backend_port",
     "secret_key",
@@ -43,17 +41,28 @@ class Settings(BaseSettings):
     mode: Literal["cloud", "local"] = "cloud"
 
     # ``localhost`` is right when the app runs on the host against the compose
-    # database; the containers override these with the service names.
+    # database; the containers override this with the service name.
     postgres_host: str = "localhost"
-    redis_host: str = "localhost"
 
     postgres_user: str = ""
     postgres_password: str = ""
     postgres_db: str = ""
     postgres_port: int = 5432
 
-    redis_password: str = ""
-    redis_port: int = 6379
+    # How many PDF compiles may run at once. The workers are started by the
+    # API itself, so this is set when the API starts:
+    # ``PDF_WORKER_COUNT=6 bun run dev:api``.
+    pdf_worker_count: int = 3
+
+    # How the engine is fenced. "docker" gives each compile a container of its
+    # own and is right when the API runs on the host; the worker container sets
+    # "local", because it is already the boundary and starting containers from
+    # inside one would mean handing it a Docker socket. A desktop install is
+    # forced to "local" below — nobody installs Docker to write a resume.
+    latex_backend: Literal["docker", "local"] = "docker"
+
+    # The image a "docker" compile runs in. Built by ``bun run docker:latex``.
+    latex_image: str = "resume-builder-latex"
 
     frontend_port: str = "5173"
     backend_port: int = 8000
@@ -91,7 +100,15 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "cloud mode needs " + ", ".join(sorted(missing)).upper()
                 )
-        elif not self.secret_key:
+            return self
+
+        # A desktop install compiles in its own process. Nobody installs Docker
+        # to write a resume, and the container is not the boundary it is on a
+        # server: the whole application is already running on one person's
+        # machine, under their own account.
+        self.latex_backend = "local"
+
+        if not self.secret_key:
             # Nothing local signs a token — there is no account to sign in to,
             # and get_current_user never reads a cookie — but the security
             # module wants a key at import. A per-process one is the honest
@@ -122,6 +139,15 @@ class Settings(BaseSettings):
             return f"sqlite+pysqlite:///{self.database_path}"
 
         return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+
+    @property
+    def async_database_url(self) -> str:
+        """The same database, for psycopg's own async connection.
+
+        ``LISTEN`` needs a connection SQLAlchemy is not driving, and psycopg
+        does not understand SQLAlchemy's ``+psycopg`` dialect suffix.
+        """
+        return self.database_url.replace("postgresql+psycopg://", "postgresql://", 1)
 
     @property
     def google_oauth_configured(self) -> bool:

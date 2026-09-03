@@ -54,3 +54,32 @@ DEFAULT_SECTION_ORDER = [
     ResumeSectionType.PROJECT,
     ResumeSectionType.EDUCATION,
 ]
+
+
+class PdfJobStatus(str, enum.Enum):
+    """Where a queued PDF compile has got to.
+
+    ``queued`` and ``running`` are the live states a worker moves between;
+    ``succeeded`` and ``failed`` are terminal and the only ones the waiting
+    request is allowed to read a result out of.
+    """
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+class PdfJobErrorKind(str, enum.Enum):
+    """Why a compile failed, in the terms the endpoint answers in.
+
+    The worker cannot hand an exception back across the table, so it records
+    which one it would have raised and the endpoint reconstructs it. The three
+    members are exactly the failures the endpoint distinguishes: a resume that
+    is gone (404), a document the engine rejected (422), and an engine that
+    could not be run at all (503).
+    """
+
+    MISSING = "missing"
+    REJECTED = "rejected"
+    UNAVAILABLE = "unavailable"
