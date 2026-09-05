@@ -1,16 +1,11 @@
-# Builds the desktop app for macOS and Windows and attaches the installers to
-# a GitHub release.
+# Builds the desktop app for macOS and Windows and attaches the installers to a
+# GitHub release:
 #
 #   git tag v0.1.0 && git push origin v0.1.0
 #
-# or run it by hand from the Actions tab, which builds the installers and
-# leaves them as workflow artifacts without publishing anything.
-#
-# One job per platform *and* architecture, because two of the three things that
-# go into an installer cannot be cross-built: PyInstaller produces a binary for
-# the machine it runs on, and the bundled TeX distribution is likewise
-# per-platform. An x64 installer built on an arm64 machine would carry an arm64
-# API inside it and fail on the first launch of the machine it was built for.
+# One job per platform *and* architecture. PyInstaller cannot cross-compile and
+# the bundled TeX is per-platform, so an x64 installer built on an arm64 machine
+# would carry an arm64 API inside it and fail on first launch.
 
 name: Release desktop app
 
@@ -20,36 +15,38 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
-# Deliberately no `paths:` filter. It would apply to tag pushes as well as
-# branch ones, and a tag push often fails a path check — which would mean a
-# release quietly never building. Cost is kept down by the `plan` job below,
-# which builds one platform for a push to main and all of them for a release.
+# No `paths:` filter on purpose — it would apply to tag pushes too, and a
+# release that quietly never builds is worse than a few extra runs.
 
-# A quick follow-up push should kill the run underneath it rather than queue
-# behind twenty minutes of packaging that nobody is waiting for any more.
-#
-# Never for a tag, though: a cancelled release build leaves a draft release with
-# some of its installers attached and no sign that the rest are missing.
+# One run at a time, and never cancelled. Every push to main both bumps the
+# version and publishes, so two runs in flight would read the same version and
+# race each other's bump — and a cancelled run leaves a release with only some
+# of its installers attached.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
-# The release job needs to create a release and upload to it.
 permissions:
   contents: write
 
 jobs:
   plan:
-    name: Decide what to build
+    name: Decide the version
     runs-on: ubuntu-latest
     outputs:
       targets: ${{ steps.pick.outputs.targets }}
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
 
     steps:
-      # The matrix is decided here rather than with an `if` on the build job,
-      # because a job-level `if` cannot see the matrix context — GitHub gives
-      # it only github, needs, vars and inputs, and referring to matrix there
-      # makes the whole workflow invalid rather than merely wrong.
+      - uses: actions/checkout@v7
+        with:
+          # A branch, not the detached SHA, because the version bump is pushed
+          # back to it.
+          ref: ${{ github.ref_name }}
+
+      # Not a job-level `if` on build: that cannot see the matrix context, and
+      # referring to matrix there makes the workflow invalid rather than wrong.
       - id: pick
         shell: bash
         run: |
@@ -57,26 +54,55 @@ jobs:
           intel='{"name":"macOS (Intel)","runner":"macos-15-intel","arch":"x64","platform":"mac"}'
           windows='{"name":"Windows","runner":"windows-latest","arch":"x64","platform":"win"}'
 
-          if [ "$GITHUB_REF_TYPE" = "tag" ] || [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            # everything, because this is what people download
-            targets="[$arm,$intel,$windows]"
+          # Always all three. A release missing a platform is worse than a slow
+          # one, and every push to main is now a release.
+          echo "targets=[$arm,$intel,$windows]" >> "$GITHUB_OUTPUT"
+
+      # A tag names its own version. A push to main takes the next patch and
+      # writes it back, so the number in package.json is always the last one
+      # released. The push reuses the credentials actions/checkout persisted,
+      # which are GITHUB_TOKEN's — and pushes made with that token do not
+      # trigger workflows. That is the only thing stopping this from looping.
+      - id: version
+        shell: bash
+        run: |
+          manifest=apps/desktop/package.json
+
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+            publish=release
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            # A rehearsal: build everything, bump nothing, publish nothing.
+            version="$(node -p "require('./$manifest').version")"
+            publish=no
           else
-            # a push to main: one platform is enough to notice that packaging
-            # broke, which is not something the tests or the typechecker can
-            # tell you — the sidecar and the bundled TeX only fail when
-            # something actually builds and runs them
-            targets="[$arm]"
+            version="$(node -p "
+              const [major, minor, patch] = require('./$manifest').version.split('.');
+              [major, minor, Number(patch) + 1].join('.');
+            ")"
+            publish=prerelease
+
+            node -e "
+              const fs = require('node:fs');
+              const manifest = JSON.parse(fs.readFileSync('$manifest', 'utf8'));
+              manifest.version = '$version';
+              fs.writeFileSync('$manifest', JSON.stringify(manifest, null, '\t') + '\n');
+            "
+
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m "Release $version" -- "$manifest"
+            git push origin "HEAD:$GITHUB_REF_NAME"
           fi
 
-          echo "targets=$targets" >> "$GITHUB_OUTPUT"
-          echo "Building: $targets"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "Version $version ($publish)"
 
   build:
     name: ${{ matrix.name }}
     needs: plan
     runs-on: ${{ matrix.runner }}
-    # One platform failing should still leave the others to look at, rather
-    # than cancelling a 20-minute build because a runner label went stale.
     strategy:
       fail-fast: false
       matrix:
@@ -93,29 +119,24 @@ jobs:
         with:
           node-version: "24"
 
-      # Pinned to a full version, not a major: setup-uv does not publish a
-      # moving v10 tag the way the actions/* ones publish theirs, and a
-      # reference that does not resolve fails the job before any step runs.
+      # Full version, not a major: setup-uv publishes no moving v10 tag.
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
 
-      - name: Take the version from the tag
-        # electron-builder reads the version from package.json, and a release
-        # whose installers disagree with the tag they were built from is worse
-        # than no version at all.
-        if: startsWith(github.ref, 'refs/tags/v')
+      # electron-builder reads the version from package.json, and this build
+      # checked out the commit before the bump.
+      - name: Stamp the version
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
           node -e "
             const fs = require('node:fs');
             const path = 'apps/desktop/package.json';
             const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
             manifest.version = process.argv[1];
             fs.writeFileSync(path, JSON.stringify(manifest, null, '\t') + '\n');
-          " "$version"
-          echo "Building version $version"
+          " "${{ needs.plan.outputs.version }}"
+          echo "Building version ${{ needs.plan.outputs.version }}"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -124,8 +145,7 @@ jobs:
         working-directory: apps/api
         run: uv run pyinstaller resume-api.spec --noconfirm --distpath dist --workpath build
 
-      # A few hundred megabytes fetched from CTAN. Worth keeping between runs:
-      # it is most of the build's wall time and none of its variability.
+      # Most of the build's wall time and none of its variability.
       - name: Cache the TeX distribution
         id: tex-cache
         uses: actions/cache@v6
@@ -145,22 +165,16 @@ jobs:
       - name: Build the app
         run: bun run build:desktop
 
-      # macOS is packaged in two passes so the app can be sealed in between.
-      # electron-builder finds no identity in the runner's keychain and signs
-      # nothing, which leaves the bundle carrying Electron's own linker-signed
-      # signature over a bundle that packaging has since replaced — and macOS
-      # calls that "damaged and can't be opened" rather than merely unsigned.
-      # Neither hook is usable for the fix: afterPack runs before the Electron
-      # fuses are flipped, which rewrites the binary and breaks a fresh
-      # signature, and afterSign is skipped entirely when nothing was signed.
+      # Two passes with a signing step between them. Do not collapse them:
+      # electron-builder signs nothing here, which leaves the bundle carrying
+      # Electron's own signature over contents packaging has since replaced, and
+      # macOS calls that "damaged" rather than unsigned. It cannot be done from
+      # a hook either — afterPack runs before the Electron fuses are flipped,
+      # which rewrites the binary, and afterSign never fires when nothing was
+      # signed. See scripts/adhoc-sign-mac.sh.
       - name: Build the app bundle (macOS)
         if: matrix.platform == 'mac'
         working-directory: apps/desktop
-        # Stops electron-builder hunting the runner's keychain for a Developer
-        # ID it will not find. It cannot supply an ad-hoc signature itself —
-        # mac.identity is matched against the keychain as a search string, so
-        # "-" resolves to nothing and signing is skipped silently. The next
-        # step does the sealing instead.
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: bunx electron-builder --config electron-builder.yml --mac --${{ matrix.arch }} --dir
@@ -169,9 +183,7 @@ jobs:
         if: matrix.platform == 'mac'
         working-directory: apps/desktop
         run: |
-          # electron-builder names the output directory after the arch —
-          # release/mac for x64, release/mac-arm64 for arm64 — so find the
-          # bundle rather than reproducing that naming rule here.
+          # release/mac for x64, release/mac-arm64 for arm64.
           app="$(find release -maxdepth 2 -name '*.app' -type d | head -1)"
           if [ -z "$app" ]; then
             echo "No .app under apps/desktop/release" >&2
@@ -204,10 +216,9 @@ jobs:
 
   release:
     name: Publish the release
-    needs: build
-    # Only for a tag. A manual run builds the installers and stops, so the
-    # build can be exercised without publishing anything.
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [plan, build]
+    # Not for a manual run, which stays a rehearsal.
+    if: needs.plan.outputs.publish != 'no'
     runs-on: ubuntu-latest
 
     steps:
@@ -220,7 +231,12 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: installers/*
-          draft: true
+          tag_name: v${{ needs.plan.outputs.version }}
+          name: v${{ needs.plan.outputs.version }}
+          draft: false
+          # Only a tag becomes Latest. The per-commit builds are downloadable
+          # but never what the front page offers.
+          prerelease: ${{ needs.plan.outputs.publish == 'prerelease' }}
           generate_release_notes: true
           body: |
             ## Installing
