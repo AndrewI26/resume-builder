@@ -25,6 +25,15 @@ on:
 # release quietly never building. Cost is kept down by the `plan` job below,
 # which builds one platform for a push to main and all of them for a release.
 
+# A quick follow-up push should kill the run underneath it rather than queue
+# behind twenty minutes of packaging that nobody is waiting for any more.
+#
+# Never for a tag, though: a cancelled release build leaves a draft release with
+# some of its installers attached and no sign that the rest are missing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
 # The release job needs to create a release and upload to it.
 permissions:
   contents: write

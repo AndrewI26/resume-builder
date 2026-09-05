@@ -16,7 +16,7 @@
 		"lint": "biome lint --write .",
 		"bundle-tex": "scripts/bundle-texlive.sh",
 		"bundle-api": "cd ../api && uv run pyinstaller resume-api.spec --noconfirm --distpath dist --workpath build",
-		"package": "electron-builder --config electron-builder.yml"
+		"package": "node scripts/package.mjs"
 	},
 	"dependencies": {
 		"@resume-builder/ui": "workspace:*"
