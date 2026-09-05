@@ -52,6 +52,21 @@ mac:
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  # Ad-hoc signed, until there is a certificate to sign with properly.
+  #
+  # Not signing at all is worse than it sounds. The bundle keeps the signature
+  # Electron's own binary shipped with, which no longer describes it once the
+  # sidecar, the TeX distribution and a new Info.plist are inside — so the
+  # signature is invalid rather than absent, and macOS reports an invalid
+  # signature as "this app is damaged and can't be opened". On Apple Silicon
+  # the right-click-and-Open workaround does not get past that.
+  #
+  # Ad-hoc signing reseals the bundle as it actually is. It does not make the
+  # app trusted — it is still unidentified, and still quarantined when
+  # downloaded — but it fails the way an unsigned app is supposed to, with a
+  # dialog somebody can get past, rather than looking corrupt.
+  identity: "-"
+
   # Every binary inside extraResources has to be signed too, not just the app.
   # Notarisation checks all of them.
   signIgnore: []

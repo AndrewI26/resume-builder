@@ -420,8 +420,15 @@ The workflow can also be run by hand from the Actions tab, which builds the
 installers and leaves them as artifacts without publishing anything. See
 [`release-desktop.yml`](.github/workflows/release-desktop.yml).
 
-Nothing is signed or notarised, so both systems warn on first launch. Signing
-needs a certificate in the repository's secrets and a change to that workflow.
+The macOS app is ad-hoc signed and nothing is notarised, so both systems warn
+on first launch. Proper signing needs a certificate in the repository's secrets
+and a change to that workflow.
+
+Ad-hoc rather than unsigned for a specific reason: skipping signing leaves the
+bundle carrying the signature Electron's own binary shipped with, which stops
+describing it once the sidecar and TeX are inside. macOS reports that invalid
+signature as *"this app is damaged"*, and on Apple Silicon the usual
+right-click-and-Open workaround will not get past it.
 
 ## Landing page screenshots
 

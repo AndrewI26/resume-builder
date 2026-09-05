@@ -138,9 +138,10 @@ jobs:
 
       - name: Package the installer
         working-directory: apps/desktop
-        # Nothing is signed. Without this, electron-builder looks for an
-        # identity in the runner's keychain, finds none, and the failure reads
-        # like a build error rather than a missing certificate.
+        # Stops electron-builder hunting the runner's keychain for a Developer
+        # ID it will not find. The mac config asks for an ad-hoc signature
+        # instead, which is what keeps macOS from calling the app damaged —
+        # see the note there.
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: bunx electron-builder --config electron-builder.yml --${{ matrix.platform }} --${{ matrix.arch }} --publish never
@@ -183,11 +184,21 @@ jobs:
 
             **Windows** — download and run the `.exe` installer.
 
-            ### These builds are not signed
+            ### These builds are not signed by a known developer
 
-            macOS will refuse to open the app on the first try, because it was
-            not notarised by Apple. Right-click the app and choose Open, then
-            confirm. Windows SmartScreen will warn for the same reason: choose
+            **macOS** — the app is ad-hoc signed but not notarised by Apple, so
+            the first launch is refused. Right-click the app in Applications,
+            choose Open, and confirm.
+
+            If macOS instead says the app is **damaged and should be moved to
+            the Trash**, that is the quarantine flag on a download it cannot
+            verify, not a corrupt file. Remove it and open the app normally:
+
+            ```
+            xattr -cr "/Applications/Resume Builder.app"
+            ```
+
+            **Windows** — SmartScreen will warn for the same reason. Choose
             More info, then Run anyway.
 
             ### What it does
