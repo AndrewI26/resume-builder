@@ -23,6 +23,14 @@ __pycache__/
 *.pyo
 .venv/
 
+# Tool caches. mypy, pytest and ruff each drop a .gitignore containing `*`
+# inside their own cache directory, so these are already invisible to git —
+# but only for as long as those tools keep doing it. Named here so the repo
+# does not depend on that.
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
 # Node
 node_modules/
 

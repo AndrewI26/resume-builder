@@ -1,7 +1,7 @@
 import { Link } from "react-router";
-import { isDesktop } from "~/platform/host";
 import { useAuth } from "~/auth/auth-context";
 import { ThemeToggle } from "~/components/theme-toggle";
+import { isDesktop } from "~/platform/host";
 
 function ProfileLink() {
 	return (
@@ -35,9 +35,13 @@ export function Navbar() {
 	return (
 		<header className="w-full">
 			<div className="flex h-16 w-full items-center justify-between px-4">
-				<Link className="text-trim text-lg tracking-decreased" to="/">
-					Resume Builder
-				</Link>
+				{isDesktop ? (
+					<div />
+				) : (
+					<Link className="text-trim text-lg tracking-decreased" to="/">
+						Resume Builder
+					</Link>
+				)}
 				<div className="flex items-center gap-2">
 					<ThemeToggle />
 					{/* the desktop has no account to have a profile of */}

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Source of truth for the app icon. scripts/build-icons.sh renders this to
+       the .icns and .ico that electron-builder actually ships. Palette is the
+       app's own: dune, canvas and brand red from packages/ui/app/theme.css. -->
+  <title>Resume Builder</title>
+
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3d3a39"/>
+      <stop offset="1" stop-color="#2a2827"/>
+    </linearGradient>
+    <filter id="lift" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <!-- The squircle, inset to Apple's macOS grid so the shipped icon already
+       carries its own shape and padding. -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#ground)"/>
+
+  <!-- A page, because that is what the app makes. -->
+  <g filter="url(#lift)">
+    <rect x="330" y="277" width="364" height="470" rx="18" fill="#f2f1ed"/>
+  </g>
+
+  <!-- One red headline and three lines of body: enough to read as a resume at
+       512px and still resolve to a page with an accent at 16px. -->
+  <rect x="374" y="415" width="180" height="34" rx="17" fill="#bf3722"/>
+  <rect x="374" y="479" width="276" height="24" rx="12" fill="#c4c1bf"/>
+  <rect x="374" y="529" width="276" height="24" rx="12" fill="#c4c1bf"/>
+  <rect x="374" y="579" width="200" height="24" rx="12" fill="#c4c1bf"/>
+</svg>

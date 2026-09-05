@@ -136,15 +136,53 @@ jobs:
       - name: Build the app
         run: bun run build:desktop
 
-      - name: Package the installer
+      # macOS is packaged in two passes so the app can be sealed in between.
+      # electron-builder finds no identity in the runner's keychain and signs
+      # nothing, which leaves the bundle carrying Electron's own linker-signed
+      # signature over a bundle that packaging has since replaced — and macOS
+      # calls that "damaged and can't be opened" rather than merely unsigned.
+      # Neither hook is usable for the fix: afterPack runs before the Electron
+      # fuses are flipped, which rewrites the binary and breaks a fresh
+      # signature, and afterSign is skipped entirely when nothing was signed.
+      - name: Build the app bundle (macOS)
+        if: matrix.platform == 'mac'
         working-directory: apps/desktop
         # Stops electron-builder hunting the runner's keychain for a Developer
-        # ID it will not find. The mac config asks for an ad-hoc signature
-        # instead, which is what keeps macOS from calling the app damaged —
-        # see the note there.
+        # ID it will not find. It cannot supply an ad-hoc signature itself —
+        # mac.identity is matched against the keychain as a search string, so
+        # "-" resolves to nothing and signing is skipped silently. The next
+        # step does the sealing instead.
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: bunx electron-builder --config electron-builder.yml --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+        run: bunx electron-builder --config electron-builder.yml --mac --${{ matrix.arch }} --dir
+
+      - name: Ad-hoc sign the app (macOS)
+        if: matrix.platform == 'mac'
+        working-directory: apps/desktop
+        run: |
+          # electron-builder names the output directory after the arch —
+          # release/mac for x64, release/mac-arm64 for arm64 — so find the
+          # bundle rather than reproducing that naming rule here.
+          app="$(find release -maxdepth 2 -name '*.app' -type d | head -1)"
+          if [ -z "$app" ]; then
+            echo "No .app under apps/desktop/release" >&2
+            ls -la release >&2
+            exit 1
+          fi
+          scripts/adhoc-sign-mac.sh "$app"
+          echo "APP_PATH=$app" >> "$GITHUB_ENV"
+
+      - name: Package the dmg (macOS)
+        if: matrix.platform == 'mac'
+        working-directory: apps/desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: bunx electron-builder --config electron-builder.yml --mac dmg --${{ matrix.arch }} --prepackaged "$APP_PATH" --publish never
+
+      - name: Package the installer (Windows)
+        if: matrix.platform == 'win'
+        working-directory: apps/desktop
+        run: bunx electron-builder --config electron-builder.yml --win --${{ matrix.arch }} --publish never
 
       - uses: actions/upload-artifact@v7
         with:
@@ -188,14 +226,16 @@ jobs:
 
             **macOS** — the app is ad-hoc signed but not notarised by Apple, so
             the first launch is refused. Right-click the app in Applications,
-            choose Open, and confirm.
+            choose Open, and confirm. On recent macOS that prompt may not offer
+            an Open button — open System Settings, Privacy & Security, scroll to
+            the bottom and choose Open Anyway.
 
             If macOS instead says the app is **damaged and should be moved to
             the Trash**, that is the quarantine flag on a download it cannot
             verify, not a corrupt file. Remove it and open the app normally:
 
             ```
-            xattr -cr "/Applications/Resume Builder.app"
+            xattr -dr com.apple.quarantine "/Applications/Resume Builder.app"
             ```
 
             **Windows** — SmartScreen will warn for the same reason. Choose

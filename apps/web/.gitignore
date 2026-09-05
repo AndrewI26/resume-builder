@@ -1,0 +1,5 @@
+# React Router's production build (bun run build), and the route types it
+# generates from the route config. Both are regenerated from the source in
+# this directory and neither belongs in the history.
+build/
+.react-router/
