@@ -4,7 +4,7 @@ import { PdfPreview, type PdfState } from "@components/pdf-preview";
 import { ResumeEditor } from "@components/resume-editor";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { serializeToTex } from "~/lib/latex/serialize";
 import {
 	buildDocument,
@@ -409,6 +409,26 @@ export default function ResumeRoute() {
 	return (
 		<main className="min-h-screen">
 			<div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 p-4">
+				<Link
+					className="inline-flex items-center gap-1 text-sm text-ink-subtle transition-colors hover:text-ink"
+					to="/resumes"
+				>
+					<svg
+						aria-hidden="true"
+						fill="none"
+						height="16"
+						stroke="currentColor"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						strokeWidth="2"
+						viewBox="0 0 24 24"
+						width="16"
+					>
+						<path d="M19 12H5M12 19l-7-7 7-7" />
+					</svg>
+					<span className="text-trim">Resumes</span>
+				</Link>
+
 				<h1 className="mr-auto font-semibold text-lg">{resume.data.title}</h1>
 
 				<SaveStatus
