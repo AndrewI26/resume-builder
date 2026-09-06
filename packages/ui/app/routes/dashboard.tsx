@@ -3,6 +3,7 @@ import { Button } from "@components/button";
 import { StatCard } from "@components/stat-card";
 import { useNavigate } from "react-router";
 import { useAuth } from "~/auth/auth-context";
+import { isDesktop } from "~/platform/host";
 
 export function meta() {
 	return [{ title: "Dashboard · Resume Builder" }];
@@ -79,7 +80,11 @@ export default function Dashboard() {
 	return (
 		<main className="mx-auto w-full max-w-3xl px-4 py-16">
 			<h1 className="text-4xl leading-heading tracking-decreased">Dashboard</h1>
-			<p className="mt-2 text-ink-subtle">Signed in as {user?.email}</p>
+			{/* the desktop has nobody signed in — the local user is bookkeeping,
+			    not an account, and naming it would invent one */}
+			{!isDesktop && (
+				<p className="mt-2 text-ink-subtle">Signed in as {user?.email}</p>
+			)}
 
 			<div className="mt-8 grid gap-4 sm:grid-cols-2">
 				<StatCard
@@ -100,16 +105,19 @@ export default function Dashboard() {
 				/>
 			</div>
 
-			<Button
-				className="mt-8"
-				onClick={async () => {
-					await signOut();
-					navigate("/login", { replace: true });
-				}}
-				variant="tertiary"
-			>
-				Sign out
-			</Button>
+			{/* nothing to sign out of on the desktop, and nowhere to land */}
+			{!isDesktop && (
+				<Button
+					className="mt-8"
+					onClick={async () => {
+						await signOut();
+						navigate("/login", { replace: true });
+					}}
+					variant="tertiary"
+				>
+					Sign out
+				</Button>
+			)}
 		</main>
 	);
 }

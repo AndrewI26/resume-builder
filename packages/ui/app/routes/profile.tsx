@@ -5,9 +5,9 @@ import {
 	TextInput,
 } from "@components/section-form";
 import { type ReactNode, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Navigate, useSearchParams } from "react-router";
 import { useAuth } from "~/auth/auth-context";
-import { apiBaseUrl } from "~/platform/host";
+import { apiBaseUrl, isDesktop } from "~/platform/host";
 
 export function meta() {
 	return [{ title: "Profile · Resume Builder" }];
@@ -260,6 +260,13 @@ function GoogleSignInMethod({ methods }: { methods: string[] }) {
 
 export default function Profile() {
 	const { user } = useAuth();
+
+	// There is no account on the desktop to have a profile of: the local user
+	// exists so rows have an owner, not so anybody can be shown their details.
+	// Nothing links here, but the route still resolves — send it home.
+	if (isDesktop) {
+		return <Navigate replace to="/dashboard" />;
+	}
 
 	// RequireAuth holds the route until the session resolves, so `user` is set
 	// by the time this renders.
