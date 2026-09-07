@@ -130,5 +130,9 @@ PREAMBLE = r"""%-------------------------
 %-------------------------------------------
 %%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\usepackage[top=.5cm, bottom=0cm, left=1cm, right=1cm]{geometry}
+% bottom margin matches the top. With bottom=0cm the text block ran to the
+% paper edge, so a section that overshot sat flush against it, clipped by any
+% printer with a non-printable margin. With a real margin the overshoot
+% breaks to the next page instead.
+\usepackage[top=.5cm, bottom=.5cm, left=1cm, right=1cm]{geometry}
 \begin{document}"""
