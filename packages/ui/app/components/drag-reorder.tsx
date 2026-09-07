@@ -116,7 +116,14 @@ export function useDragReorder<T>(
 			return;
 		}
 
-		let pointerViewportY = 0;
+		// Seeded from where the drag started, because the auto-scroll loop
+		// below runs from the first frame but nothing assigns this until the
+		// pointer moves. Left at 0 it reads as "pressed against the top edge",
+		// so picking a row up scrolled the page upwards until you moved.
+		const started = latest.current.drag;
+		let pointerViewportY = started
+			? started.pointerY - window.scrollY
+			: window.innerHeight / 2;
 		let frame = 0;
 
 		const update = (y: number) => {
