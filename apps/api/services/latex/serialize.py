@@ -101,7 +101,19 @@ def _render_header(full_name: str, info: PersonalInfoRead | None) -> str:
     return "\n".join(lines)
 
 
-def _render_skills(items: list[SkillRead]) -> str:
+def _closing_space(is_last: bool, space: str) -> list[str]:
+    """A section's closing negative space, which belongs to the gap between it
+    and the section after it.
+
+    The last section has no such gap, and this template stretches what is left
+    to fill the page — so a trailing vspace there does not tighten anything, it
+    just redistributes into the gaps above and pushes the final line off the
+    bottom edge.
+    """
+    return [] if is_last else [space]
+
+
+def _render_skills(items: list[SkillRead], is_last: bool) -> str:
     lines = [
         rf"     \textbf{{{escape_latex(skill.name)}}}{{: "
         rf"{escape_latex(', '.join(skill.items))} }}"
@@ -116,7 +128,7 @@ def _render_skills(items: list[SkillRead]) -> str:
             # the separator goes between lines, never after the last one
             " \\\\\n".join(lines) + " }}",
             r" \end{itemize}",
-            r" \vspace{-20pt}",
+            *_closing_space(is_last, r" \vspace{-20pt}"),
         ]
     )
 
@@ -132,7 +144,7 @@ def _render_bullets(bullets: list[BulletPoint]) -> list[str]:
     ]
 
 
-def _render_experience(items: list[ExpirenceRead]) -> str:
+def _render_experience(items: list[ExpirenceRead], is_last: bool) -> str:
     entries: list[str] = []
     for experience in items:
         entries += [
@@ -155,18 +167,18 @@ def _render_experience(items: list[ExpirenceRead]) -> str:
             r"  \resumeSubHeadingListStart",
             *entries,
             r"  \resumeSubHeadingListEnd",
-            r"\vspace{-16pt}",
+            *_closing_space(is_last, r"\vspace{-16pt}"),
         ]
     )
 
 
-def _render_projects(items: list[ProjectRead]) -> str:
+def _render_projects(items: list[ProjectRead], is_last: bool) -> str:
     entries: list[str] = []
     for index, project in enumerate(items):
         name = rf"\textbf{{{escape_latex(project.name)}}}"
-        # a linked project gets a chain glyph after the name
+        # a linked project gets a chain glyph before the name
         title = (
-            f"{name} {_href(project.link, chr(92) + 'faLink')}"
+            f"{_href(project.link, chr(92) + 'faLink')} {name}"
             if project.link
             else name
         )
@@ -191,11 +203,12 @@ def _render_projects(items: list[ProjectRead]) -> str:
             r"    \resumeSubHeadingListStart",
             *entries,
             r"    \resumeSubHeadingListEnd",
+            *_closing_space(is_last, r"\vspace{-16pt}"),
         ]
     )
 
 
-def _render_education(items: list[EducationRead]) -> str:
+def _render_education(items: list[EducationRead], is_last: bool) -> str:
     entries: list[str] = []
     for education in items:
         entries += [
@@ -217,27 +230,34 @@ def _render_education(items: list[EducationRead]) -> str:
             r"  \resumeSubHeadingListStart",
             *entries,
             r"  \resumeSubHeadingListEnd",
+            # 4pt deeper than the others: these entries carry no bullet list,
+            # so nothing here contributes \resumeItemListEnd's own -5pt
+            *_closing_space(is_last, r"\vspace{-20pt}"),
         ]
     )
 
 
-def _render_block(block: SectionBlock) -> str:
+def _render_block(block: SectionBlock, is_last: bool) -> str:
     match block:
         case SkillBlock():
-            return _render_skills(block.items)
+            return _render_skills(block.items, is_last)
         case ExperienceBlock():
-            return _render_experience(block.items)
+            return _render_experience(block.items, is_last)
         case ProjectBlock():
-            return _render_projects(block.items)
+            return _render_projects(block.items, is_last)
         case EducationBlock():
-            return _render_education(block.items)
+            return _render_education(block.items, is_last)
 
 
 def serialize_to_tex(document: ResumeDocument) -> str:
     """Build the complete ``.tex`` source for a resume document."""
     # the API drops empty blocks, but a bare heading is ugly enough to guard
     # against twice
-    body = [_render_block(block) for block in document.sections if block.items]
+    blocks = [block for block in document.sections if block.items]
+    body = [
+        _render_block(block, index == len(blocks) - 1)
+        for index, block in enumerate(blocks)
+    ]
 
     return "\n".join(
         [

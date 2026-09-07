@@ -316,7 +316,7 @@ describe("projects", () => {
 		...overrides,
 	});
 
-	test("follows a linked project name with a chain glyph", () => {
+	test("precedes a linked project name with a chain glyph", () => {
 		const tex = serializeToTex(
 			document({
 				sections: [
@@ -329,7 +329,7 @@ describe("projects", () => {
 		);
 
 		expect(tex).toContain(
-			"{\\textbf{Whiz} \\href{https://example.com/whiz}{\\faLink}",
+			"{\\href{https://example.com/whiz}{\\faLink} \\textbf{Whiz}",
 		);
 	});
 
@@ -373,7 +373,27 @@ describe("projects", () => {
 			}),
 		);
 
-		expect(tex.match(/\\vspace\{-16pt\}/g)).toHaveLength(1);
+		// the indented one is the entry separator; the section's own trailing
+		// vspace sits at the margin and is counted by the test below
+		expect(tex.match(/^ +\\vspace\{-16pt\}$/gm)).toHaveLength(1);
+	});
+
+	test("closes the gap before the next section", () => {
+		const tex = serializeToTex(
+			document({
+				sections: [
+					{ type: "project", items: [project()] },
+					{
+						type: "skill",
+						items: SAMPLE_DOCUMENT.sections[0].items as never,
+					},
+				],
+			}),
+		);
+
+		expect(body(tex)).toContain(
+			"    \\resumeSubHeadingListEnd\n\\vspace{-16pt}",
+		);
 	});
 });
 
@@ -426,5 +446,33 @@ describe("experience", () => {
 
 		expect(tex).toContain("{\\textbf{R\\&D Inc}}");
 		expect(tex).toContain("{100\\% Remote} {A\\_B}");
+	});
+});
+
+describe("section spacing", () => {
+	const edu = () => ({
+		type: "education" as const,
+		items: SAMPLE_DOCUMENT.sections[3].items as never,
+	});
+	const skills = () => ({
+		type: "skill" as const,
+		items: SAMPLE_DOCUMENT.sections[0].items as never,
+	});
+
+	test("a section closes the gap to the one after it", () => {
+		const tex = serializeToTex(document({ sections: [edu(), skills()] }));
+
+		// deeper than the -16pt the other blocks use: education entries carry
+		// no bullet list, so nothing contributes \resumeItemListEnd's -5pt
+		expect(body(tex)).toContain("  \\resumeSubHeadingListEnd\n\\vspace{-20pt}");
+	});
+
+	test("the last section closes nothing", () => {
+		const tex = serializeToTex(document({ sections: [skills(), edu()] }));
+
+		expect(body(tex)).toContain(
+			"  \\resumeSubHeadingListEnd\n\n\\end{document}",
+		);
+		expect(body(tex)).not.toContain("\\vspace{-20pt}\n\n\\end{document}");
 	});
 });

@@ -101,7 +101,20 @@ function renderHeader(
 	return lines.join("\n");
 }
 
-function renderSkills(items: Skill[]): string {
+/**
+ * A section's closing negative space, which belongs to the gap between it and
+ * the section after it.
+ *
+ * The last section has no such gap, and this template stretches what is left
+ * to fill the page — so a trailing vspace there does not tighten anything, it
+ * just redistributes into the gaps above and pushes the final line off the
+ * bottom edge.
+ */
+function closingSpace(isLast: boolean, space: string): string[] {
+	return isLast ? [] : [space];
+}
+
+function renderSkills(items: Skill[], isLast: boolean): string {
 	const lines = items.map(
 		(skill) =>
 			`     \\textbf{${escapeLatex(skill.name)}}{: ${escapeLatex(
@@ -116,7 +129,7 @@ function renderSkills(items: Skill[]): string {
 		// the separator goes between lines, never after the last one
 		`${lines.join(" \\\\\n")} }}`,
 		" \\end{itemize}",
-		" \\vspace{-20pt}",
+		...closingSpace(isLast, " \\vspace{-20pt}"),
 	].join("\n");
 }
 
@@ -132,7 +145,7 @@ function renderBullets(bullets: BulletPoint[]) {
 	];
 }
 
-function renderExperience(items: Experience[]): string {
+function renderExperience(items: Experience[], isLast: boolean): string {
 	const entries = items.flatMap((experience) => [
 		"    \\resumeSubheading",
 		`        {\\textbf{${escapeLatex(experience.company)}}}{${escapeLatex(
@@ -150,16 +163,16 @@ function renderExperience(items: Experience[]): string {
 		"  \\resumeSubHeadingListStart",
 		...entries,
 		"  \\resumeSubHeadingListEnd",
-		"\\vspace{-16pt}",
+		...closingSpace(isLast, "\\vspace{-16pt}"),
 	].join("\n");
 }
 
-function renderProjects(items: Project[]): string {
+function renderProjects(items: Project[], isLast: boolean): string {
 	const entries = items.flatMap((project, index) => {
 		const name = `\\textbf{${escapeLatex(project.name)}}`;
-		// a linked project gets a chain glyph after the name
+		// a linked project gets a chain glyph before the name
 		const title = project.link
-			? `${name} ${href(project.link, "\\faLink")}`
+			? `${href(project.link, "\\faLink")} ${name}`
 			: name;
 		const technologies = project.technologies.length
 			? ` $|$ \\emph{ ${escapeLatex(project.technologies.join(", "))} }`
@@ -180,10 +193,11 @@ function renderProjects(items: Project[]): string {
 		"    \\resumeSubHeadingListStart",
 		...entries,
 		"    \\resumeSubHeadingListEnd",
+		...closingSpace(isLast, "\\vspace{-16pt}"),
 	].join("\n");
 }
 
-function renderEducation(items: Education[]): string {
+function renderEducation(items: Education[], isLast: boolean): string {
 	const entries = items.flatMap((education) => [
 		"  \\resumeSubheading",
 		`      {${escapeLatex(education.name)}}{${escapeLatex(education.duration)}}`,
@@ -198,29 +212,34 @@ function renderEducation(items: Education[]): string {
 		"  \\resumeSubHeadingListStart",
 		...entries,
 		"  \\resumeSubHeadingListEnd",
+		// 4pt deeper than the others: these entries carry no bullet list, so
+		// nothing here contributes \resumeItemListEnd's own -5pt
+		...closingSpace(isLast, "\\vspace{-20pt}"),
 	].join("\n");
 }
 
-function renderBlock(block: SectionBlock): string {
+function renderBlock(block: SectionBlock, isLast: boolean): string {
 	switch (block.type) {
 		case "skill":
-			return renderSkills(block.items);
+			return renderSkills(block.items, isLast);
 		case "experience":
-			return renderExperience(block.items);
+			return renderExperience(block.items, isLast);
 		case "project":
-			return renderProjects(block.items);
+			return renderProjects(block.items, isLast);
 		case "education":
-			return renderEducation(block.items);
+			return renderEducation(block.items, isLast);
 	}
 }
 
 /** Build the complete `.tex` source for a resume document. */
 export function serializeToTex(document: ResumeDocument): string {
-	const body = document.sections
+	const blocks = document.sections
 		// the API drops empty blocks, but a bare heading is ugly enough to
 		// guard against twice
-		.filter((block) => block.items.length > 0)
-		.map(renderBlock);
+		.filter((block) => block.items.length > 0);
+	const body = blocks.map((block, index) =>
+		renderBlock(block, index === blocks.length - 1),
+	);
 
 	return [
 		PREAMBLE,
