@@ -1,7 +1,7 @@
 {
 	"name": "apps-desktop",
 	"productName": "Resume Builder",
-	"version": "0.1.6",
+	"version": "0.1.7",
 	"description": "Keep every role, project and bullet point in one library, then tailor a typeset resume for each application.",
 	"author": "Resume Builder",
 	"private": true,
