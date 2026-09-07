@@ -212,9 +212,10 @@ function renderEducation(items: Education[], isLast: boolean): string {
 		"  \\resumeSubHeadingListStart",
 		...entries,
 		"  \\resumeSubHeadingListEnd",
-		// 4pt deeper than the others: these entries carry no bullet list, so
-		// nothing here contributes \resumeItemListEnd's own -5pt
-		...closingSpace(isLast, "\\vspace{-20pt}"),
+		// the same -16pt the other blocks close with: measured, every block
+		// type ends with about the same space under its last line, so a
+		// deeper value here just leaves education looking unmargined
+		...closingSpace(isLast, "\\vspace{-16pt}"),
 	].join("\n");
 }
 

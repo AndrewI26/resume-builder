@@ -462,9 +462,7 @@ describe("section spacing", () => {
 	test("a section closes the gap to the one after it", () => {
 		const tex = serializeToTex(document({ sections: [edu(), skills()] }));
 
-		// deeper than the -16pt the other blocks use: education entries carry
-		// no bullet list, so nothing contributes \resumeItemListEnd's -5pt
-		expect(body(tex)).toContain("  \\resumeSubHeadingListEnd\n\\vspace{-20pt}");
+		expect(body(tex)).toContain("  \\resumeSubHeadingListEnd\n\\vspace{-16pt}");
 	});
 
 	test("the last section closes nothing", () => {

@@ -230,9 +230,10 @@ def _render_education(items: list[EducationRead], is_last: bool) -> str:
             r"  \resumeSubHeadingListStart",
             *entries,
             r"  \resumeSubHeadingListEnd",
-            # 4pt deeper than the others: these entries carry no bullet list,
-            # so nothing here contributes \resumeItemListEnd's own -5pt
-            *_closing_space(is_last, r"\vspace{-20pt}"),
+            # the same -16pt the other blocks close with: measured, every
+            # block type ends with about the same space under its last line,
+            # so a deeper value here just leaves education looking unmargined
+            *_closing_space(is_last, r"\vspace{-16pt}"),
         ]
     )
 
