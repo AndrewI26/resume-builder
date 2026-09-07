@@ -8,6 +8,8 @@ import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
+import { exportAllResumes, type ExportFailure } from "~/lib/resume/export-all";
+import { type ChosenDirectory, fileExporter } from "~/platform/host";
 
 export function meta() {
 	return [{ title: "Resumes · Resume Builder" }];
@@ -470,6 +472,198 @@ function CreateResumeForm() {
 	);
 }
 
+/**
+ * Save every resume as a PDF into a folder on this machine.
+ *
+ * Desktop only, and not because the browser is being punished: a tab cannot be
+ * handed a folder, and twenty separate downloads into wherever the browser
+ * keeps them is not the same offer. `fileExporter` returning null is what
+ * decides, so this simply does not render in a tab.
+ *
+ * The folder is emptied of PDFs first, exactly as the command-line script does
+ * it, so what lands there is this export and nothing else. That deletes files
+ * the app never wrote and cannot be undone, so it happens only behind a
+ * warning that names the number at stake — and only when there is something to
+ * delete, since a confirmation that admits it will destroy nothing is a click
+ * that teaches people to dismiss the ones that matter.
+ *
+ * Sub-folders and non-PDFs are never touched, in the picker or in the shell.
+ */
+function ExportAllResumes({ resumes }: { resumes: Resume[] }) {
+	const exporter = fileExporter();
+	const [progress, setProgress] = useState<{
+		done: number;
+		total: number;
+		title: string;
+	} | null>(null);
+	const [result, setResult] = useState<{
+		directory: string;
+		deleted: number;
+		written: number;
+		failures: ExportFailure[];
+	} | null>(null);
+	const [error, setError] = useState<string | null>(null);
+	// The folder waiting on the warning. Held rather than passed through the
+	// dialog, because confirming has to know which folder was agreed to.
+	const [pendingClear, setPendingClear] = useState<ChosenDirectory | null>(
+		null,
+	);
+
+	if (exporter === null) {
+		return null;
+	}
+
+	const running = progress !== null;
+
+	/** Pick a folder, then either warn about it or go straight ahead. */
+	async function choose() {
+		if (exporter === null) {
+			return;
+		}
+
+		setError(null);
+		setResult(null);
+
+		const chosen = await exporter.chooseExportDirectory();
+		// Dismissing the picker is a decision, not a failure; say nothing.
+		if (chosen === null) {
+			return;
+		}
+
+		if (chosen.existingPdfs > 0) {
+			setPendingClear(chosen);
+			return;
+		}
+
+		await run(chosen.path);
+	}
+
+	/** Empty the folder and fill it, once the folder is settled. */
+	async function run(directory: string) {
+		if (exporter === null) {
+			return;
+		}
+
+		setPendingClear(null);
+		setProgress({ done: 0, total: resumes.length, title: "" });
+
+		try {
+			// Before the first compile, like the script: a folder half-cleared
+			// because a resume failed would be the worst of both.
+			const deleted = await exporter.clearExportedPdfs(directory);
+
+			const outcome = await exportAllResumes(
+				resumes,
+				directory,
+				exporter,
+				(done, total, title) => setProgress({ done, total, title }),
+			);
+			setResult({ directory, deleted, ...outcome });
+		} catch (caught) {
+			// Only the folder itself reaches here — a resume that will not
+			// compile is reported in the outcome instead.
+			setError(
+				caught instanceof Error
+					? `Could not use that folder: ${caught.message}`
+					: "Could not use that folder.",
+			);
+		} finally {
+			setProgress(null);
+		}
+	}
+
+	return (
+		<div className="mt-6 rounded-xl border border-border bg-table p-4">
+			<div className="flex items-center justify-between gap-4">
+				<div>
+					<p className="text-ink">Export all resumes</p>
+					<p className="mt-1 text-ink-subtle text-sm">
+						{resumes.length === 0
+							? "Create a resume first."
+							: `Save all ${resumes.length} as PDFs in a folder you choose. Any PDFs already there are deleted first.`}
+					</p>
+				</div>
+
+				<Button
+					disabled={running || resumes.length === 0}
+					onClick={choose}
+					variant="secondary"
+				>
+					{running ? "Exporting…" : "Choose folder…"}
+				</Button>
+			</div>
+
+			{progress !== null && (
+				<p className="mt-3 text-ink-subtle text-sm" role="status">
+					{progress.title
+						? `Building ${progress.title} — ${progress.done + 1} of ${progress.total}…`
+						: `Building ${progress.total} resume(s)…`}
+				</p>
+			)}
+
+			{error !== null && (
+				<p
+					className="mt-3 rounded-xl bg-negative-bg px-4 py-2 text-negative text-sm"
+					role="alert"
+				>
+					{error}
+				</p>
+			)}
+
+			{result !== null && (
+				<div className="mt-3 text-sm" role="status">
+					<p className="text-ink-subtle">
+						Saved {result.written} of {result.written + result.failures.length}{" "}
+						to <span className="text-ink">{result.directory}</span>
+						{result.deleted > 0 &&
+							`, after deleting ${result.deleted} PDF(s) that were there`}
+						.
+					</p>
+
+					{/* Named rather than counted: "3 failed" leaves someone
+					    opening every resume to work out which three. */}
+					{result.failures.length > 0 && (
+						<ul className="mt-2 flex flex-col gap-1 text-negative">
+							{result.failures.map((failure) => (
+								<li key={failure.title}>
+									{failure.title} — {failure.reason}
+								</li>
+							))}
+						</ul>
+					)}
+				</div>
+			)}
+
+			<ConfirmDialog
+				confirmLabel="Delete and export"
+				description={
+					<>
+						<strong className="text-ink">
+							{pendingClear?.existingPdfs ?? 0} PDF(s)
+						</strong>{" "}
+						already in{" "}
+						<span className="text-ink">
+							{pendingClear?.path ?? "that folder"}
+						</span>{" "}
+						will be permanently deleted before the export runs — including any
+						this app did not put there. Other files and sub-folders are left
+						alone.
+					</>
+				}
+				onCancel={() => setPendingClear(null)}
+				onConfirm={() => {
+					if (pendingClear !== null) {
+						void run(pendingClear.path);
+					}
+				}}
+				open={pendingClear !== null}
+				pendingLabel="Exporting…"
+				title="Empty this folder first?"
+			/>
+		</div>
+	);
+}
+
 export default function Resumes() {
 	const queryClient = useQueryClient();
 	const { data, isPending, isError } = $api.useQuery("get", "/resumes/");
@@ -537,6 +731,8 @@ export default function Resumes() {
 			</h1>
 
 			<CreateResumeForm />
+
+			<ExportAllResumes resumes={data ?? []} />
 
 			{isError && (
 				<p

@@ -2,7 +2,7 @@
 	"include": ["src/**/*", "electron.vite.config.ts"],
 	"compilerOptions": {
 		"lib": ["ES2023", "DOM"],
-		"types": ["node", "electron"],
+		"types": ["bun", "node", "electron"],
 		"target": "ES2022",
 		"module": "ESNext",
 		"moduleResolution": "bundler",

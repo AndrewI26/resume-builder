@@ -8,6 +8,7 @@ from fastapi.routing import APIRoute
 from config import get_settings
 from deps.notify import PdfNotifier
 from routers.auth import router as auth_router
+from routers.backup import router as backup_router
 from routers.education import router as education_router
 from routers.experience import router as experience_router
 from routers.google_auth import router as google_auth_router
@@ -98,3 +99,10 @@ app.include_router(project_router)
 app.include_router(resume_router)
 app.include_router(skill_router)
 app.include_router(sync_router)
+
+# Local only. A desktop install's whole library is one file on one machine with
+# nobody else holding a copy, so it can ask for a snapshot of itself; the hosted
+# database is backed up with pg_dump by someone with credentials, and mounting
+# this there would be an endpoint that writes files on the server.
+if settings.is_local:
+    app.include_router(backup_router)

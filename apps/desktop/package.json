@@ -12,6 +12,7 @@
 		"build": "electron-vite build && node scripts/stage-renderer.mjs",
 		"stage-renderer": "node scripts/stage-renderer.mjs",
 		"typecheck": "tsc --noEmit",
+		"test": "bun test src",
 		"format": "biome format --write .",
 		"lint": "biome lint --write .",
 		"bundle-tex": "scripts/bundle-texlive.sh",

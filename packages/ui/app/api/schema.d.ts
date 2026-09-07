@@ -432,8 +432,8 @@ export interface paths {
 		 * Compile Resume Pdf
 		 * @description Typeset the resume and hand back the PDF.
 		 *
-		 *     The source is generated in the worker from this resume's own rows, so
-		 *     nothing about the document crosses the wire on the way in and there is no
+		 *     The source is generated in a worker from this resume's own rows, so nothing
+		 *     about the document crosses the wire on the way in and there is no
 		 *     caller-supplied LaTeX to distrust.
 		 *
 		 *     The wait here is deliberate: the client asked for a file and gets one in
@@ -654,10 +654,54 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	"/backup/": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Create Database Backup
+		 * @description Write a snapshot of the database and say where it landed.
+		 *
+		 *     `current_user` is not read: the file is the whole database rather than one
+		 *     person's rows, and in local mode there is exactly one person. It is there
+		 *     so the endpoint sits behind the same door as everything else — a local
+		 *     install still refuses requests that do not carry the shell's token.
+		 */
+		post: operations["create_database_backup"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 }
 export type webhooks = Record<string, never>;
 export interface components {
 	schemas: {
+		/**
+		 * BackupRead
+		 * @description A snapshot that now exists on disk.
+		 */
+		BackupRead: {
+			/** Filename */
+			filename: string;
+			/** Path */
+			path: string;
+			/** Directory */
+			directory: string;
+			/** Size Bytes */
+			size_bytes: number;
+			/**
+			 * Created At
+			 * Format: date-time
+			 */
+			created_at: string;
+		};
 		/**
 		 * BulletPoint
 		 * @description A line of resume text plus the runs of it that render bold.
@@ -3069,6 +3113,37 @@ export interface operations {
 				};
 				content: {
 					"application/json": components["schemas"]["SyncStatus"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	create_database_backup: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["BackupRead"];
 				};
 			};
 			/** @description Validation Error */

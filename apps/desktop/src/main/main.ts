@@ -10,6 +10,7 @@
 
 import { app, BrowserWindow, shell } from "electron";
 import { join } from "node:path";
+import { registerExportHandlers } from "./export";
 import { APP_ORIGIN, registerAppScheme, serveAppFrom } from "./serve-app";
 import { startSidecar, type Sidecar } from "./sidecar";
 
@@ -24,6 +25,10 @@ let sidecar: Sidecar | null = null;
 app.setName("Resume Builder");
 
 registerAppScheme();
+
+// Both are set up before a window can ask for either: a renderer that loads
+// fast should not find half a main process waiting for it.
+registerExportHandlers();
 
 function createWindow(): BrowserWindow {
 	const window = new BrowserWindow({
