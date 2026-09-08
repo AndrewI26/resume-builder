@@ -50,10 +50,16 @@ export const EMPTY_CATALOGS: Catalogs = {
  * are attached and — within each type — in what order. The two are separate in
  * the API for a reason: a type can be attached but not ordered, which is how a
  * section is hidden without being detached.
+ *
+ * The header lives here too. It prints as part of the resume like everything
+ * else, so it belongs to the same draft: one autosave, one staleness check,
+ * and the preview redraws on a change of name the way it does on a drag.
  */
 export interface ResumeDraft {
 	order: SectionType[];
 	sections: SectionRef[];
+	fullName: string;
+	personalInfoId: string | null;
 }
 
 export const SECTION_TYPES: SectionType[] = [
@@ -69,6 +75,23 @@ export const SECTION_TITLES: Record<SectionType, string> = {
 	project: "Projects",
 	skill: "Skills",
 };
+
+/**
+ * A one-line description of a set of contact details, for pickers.
+ *
+ * Personal info has no name of its own — it is an email, a phone number and
+ * some links — so the first thing it does carry has to stand in for it.
+ */
+export function describePersonalInfo(info: PersonalInfo): string {
+	return (
+		info.email ??
+		info.phone_number ??
+		info.address ??
+		info.github?.label ??
+		info.github?.url ??
+		"Contact details"
+	);
+}
 
 /** A one-line description of a row, for the editor's lists and pickers. */
 export function describe(
@@ -130,7 +153,6 @@ export function buildDocument({
 	id,
 	title,
 	template,
-	fullName,
 	personalInfo,
 	draft,
 	catalogs,
@@ -138,7 +160,7 @@ export function buildDocument({
 	id: string;
 	title: string;
 	template: string;
-	fullName: string;
+	/** The chosen row, looked up by the caller from `draft.personalInfoId`. */
 	personalInfo: PersonalInfo | null;
 	draft: ResumeDraft;
 	catalogs: Catalogs;
@@ -152,7 +174,7 @@ export function buildDocument({
 		id,
 		title,
 		template,
-		full_name: fullName,
+		full_name: draft.fullName,
 		personal_info: personalInfo,
 		sections,
 	};
@@ -216,6 +238,7 @@ export function attach(draft: ResumeDraft, ref: SectionRef): ResumeDraft {
 	}
 
 	return {
+		...draft,
 		// a type attached but never ordered would render nowhere, so give it a
 		// heading at the end rather than silently swallowing the row
 		order: draft.order.includes(ref.section_type)
@@ -267,7 +290,7 @@ export function signature(draft: ResumeDraft): string {
 		.map((ref) => `${ref.section_type}:${ref.section_id}`)
 		.join(",");
 
-	return `${draft.order.join(",")}|${sections}`;
+	return `${draft.order.join(",")}|${sections}|${draft.fullName}|${draft.personalInfoId ?? ""}`;
 }
 
 /** True when the draft differs from what was loaded. */

@@ -8,6 +8,7 @@ import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
+import { describePersonalInfo } from "~/lib/resume/document";
 import { exportAllResumes, type ExportFailure } from "~/lib/resume/export-all";
 import { type ChosenDirectory, fileExporter } from "~/platform/host";
 
@@ -282,15 +283,19 @@ function HeaderFields({
 }) {
 	const { data, isPending } = $api.useQuery("get", "/personal-info/");
 
-	const options = (data ?? []).map((row) => ({
-		value: row.id,
-		label:
-			row.email ??
-			row.address ??
-			row.github?.label ??
-			row.github?.url ??
-			"Contact details",
-	}));
+	const rows = data ?? [];
+	// `None` is the way back out of a pick made by mistake; with nothing saved
+	// yet the list stays empty so the dropdown can say so.
+	const options =
+		rows.length === 0
+			? []
+			: [
+					{ value: "", label: "None" },
+					...rows.map((row) => ({
+						value: row.id,
+						label: describePersonalInfo(row),
+					})),
+				];
 
 	return (
 		<div className="mt-6 rounded-xl border border-border bg-table p-4">

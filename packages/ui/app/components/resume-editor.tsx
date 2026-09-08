@@ -25,6 +25,7 @@ import {
 	moveItem,
 	moveWithinType,
 	type ResumeDraft,
+	describePersonalInfo,
 	refsOfType,
 	SECTION_TITLES,
 	SECTION_TYPES,
@@ -32,7 +33,7 @@ import {
 	setTypeOrder,
 	swap,
 } from "~/lib/resume/document";
-import type { SectionType } from "~/lib/resume/types";
+import type { PersonalInfo, SectionType } from "~/lib/resume/types";
 
 function NudgeButtons({
 	onUp,
@@ -265,6 +266,83 @@ function AddRow({
 	);
 }
 
+/**
+ * The contact-details choices, with a way back out.
+ *
+ * `None` is what makes the picker reversible: chosen by mistake, or no longer
+ * wanted, there has to be something to select instead. It is left off an empty
+ * list so the dropdown can say there is nothing to pick yet.
+ */
+function personalInfoOptions(personalInfo: PersonalInfo[]) {
+	if (personalInfo.length === 0) {
+		return [];
+	}
+
+	return [
+		{ value: "", label: "None" },
+		...personalInfo.map((info) => ({
+			value: info.id,
+			label: describePersonalInfo(info),
+		})),
+	];
+}
+
+/**
+ * The name and contact details printed above the first heading.
+ *
+ * Personal info is not a section — it renders as the header, with no heading
+ * of its own — so it gets its own block here rather than a place in the list.
+ * Both were only settable while creating the resume, which left a typo in a
+ * name or a new phone number with nowhere to go.
+ */
+function HeaderBlock({
+	draft,
+	onChange,
+	personalInfo,
+}: {
+	draft: ResumeDraft;
+	onChange: (next: ResumeDraft) => void;
+	personalInfo: PersonalInfo[];
+}) {
+	return (
+		<div className="rounded-xl border border-border bg-table p-3">
+			<h3 className="font-semibold text-sm">Header</h3>
+
+			<div className="mt-2 flex flex-col gap-1">
+				<label className="text-ink-subtle text-sm" htmlFor="resume-full-name">
+					Name on the resume
+				</label>
+				<input
+					className="w-full rounded-xl border border-border bg-field px-4 py-field text-ink outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke"
+					id="resume-full-name"
+					name="resume-full-name"
+					onChange={(event) =>
+						onChange({ ...draft, fullName: event.target.value })
+					}
+					placeholder="e.g. Casey Quinn"
+					value={draft.fullName}
+				/>
+			</div>
+
+			<div className="mt-2">
+				<Dropdown
+					emptyMessage="Add your contact details under Sections first."
+					id="resume-personal-info"
+					label="Contact details"
+					onChange={(nextId) =>
+						// the empty value is the None row: nothing is chosen, and the
+						// resume prints its name with no contact line under it
+						onChange({ ...draft, personalInfoId: nextId || null })
+					}
+					options={personalInfoOptions(personalInfo)}
+					placeholder="Choose contact details…"
+					value={draft.personalInfoId ?? ""}
+				/>
+			</div>
+		</div>
+	);
+}
+
 /** One heading: its own place on the page, and the rows under it. */
 function HeadingBlock({
 	catalogs,
@@ -336,10 +414,12 @@ export function ResumeEditor({
 	catalogs,
 	draft,
 	onChange,
+	personalInfo,
 }: {
 	catalogs: Catalogs;
 	draft: ResumeDraft;
 	onChange: (next: ResumeDraft) => void;
+	personalInfo: PersonalInfo[];
 }) {
 	const { getHandleProps, getRowProps } = useDragReorder(draft.order, (order) =>
 		onChange({ ...draft, order }),
@@ -351,6 +431,12 @@ export function ResumeEditor({
 
 	return (
 		<div className="flex flex-col gap-4">
+			<HeaderBlock
+				draft={draft}
+				onChange={onChange}
+				personalInfo={personalInfo}
+			/>
+
 			<ol className="flex flex-col gap-3">
 				{draft.order.map((type, index) => (
 					<HeadingBlock

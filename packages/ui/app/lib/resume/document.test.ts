@@ -43,6 +43,8 @@ const draft = (overrides: Partial<ResumeDraft> = {}): ResumeDraft => ({
 		{ section_type: "skill", section_id: "s1" },
 		{ section_type: "education", section_id: "e2" },
 	],
+	fullName: "Ada Lovelace",
+	personalInfoId: null,
 	...overrides,
 });
 
@@ -51,7 +53,6 @@ function build(current: ResumeDraft) {
 		id: "r1",
 		title: "Untitled",
 		template: "jakes",
-		fullName: "Ada Lovelace",
 		personalInfo: null,
 		draft: current,
 		catalogs,
@@ -259,6 +260,14 @@ describe("swap", () => {
 });
 
 describe("isDirty", () => {
+	test("notices a new name on the resume", () => {
+		expect(isDirty(draft({ fullName: "Grace Hopper" }), draft())).toBe(true);
+	});
+
+	test("notices a change of contact details", () => {
+		expect(isDirty(draft({ personalInfoId: "p1" }), draft())).toBe(true);
+	});
+
 	test("is false for an untouched draft", () => {
 		expect(isDirty(draft(), draft())).toBe(false);
 	});

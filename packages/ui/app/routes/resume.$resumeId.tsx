@@ -159,6 +159,8 @@ export default function ResumeRoute() {
 		return {
 			order: (resume.data.section_order ?? []) as SectionType[],
 			sections: membership.data.sections,
+			fullName: resume.data.full_name ?? "",
+			personalInfoId: resume.data.personal_info_id ?? null,
 		};
 	}, [resume.data, membership.data]);
 
@@ -233,9 +235,9 @@ export default function ResumeRoute() {
 	const info = useMemo(
 		() =>
 			(personalInfo.data ?? []).find(
-				(row) => row.id === resume.data?.personal_info_id,
+				(row) => row.id === draft?.personalInfoId,
 			) ?? null,
-		[personalInfo.data, resume.data?.personal_info_id],
+		[personalInfo.data, draft?.personalInfoId],
 	);
 
 	const preview = useMemo(() => {
@@ -247,7 +249,6 @@ export default function ResumeRoute() {
 			id: resumeId,
 			title: resume.data.title,
 			template: resume.data.template,
-			fullName: resume.data.full_name ?? "",
 			personalInfo: info,
 			draft,
 			catalogs,
@@ -286,8 +287,8 @@ export default function ResumeRoute() {
 				body: {
 					title: resume.data.title,
 					template: resume.data.template,
-					full_name: resume.data.full_name,
-					personal_info_id: resume.data.personal_info_id,
+					full_name: draft.fullName.trim() || null,
+					personal_info_id: draft.personalInfoId,
 					section_order: draft.order,
 				},
 			});
@@ -452,7 +453,12 @@ export default function ResumeRoute() {
 			<div className="mx-auto flex max-w-[1400px] flex-col gap-6 px-4 pb-12 lg:flex-row lg:items-start">
 				<aside className="w-full shrink-0 lg:sticky lg:top-4 lg:w-[22rem]">
 					<h2 className="mb-3 font-semibold text-sm">Sections</h2>
-					<ResumeEditor catalogs={catalogs} draft={draft} onChange={setDraft} />
+					<ResumeEditor
+						catalogs={catalogs}
+						draft={draft}
+						onChange={setDraft}
+						personalInfo={personalInfo.data ?? []}
+					/>
 				</aside>
 
 				<div className="flex min-w-0 flex-1 flex-col">
