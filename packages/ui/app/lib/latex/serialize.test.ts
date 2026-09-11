@@ -419,8 +419,8 @@ describe("experience", () => {
 			}),
 		);
 
-		expect(tex).toContain("{\\textbf{Acme}}{2020 - 2022}");
-		expect(tex).toContain("{Engineer} {Boston, MA}");
+		expect(tex).toContain("{\\textbf{Engineer}}{2020 - 2022}");
+		expect(tex).toContain("{Acme} {Boston, MA}");
 	});
 
 	test("escapes every part of the subheading", () => {
@@ -444,8 +444,8 @@ describe("experience", () => {
 			}),
 		);
 
-		expect(tex).toContain("{\\textbf{R\\&D Inc}}");
-		expect(tex).toContain("{100\\% Remote} {A\\_B}");
+		expect(tex).toContain("{\\textbf{100\\% Remote}}");
+		expect(tex).toContain("{R\\&D Inc} {A\\_B}");
 	});
 });
 

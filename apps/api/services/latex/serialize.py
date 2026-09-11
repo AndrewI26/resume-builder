@@ -150,11 +150,11 @@ def _render_experience(items: list[ExpirenceRead], is_last: bool) -> str:
         entries += [
             r"    \resumeSubheading",
             (
-                rf"        {{\textbf{{{escape_latex(experience.company)}}}}}"
+                rf"        {{\textbf{{{escape_latex(experience.position)}}}}}"
                 rf"{{{escape_latex(experience.duration)}}}"
             ),
             (
-                rf"      {{{escape_latex(experience.position)}}} "
+                rf"      {{{escape_latex(experience.company)}}} "
                 rf"{{{escape_latex(experience.location)}}}"
             ),
             *_render_bullets(experience.bullet_points),

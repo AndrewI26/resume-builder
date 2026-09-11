@@ -148,10 +148,10 @@ function renderBullets(bullets: BulletPoint[]) {
 function renderExperience(items: Experience[], isLast: boolean): string {
 	const entries = items.flatMap((experience) => [
 		"    \\resumeSubheading",
-		`        {\\textbf{${escapeLatex(experience.company)}}}{${escapeLatex(
+		`        {\\textbf{${escapeLatex(experience.position)}}}{${escapeLatex(
 			experience.duration,
 		)}}`,
-		`      {${escapeLatex(experience.position)}} {${escapeLatex(
+		`      {${escapeLatex(experience.company)}} {${escapeLatex(
 			experience.location,
 		)}}`,
 		...renderBullets(experience.bullet_points),
