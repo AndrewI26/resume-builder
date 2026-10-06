@@ -4,13 +4,12 @@
   "type": "module",
   "private": true,
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "apps/web"
   ],
   "scripts": {
-    "dev:web": "bun run --filter @resume-builder/ui dev",
-    "build:web": "bun run --filter @resume-builder/ui build",
-    "codegen": "bun run --filter @resume-builder/ui generate-api",
+    "dev:web": "bun run --filter apps-web dev",
+    "build:web": "bun run --filter apps-web build",
+    "codegen": "bun run --filter apps-web generate-api",
     "docker": "docker compose up --build",
     "docker:down": "docker compose down",
     "docker:dev": "docker compose -f docker-compose.dev.yml up",
@@ -22,27 +21,29 @@
     "db:backup": "uv run --directory apps/api python -m scripts.backup_db",
     "resumes:export": "uv run --directory apps/api python -m scripts.export_resumes",
     "dev:api": "uv run --directory apps/api uvicorn main:app --reload",
-    "format:web": "bun run --filter @resume-builder/ui format && bun run --filter apps-web format && bun run --filter apps-desktop format",
-    "lint:web": "bun run --filter @resume-builder/ui lint && bun run --filter apps-web lint && bun run --filter apps-desktop lint",
-    "typecheck:web": "bun run --filter @resume-builder/ui typecheck && bun run --filter apps-desktop typecheck",
+    "format:web": "bun run --filter apps-web format",
+    "lint:web": "bun run --filter apps-web lint",
+    "typecheck:web": "bun run --filter apps-web typecheck",
     "format:api": "uv run --directory apps/api ruff format .",
     "lint:api": "uv run --directory apps/api ruff check --fix .",
     "typecheck:api": "uv run --directory apps/api mypy .",
     "test:api": "uv run --directory apps/api pytest",
-    "test:web": "bun run --filter @resume-builder/ui test",
-    "test:desktop": "bun run --filter apps-desktop test",
+    "test:web": "bun run --filter apps-web test",
+    "test:desktop": "cargo test --manifest-path apps/desktop/Cargo.toml",
     "test": "bun run test:api && bun run test:web && bun run test:desktop",
-    "verify": "bun run format:web && bun run lint:web && bun run typecheck:web && bun run format:api && bun run lint:api && bun run typecheck:api",
+    "verify": "bun run format:web && bun run lint:web && bun run typecheck:web && bun run format:desktop && bun run lint:desktop && bun run format:api && bun run lint:api && bun run typecheck:api",
     "prepare": "husky",
-    "build:desktop": "bun run build:web && bun run --filter apps-desktop build",
-    "dev:desktop": "bun run build:desktop && bun run --filter apps-desktop start",
-    "package:desktop": "bun run --filter apps-desktop bundle-api && bun run --filter apps-desktop bundle-tex && bun run build:desktop && bun run --filter apps-desktop package"
+    "build:desktop": "cargo build --release --manifest-path apps/desktop/Cargo.toml",
+    "dev:desktop": "cargo run --manifest-path apps/desktop/Cargo.toml",
+    "package:desktop": "bun run bundle:api && apps/desktop/scripts/bundle-texlive.sh && cargo packager --release --manifest-path apps/desktop/Cargo.toml",
+    "format:desktop": "cargo fmt --manifest-path apps/desktop/Cargo.toml",
+    "lint:desktop": "cargo clippy --manifest-path apps/desktop/Cargo.toml --all-targets -- -D warnings",
+    "bundle:api": "uv run --directory apps/api pyinstaller resume-api.spec --noconfirm --distpath dist --workpath build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
     "@types/bun": "latest",
-    "husky": "^9.1.7",
-    "@resume-builder/ui": "workspace:*"
+    "husky": "^9.1.7"
   },
   "peerDependencies": {
     "typescript": "^5"

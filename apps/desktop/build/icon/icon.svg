@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <!-- Source of truth for the app icon. scripts/build-icons.sh renders this to
        the .icns and .ico that electron-builder actually ships. Palette is the
-       app's own: dune, canvas and brand red from packages/ui/app/theme.css. -->
+       app's own: dune, canvas and brand red from apps/web/app/theme.css. -->
   <title>Resume Builder</title>
 
   <defs>

@@ -1,5 +1,7 @@
-dist/
-out/
+# cargo build output
+target/
+
+# cargo-packager output
 release/
 
 # Built by scripts/bundle-texlive.sh — a few hundred megabytes of TeX Live,

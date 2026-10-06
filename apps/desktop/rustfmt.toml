@@ -1,0 +1,4 @@
+# Pinned here as well as implied by `edition = "2024"` in Cargo.toml, because
+# rustfmt run on its own — by an editor that has not loaded the crate — does
+# not read Cargo.toml, and falls back to the 2015 style.
+style_edition = "2024"

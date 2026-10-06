@@ -32,16 +32,7 @@ const EMAIL = process.env.DEMO_EMAIL ?? "demo@example.com";
 const PASSWORD = process.env.DEMO_PASSWORD ?? "demo1234";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const publicShots = join(
-	here,
-	"..",
-	"..",
-	"..",
-	"packages",
-	"ui",
-	"public",
-	"shots",
-);
+const publicShots = join(here, "..", "public", "shots");
 const staging = join(here, "..", ".shots-staging");
 
 const VW = 1440;

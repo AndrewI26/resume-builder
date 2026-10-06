@@ -4,8 +4,8 @@ Keep every role, project and bullet point in one library, then tailor a
 LaTeX-typeset resume for each application without losing the original.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/editor.webp">
-  <img alt="The resume editor: the sections that make up a resume on the left, the compiled PDF alongside it" src="packages/ui/public/shots/light/editor.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/editor.webp">
+  <img alt="The resume editor: the sections that make up a resume on the left, the compiled PDF alongside it" src="apps/web/public/shots/light/editor.webp">
 </picture>
 
 ## What it is
@@ -31,8 +31,8 @@ Education, experience, projects, skills and contact details live in a single
 place, grouped by type.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/sections.webp">
-  <img alt="The sections page, listing education and experience entries in tables" src="packages/ui/public/shots/light/sections.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/sections.webp">
+  <img alt="The sections page, listing education and experience entries in tables" src="apps/web/public/shots/light/sections.webp">
 </picture>
 
 ### A version for every application
@@ -42,8 +42,8 @@ wants. Each one keeps its own selection, its own ordering and its own header,
 so tailoring one leaves the others exactly as they were.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/resumes.webp">
-  <img alt="The resumes page, listing two resumes above a form for creating another" src="packages/ui/public/shots/light/resumes.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/resumes.webp">
+  <img alt="The resumes page, listing two resumes above a form for creating another" src="apps/web/public/shots/light/resumes.webp">
 </picture>
 
 ### Bullets that carry emphasis
@@ -53,8 +53,8 @@ preview of how the line will typeset. Bullets drag to reorder, and so do whole
 sections.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/section-form.webp">
-  <img alt="Editing an experience entry, showing bullet points and a bold-formatting preview" src="packages/ui/public/shots/light/section-form.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/section-form.webp">
+  <img alt="Editing an experience entry, showing bullet points and a bold-formatting preview" src="apps/web/public/shots/light/section-form.webp">
 </picture>
 
 ### Careful with the destructive paths
@@ -63,8 +63,8 @@ Deleting a resume says which one, and what survives it — the sections it used
 stay in the library.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/confirm.webp">
-  <img alt="A confirmation dialog asking whether to delete a resume" src="packages/ui/public/shots/light/confirm.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/confirm.webp">
+  <img alt="A confirmation dialog asking whether to delete a resume" src="apps/web/public/shots/light/confirm.webp">
 </picture>
 
 ### At a glance, and on a phone
@@ -73,14 +73,14 @@ stay in the library.
 <tr>
 <td width="55%" valign="top">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/dashboard.webp">
-  <img alt="The dashboard, showing counts of resumes and sections" src="packages/ui/public/shots/light/dashboard.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/dashboard.webp">
+  <img alt="The dashboard, showing counts of resumes and sections" src="apps/web/public/shots/light/dashboard.webp">
 </picture>
 </td>
 <td width="45%" valign="top">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/editor-mobile.webp">
-  <img alt="The editor at phone width, showing the compiled resume" src="packages/ui/public/shots/light/editor-mobile.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/editor-mobile.webp">
+  <img alt="The editor at phone width, showing the compiled resume" src="apps/web/public/shots/light/editor-mobile.webp">
 </picture>
 </td>
 </tr>
@@ -204,30 +204,35 @@ Relevant code:
 | | |
 | --- | --- |
 | Web | React 19, React Router 8, TanStack Query + Form, Tailwind 4, Vite |
+| Desktop | Rust, Iced 0.14, hayro (PDF preview), cargo-packager |
 | API | FastAPI, SQLAlchemy 2, Alembic, Pydantic v2 |
 | Data | Postgres 16 hosted, SQLite on the desktop |
 | Jobs | Postgres queue (LISTEN/NOTIFY, SKIP LOCKED), pdfTeX |
-| Tooling | Bun workspaces, uv, Biome, Ruff, mypy, pytest |
+| Tooling | Bun, Cargo, uv, Biome, Ruff, mypy, pytest |
 
-The application is one React app and one API, each deployed two ways. The app
-is `packages/ui`, and `apps/` holds only what differs between deployments — so
-a change to a screen reaches the browser and the desktop at once, rather than
-being made twice and drifting.
+There are two clients over one API. The web app is a React Router SPA; the
+desktop app is a native Rust program written with Iced. They share no UI code
+— each is written for its platform — but they talk to the same API, and the
+LaTeX the desktop saves is checked against the same golden file as the web's
+and the API's.
 
 ```
-packages/
-  ui/           the React Router app, shared by both deployments
+apps/
+  web/          the React Router SPA, plus its Dockerfile and screenshots
     app/routes/     pages
-    app/components/ shared UI
+    app/components/ shared UI, and the landing page demos
     app/lib/        LaTeX serialization, resume documents
     app/api/        generated OpenAPI types + client
-apps/
+  desktop/      the native app (Rust, Iced)
+    src/ui/         screens: dashboard, sections, forms, resumes, editor
+    src/api/        a typed client for the sidecar
+    src/latex/      the .tex serializer, ported from the web app
+    src/sidecar.rs  starting and stopping the bundled API
   api/          FastAPI service, worker, migrations
     routers/    HTTP endpoints
     services/   compile pipeline, LaTeX serialization, sections
     models/     SQLAlchemy tables
     schemas/    Pydantic request/response types
-  web/          the browser deployment: Dockerfile, nginx, screenshots
 ```
 
 The API is the same in both too. `MODE=cloud` is the hosted service — Postgres,
@@ -349,15 +354,20 @@ bun run codegen
 
 It reads `http://localhost:8000/openapi.json`, so the API must be running.
 
-The output is a single file, `packages/ui/app/api/schema.d.ts` — never edit it
+The output is a single file, `apps/web/app/api/schema.d.ts` — never edit it
 by hand, since the next codegen run overwrites it. The typed client built on
-top lives in `packages/ui/app/api/api.ts`.
+top lives in `apps/web/app/api/api.ts`.
+
+The desktop app's types are written by hand in
+[`apps/desktop/src/api/models.rs`](apps/desktop/src/api/models.rs); when a
+schema changes, change them too. serde refuses a response that no longer fits,
+so a drift shows up as an error rather than as missing data.
 
 ## Checks
 
 ```bash
-bun run test              # pytest + bun test
-bun run verify            # format, lint and typecheck both apps
+bun run test              # pytest + bun test + cargo test
+bun run verify            # format, lint and typecheck every app
 ```
 
 The API tests run against a throwaway SQLite file and need nothing started.
@@ -375,17 +385,29 @@ TEST_DATABASE_URL=postgresql+psycopg://resume_user:resume_pass@localhost:5432/re
 
 ## The desktop app
 
-The same app, in a window, with everything on your own machine. No account, no
-network: it starts the API as a child process against a SQLite file in your
-application data directory, and carries its own TeX distribution so a resume
-typesets to a real PDF on a computer that has never had LaTeX installed.
+A native Rust app, built with [Iced](https://iced.rs), with everything on your
+own machine. No account, no network: it starts the API as a child process
+against a SQLite file in your application data directory, and carries its own
+TeX distribution so a resume typesets to a real PDF on a computer that has
+never had LaTeX installed. The preview is that PDF, rasterised in-process by
+[hayro](https://github.com/LaurenzV/hayro), a pure-Rust renderer.
 
 ```bash
-bun run dev:desktop     # builds the app and opens it
+bun run dev:desktop     # cargo run: builds the app and opens it
 ```
 
 In a checkout the API runs from source through `uv`, so an edit to a router
-shows up without repackaging anything.
+shows up without rebuilding anything. The library lives where the Electron
+app kept it — `~/Library/Application Support/Resume Builder` on macOS,
+`%APPDATA%\Resume Builder` on Windows — so an existing library opens as it was.
+Set `RESUME_BUILDER_DATA_DIR` to point a development run at a scratch library
+instead.
+
+```bash
+bun run test:desktop                                                  # unit + headless UI tests
+cargo test --manifest-path apps/desktop/Cargo.toml -- --ignored       # end to end: real API, real pdfTeX
+SNAPSHOT_DIR=/tmp/shots bun run test:desktop                          # also writes every screen as a PNG
+```
 
 ### Building installers
 
@@ -393,7 +415,9 @@ shows up without repackaging anything.
 bun run package:desktop
 ```
 
-Three things go in, and two of them cannot be cross-built — PyInstaller
+This needs [cargo-packager](https://github.com/crabnebula-dev/cargo-packager)
+(`cargo install cargo-packager --locked`). Three things go in, and two of them
+cannot be cross-built — PyInstaller
 produces a binary for the machine it runs on, and the TeX distribution is
 per-platform. **So an installer can only be built on the kind of machine it is
 for.** Building an x64 installer on an Apple Silicon Mac produces a `.dmg` that
@@ -403,32 +427,22 @@ fails on the first launch of the machine it was meant for.
 | --- | --- |
 | [`resume-api.spec`](apps/api/resume-api.spec) | the API as a single binary |
 | [`bundle-texlive.sh`](apps/desktop/scripts/bundle-texlive.sh) | TinyTeX plus the packages the template needs |
-| [`electron-builder.yml`](apps/desktop/electron-builder.yml) | the shell, and what gets shipped beside it |
+| [`Cargo.toml`](apps/desktop/Cargo.toml) | the app, and under `[package.metadata.packager]` what ships beside it |
 
 The TeX bundle is most of the download — around 235MB installed.
 
 ### Releases
 
-Pushing a tag builds macOS and Windows installers on their own runners and
-attaches them to a draft release:
+The release workflow, [`release-desktop.yml`](.github/workflows/release-desktop.yml),
+is **disabled**: nothing triggers it, and its first job is switched off. Its
+build steps still describe the Electron app and need rewriting for
+cargo-packager before it is turned back on — the note at the top of the file
+says how.
 
-```bash
-git tag v0.1.0 && git push origin v0.1.0
-```
-
-The workflow can also be run by hand from the Actions tab, which builds the
-installers and leaves them as artifacts without publishing anything. See
-[`release-desktop.yml`](.github/workflows/release-desktop.yml).
-
-The macOS app is ad-hoc signed and nothing is notarised, so both systems warn
-on first launch. Proper signing needs a certificate in the repository's secrets
-and a change to that workflow.
-
-Ad-hoc rather than unsigned for a specific reason: skipping signing leaves the
-bundle carrying the signature Electron's own binary shipped with, which stops
-describing it once the sidecar and TeX are inside. macOS reports that invalid
-signature as *"this app is damaged"*, and on Apple Silicon the usual
-right-click-and-Open workaround will not get past it.
+Nothing is notarised, so both systems warn on first launch. If a packaged
+macOS app is reported as *"damaged"*, ad-hoc sign it with
+[`adhoc-sign-mac.sh`](apps/desktop/scripts/adhoc-sign-mac.sh) before building
+the `.dmg`.
 
 ## Landing page screenshots
 

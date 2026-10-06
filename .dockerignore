@@ -3,5 +3,6 @@ node_modules
 apps/*/node_modules
 apps/api/.venv
 apps/api/__pycache__
-packages/ui/build
+apps/web/build
 apps/web/.react-router
+apps/desktop/target

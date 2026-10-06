@@ -7,7 +7,7 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**", "!build", "!.react-router"]
+		"includes": ["**", "!app/api/generated", "!build", "!.react-router"]
 	},
 	"formatter": {
 		"enabled": true,
@@ -22,6 +22,12 @@
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"
+		}
+	},
+	"css": {
+		"parser": {
+			"cssModules": true,
+			"tailwindDirectives": true
 		}
 	},
 	"assist": {

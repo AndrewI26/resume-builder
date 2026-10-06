@@ -1,0 +1,46 @@
+[package]
+name = "resume-builder-desktop"
+version = "0.1.9"
+edition = "2024"
+description = "Keep every role, project and bullet point in one library, then tailor a typeset resume for each application."
+publish = false
+
+[[bin]]
+name = "resume-builder"
+path = "src/main.rs"
+
+[dependencies]
+iced = { version = "0.14", features = ["tokio", "image", "svg"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+tokio = { version = "1", features = ["process", "time", "net", "fs", "io-util", "macros", "rt-multi-thread"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["serde", "clock", "std"] }
+uuid = { version = "1", features = ["v4"] }
+getrandom = "0.4"
+dirs = "7"
+rfd = "0.17"
+open = "5"
+dark-light = "3"
+hayro = "0.8"
+ctrlc = { version = "3", features = ["termination"] }
+
+[dev-dependencies]
+tempfile = "3"
+iced_test = "0.14"
+png = "0.17"
+
+[package.metadata.packager]
+product-name = "Resume Builder"
+identifier = "com.resumebuilder.desktop"
+category = "Productivity"
+icons = ["build/icon.icns", "build/icon.ico", "build/icon.png"]
+before-packaging-command = "cargo build --release"
+out-dir = "release"
+formats = ["app", "dmg", "nsis"]
+# Copied beside the binary, left as they are: both are executed as child
+# processes, so they have to exist as real files on disk.
+resources = [
+  { src = "../api/dist/resume-api", target = "api" },
+  { src = "resources/texlive", target = "texlive" },
+]
