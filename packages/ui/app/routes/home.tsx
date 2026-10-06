@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import { Link, Navigate } from "react-router";
 import { useAuth } from "~/auth/auth-context";
+import { ReorderDemo } from "~/components/landing/reorder-demo";
+import { ReuseDemo } from "~/components/landing/reuse-demo";
+import { VersionsDemo } from "~/components/landing/versions-demo";
 import { isDesktop } from "~/platform/host";
 
 export function meta() {
@@ -173,6 +176,34 @@ function Feature({
 	);
 }
 
+/** An interactive demo under its heading: the claim first, then the proof. */
+function DemoSection({
+	eyebrow,
+	title,
+	children,
+	demo,
+}: {
+	eyebrow: string;
+	title: string;
+	children: ReactNode;
+	demo: ReactNode;
+}) {
+	return (
+		<section className="py-20 lg:py-28">
+			<p className="text-sm text-ink-subtle uppercase tracking-increased">
+				{eyebrow}
+			</p>
+			<h2 className="mt-4 max-w-2xl text-4xl leading-heading tracking-decreased sm:text-5xl">
+				{title}
+			</h2>
+			<p className="mt-5 max-w-xl text-ink-subtle text-lg leading-body">
+				{children}
+			</p>
+			<div className="mt-12">{demo}</div>
+		</section>
+	);
+}
+
 function Detail({ title, children }: { title: string; children: ReactNode }) {
 	return (
 		<div>
@@ -268,42 +299,38 @@ export default function Home() {
 				Your sections, typeset by LaTeX, previewed as you work.
 			</p>
 
-			{/* Features --------------------------------------------------------- */}
-			<Feature
-				alt="The sections page, listing education and experience entries in tables"
+			{/* Demos ------------------------------------------------------------ */}
+			<DemoSection
 				eyebrow="One library"
-				shot="sections"
-				title="Everything you've done, in one place"
+				title="Define it once. Use it everywhere."
+				demo={<ReuseDemo />}
 			>
-				<p>
-					Education, experience, projects, skills and contact details live in a
-					single library rather than inside one particular document. Add a role
-					once and use it in as many resumes as you like.
-				</p>
-				<p className="mt-4">
-					Edit it in the library and every resume built on it follows along —
-					there is no copy to keep in sync.
-				</p>
-			</Feature>
+				Every role, project and skill lives in one library. A resume holds a
+				reference to an entry, not a copy of it — so a fix made once lands on
+				every resume that uses it.
+			</DemoSection>
 
-			<Feature
-				alt="The resumes page, listing two resumes with a form for creating another"
+			<DemoSection
+				eyebrow="Any order"
+				title="Move sections where they matter"
+				demo={<ReorderDemo />}
+			>
+				Lead with experience for one role and with education for the next. Drag
+				a heading and the page follows; the library underneath does not move at
+				all.
+			</DemoSection>
+
+			<DemoSection
 				eyebrow="Many versions"
-				reversed
-				shot="resumes"
 				title="A version for every application"
+				demo={<VersionsDemo />}
 			>
-				<p>
-					Build a resume by choosing sections from your library and putting them
-					in the order you want. Each one keeps its own selection, its own
-					ordering and its own header.
-				</p>
-				<p className="mt-4">
-					Tailoring one for a frontend role leaves the backend version exactly
-					as you left it.
-				</p>
-			</Feature>
+				Each resume keeps its own selection and its own order, drawn from the
+				same library. Tailoring the platform version leaves the frontend one
+				exactly as you left it.
+			</DemoSection>
 
+			{/* Features --------------------------------------------------------- */}
 			<Feature
 				alt="Editing an experience entry, with bullet points and a bold-formatting preview"
 				eyebrow="The writing"
