@@ -9,10 +9,20 @@
 
 name: Release desktop app
 
+# DISABLED. Nothing triggers this automatically, and the `plan` job is
+# switched off with `if: false`, so a manual run does nothing either; `build`
+# and `release` depend on it and are skipped with it.
+#
+# The steps below still build the Electron app, which apps/desktop no longer
+# is — it is a Rust (Iced) crate packaged with cargo-packager. Rewrite the
+# build steps for that before turning this back on, then restore:
+#
+#   on:
+#     push:
+#       branches: [main]
+#       tags: ["v*"]
+#     workflow_dispatch:
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
 
 # No `paths:` filter on purpose — it would apply to tag pushes too, and a
@@ -32,6 +42,8 @@ permissions:
 jobs:
   plan:
     name: Decide the version
+    # disabled; see the note at the top of this file
+    if: false
     runs-on: ubuntu-latest
     outputs:
       targets: ${{ steps.pick.outputs.targets }}
