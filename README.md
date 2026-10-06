@@ -4,8 +4,8 @@ Keep every role, project and bullet point in one library, then tailor a
 LaTeX-typeset resume for each application without losing the original.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/editor.webp">
-  <img alt="The resume editor: the sections that make up a resume on the left, the compiled PDF alongside it" src="apps/web/public/shots/light/editor.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/editor.webp">
+  <img alt="The resume editor: the sections that make up a resume on the left, the compiled PDF alongside it" src="packages/ui/public/shots/light/editor.webp">
 </picture>
 
 ## What it is
@@ -31,8 +31,8 @@ Education, experience, projects, skills and contact details live in a single
 place, grouped by type.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/sections.webp">
-  <img alt="The sections page, listing education and experience entries in tables" src="apps/web/public/shots/light/sections.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/sections.webp">
+  <img alt="The sections page, listing education and experience entries in tables" src="packages/ui/public/shots/light/sections.webp">
 </picture>
 
 ### A version for every application
@@ -42,8 +42,8 @@ wants. Each one keeps its own selection, its own ordering and its own header,
 so tailoring one leaves the others exactly as they were.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/resumes.webp">
-  <img alt="The resumes page, listing two resumes above a form for creating another" src="apps/web/public/shots/light/resumes.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/resumes.webp">
+  <img alt="The resumes page, listing two resumes above a form for creating another" src="packages/ui/public/shots/light/resumes.webp">
 </picture>
 
 ### Bullets that carry emphasis
@@ -53,8 +53,8 @@ preview of how the line will typeset. Bullets drag to reorder, and so do whole
 sections.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/section-form.webp">
-  <img alt="Editing an experience entry, showing bullet points and a bold-formatting preview" src="apps/web/public/shots/light/section-form.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/section-form.webp">
+  <img alt="Editing an experience entry, showing bullet points and a bold-formatting preview" src="packages/ui/public/shots/light/section-form.webp">
 </picture>
 
 ### Careful with the destructive paths
@@ -63,8 +63,8 @@ Deleting a resume says which one, and what survives it — the sections it used
 stay in the library.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/confirm.webp">
-  <img alt="A confirmation dialog asking whether to delete a resume" src="apps/web/public/shots/light/confirm.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/confirm.webp">
+  <img alt="A confirmation dialog asking whether to delete a resume" src="packages/ui/public/shots/light/confirm.webp">
 </picture>
 
 ### At a glance, and on a phone
@@ -73,14 +73,14 @@ stay in the library.
 <tr>
 <td width="55%" valign="top">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/dashboard.webp">
-  <img alt="The dashboard, showing counts of resumes and sections" src="apps/web/public/shots/light/dashboard.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/dashboard.webp">
+  <img alt="The dashboard, showing counts of resumes and sections" src="packages/ui/public/shots/light/dashboard.webp">
 </picture>
 </td>
 <td width="45%" valign="top">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/shots/dark/editor-mobile.webp">
-  <img alt="The editor at phone width, showing the compiled resume" src="apps/web/public/shots/light/editor-mobile.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/shots/dark/editor-mobile.webp">
+  <img alt="The editor at phone width, showing the compiled resume" src="packages/ui/public/shots/light/editor-mobile.webp">
 </picture>
 </td>
 </tr>
