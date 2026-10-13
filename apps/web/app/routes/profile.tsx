@@ -1,11 +1,12 @@
 import { Button } from "@components/button";
+import { ExportLibraryButton } from "@components/export-library-button";
 import {
 	FormError,
 	sectionErrorMessage,
 	TextInput,
 } from "@components/section-form";
 import { type ReactNode, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { useAuth } from "~/auth/auth-context";
 import { apiBaseUrl } from "~/platform/host";
 
@@ -296,6 +297,26 @@ export default function Profile() {
 					/>
 
 					<GoogleSignInMethod methods={user.sign_in_methods} />
+				</div>
+			</section>
+
+			<section className="mt-12">
+				<h2 className="text-2xl leading-heading tracking-decreased">
+					Your data
+				</h2>
+				<p className="mt-2 text-ink-subtle">
+					Your sections and resumes as one JSON file.{" "}
+					<Link className="text-ink underline underline-offset-4" to="/import">
+						Import from JSON
+					</Link>
+				</p>
+
+				<div className="mt-4 flex flex-col gap-4">
+					<SettingRow
+						action={<ExportLibraryButton />}
+						description="Download everything to back it up, or to edit and import again."
+						title="Export library"
+					/>
 				</div>
 			</section>
 

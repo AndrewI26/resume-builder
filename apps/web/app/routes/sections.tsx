@@ -119,6 +119,12 @@ export default function Sections() {
 				Everything you've added, grouped by section type. Click a row to edit or
 				delete it.
 			</p>
+			<p className="mt-2 text-ink-subtle">
+				Have them somewhere else already?{" "}
+				<Link className="text-ink underline underline-offset-4" to="/import">
+					Import from JSON
+				</Link>
+			</p>
 
 			<SectionTable
 				addHref="/sections/education/new"

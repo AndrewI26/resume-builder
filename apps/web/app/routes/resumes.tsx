@@ -540,6 +540,12 @@ export default function Resumes() {
 			<h1 className="mt-4 text-4xl leading-heading tracking-decreased">
 				Resumes
 			</h1>
+			<p className="mt-2 text-ink-subtle">
+				Have one already?{" "}
+				<Link className="text-ink underline underline-offset-4" to="/import">
+					Import from JSON
+				</Link>
+			</p>
 
 			<CreateResumeForm />
 

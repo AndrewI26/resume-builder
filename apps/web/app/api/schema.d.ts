@@ -302,6 +302,70 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	"/library/import": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Import Portable Library
+		 * @description Create every section and resume in the file, or nothing if any is invalid.
+		 *
+		 *     Always adds: nothing already in the library is changed. With
+		 *     `dry_run=true` the file is checked and the summary returned, but nothing is
+		 *     kept.
+		 */
+		post: operations["import_portable_library"];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/library/export": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Export Portable Library
+		 * @description Everything the caller has, in the format import reads.
+		 */
+		get: operations["export_portable_library"];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/library/schema": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Portable Library Schema
+		 * @description The import format as JSON Schema.
+		 */
+		get: operations["portable_library_schema"];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	"/project/": {
 		parameters: {
 			query?: never;
@@ -891,6 +955,36 @@ export interface components {
 			detail?: components["schemas"]["ValidationError"][];
 		};
 		/**
+		 * ImportSummary
+		 * @description What an import created, or on a dry run would have created.
+		 */
+		ImportSummary: {
+			/** Dry Run */
+			dry_run: boolean;
+			/** Personal Info */
+			personal_info: number;
+			/** Education */
+			education: number;
+			/** Experience */
+			experience: number;
+			/** Projects */
+			projects: number;
+			/** Skills */
+			skills: number;
+			/** Resumes */
+			resumes: components["schemas"]["ImportedResume"][];
+		};
+		/** ImportedResume */
+		ImportedResume: {
+			/**
+			 * Id
+			 * Format: uuid
+			 */
+			id: string;
+			/** Title */
+			title: string;
+		};
+		/**
 		 * Link
 		 * @description A URL paired with the text a resume shows in its place.
 		 *
@@ -943,6 +1037,162 @@ export interface components {
 			 * Format: uuid
 			 */
 			id: string;
+		};
+		/** PortableEducation */
+		PortableEducation: {
+			/** Key */
+			key?: string | null;
+			/** Name */
+			name: string;
+			/** Subheading */
+			subheading: string;
+			/** Duration */
+			duration: string;
+			/** Location */
+			location: string;
+		};
+		/** PortableExperience */
+		PortableExperience: {
+			/** Key */
+			key?: string | null;
+			/** Company */
+			company: string;
+			/** Position */
+			position: string;
+			/** Duration */
+			duration: string;
+			/** Location */
+			location: string;
+			/**
+			 * Bullet Points
+			 * @default []
+			 */
+			bullet_points: string[];
+		};
+		/**
+		 * PortableLibrary
+		 * @description A whole library: sections, and resumes made from them.
+		 */
+		PortableLibrary: {
+			/**
+			 * Format
+			 * @default resume-builder
+			 * @constant
+			 */
+			format: "resume-builder";
+			/**
+			 * Version
+			 * @default 1
+			 * @constant
+			 */
+			version: 1;
+			/**
+			 * Personal Info
+			 * @default []
+			 */
+			personal_info: components["schemas"]["PortablePersonalInfo"][];
+			/**
+			 * Education
+			 * @default []
+			 */
+			education: components["schemas"]["PortableEducation"][];
+			/**
+			 * Experience
+			 * @default []
+			 */
+			experience: components["schemas"]["PortableExperience"][];
+			/**
+			 * Projects
+			 * @default []
+			 */
+			projects: components["schemas"]["PortableProject"][];
+			/**
+			 * Skills
+			 * @default []
+			 */
+			skills: components["schemas"]["PortableSkill"][];
+			/**
+			 * Resumes
+			 * @default []
+			 */
+			resumes: components["schemas"]["PortableResume"][];
+		};
+		/** PortableLink */
+		PortableLink: {
+			/** Url */
+			url: string;
+			/** Label */
+			label?: string | null;
+		};
+		/** PortablePersonalInfo */
+		PortablePersonalInfo: {
+			/** Key */
+			key?: string | null;
+			/** Email */
+			email?: string | null;
+			/** Phone Number */
+			phone_number?: string | null;
+			/** Address */
+			address?: string | null;
+			github?: components["schemas"]["PortableLink"] | null;
+			linkedin?: components["schemas"]["PortableLink"] | null;
+			portfolio?: components["schemas"]["PortableLink"] | null;
+		};
+		/** PortableProject */
+		PortableProject: {
+			/** Key */
+			key?: string | null;
+			/** Name */
+			name: string;
+			/** Link */
+			link?: string | null;
+			/** Github */
+			github?: string | null;
+			/**
+			 * Technologies
+			 * @default []
+			 */
+			technologies: string[];
+			/**
+			 * Bullet Points
+			 * @default []
+			 */
+			bullet_points: string[];
+		};
+		/** PortableResume */
+		PortableResume: {
+			/** Title */
+			title: string;
+			/**
+			 * Template
+			 * @default jakes
+			 */
+			template: string;
+			/** Full Name */
+			full_name?: string | null;
+			/** Personal Info */
+			personal_info?: string | null;
+			/** Section Order */
+			section_order?: components["schemas"]["ResumeSectionType"][];
+			/**
+			 * Sections
+			 * @default {}
+			 */
+			sections: {
+				[key: string]: string[];
+			};
+		};
+		/** PortableSkill */
+		PortableSkill: {
+			/** Key */
+			key?: string | null;
+			/** Name */
+			name: string;
+			/**
+			 * Items
+			 * @default []
+			 */
+			items: string[];
 		};
 		/** ProjectBlock */
 		ProjectBlock: {
@@ -2255,6 +2505,96 @@ export interface operations {
 				};
 				content: {
 					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	import_portable_library: {
+		parameters: {
+			query?: {
+				dry_run?: boolean;
+			};
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["PortableLibrary"];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ImportSummary"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	export_portable_library: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				access_token?: string | null;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["PortableLibrary"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	portable_library_schema: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": {
+						[key: string]: unknown;
+					};
 				};
 			};
 		};
