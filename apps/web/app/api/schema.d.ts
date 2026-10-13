@@ -160,6 +160,10 @@ export interface paths {
 		 *
 		 *     `next` is a path inside the frontend to land on afterwards, e.g.
 		 *     `/auth/google/login?next=/dashboard`.
+		 *
+		 *     This is a top level navigation from the sign in page, so a server without
+		 *     Google set up sends the browser back there with an `auth_error` rather
+		 *     than showing it a raw JSON error.
 		 */
 		get: operations["google_login"];
 		put?: never;

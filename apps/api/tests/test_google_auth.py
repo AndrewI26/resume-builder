@@ -119,12 +119,15 @@ def google(monkeypatch):
 
 
 class TestLoginRedirect:
-    def test_is_unavailable_when_google_is_not_configured(
+    def test_sends_the_browser_back_when_google_is_not_configured(
         self, no_redirects: TestClient, unconfigured
     ):
         response = no_redirects.get("/auth/google/login")
 
-        assert response.status_code == 503
+        assert response.status_code == 303
+        location = response.headers["location"]
+        assert location.startswith(f"{settings.frontend_url}/login?")
+        assert query(location)["auth_error"] == ["google_not_configured"]
 
     def test_redirects_to_google(self, no_redirects: TestClient, configured):
         response = no_redirects.get("/auth/google/login")
@@ -198,7 +201,10 @@ class TestLoginRedirect:
 
         response = no_redirects.get("/auth/google/login")
 
-        assert response.status_code == 503
+        assert response.status_code == 303
+        assert query(response.headers["location"])["auth_error"] == [
+            "google_not_configured"
+        ]
 
 
 class TestCallback:
@@ -440,6 +446,19 @@ class TestCallbackFailures:
 
         assert response.headers["location"].startswith(settings.frontend_url)
 
+    def test_a_failed_sign_in_returns_to_the_sign_in_page(
+        self, no_redirects: TestClient
+    ):
+        no_redirects.cookies.set(
+            OAUTH_STATE_COOKIE_NAME, state_cookie(next="/dashboard")
+        )
+
+        response = no_redirects.get(
+            "/auth/google/callback", params={"error": "access_denied"}
+        )
+
+        assert urlsplit(response.headers["location"]).path == "/login"
+
 
 class TestIdTokenSignIn:
     def test_signs_the_user_in(self, client: TestClient, db: Session, google):
@@ -674,6 +693,22 @@ class TestLinkCallback:
             "google_already_linked"
         ]
         assert account_count(db) == 1
+
+    def test_a_cancelled_link_returns_to_where_it_started(
+        self, no_redirects: TestClient, user: User
+    ):
+        no_redirects.cookies.set(
+            OAUTH_STATE_COOKIE_NAME,
+            state_cookie(next="/profile", link_user_id=str(user.id)),
+        )
+
+        response = no_redirects.get(
+            "/auth/google/callback", params={"error": "access_denied"}
+        )
+
+        location = response.headers["location"]
+        assert urlsplit(location).path == "/profile"
+        assert query(location)["auth_error"] == ["access_denied"]
 
     def test_fills_in_a_missing_name_from_google(
         self, no_redirects: TestClient, db: Session, google, user: User

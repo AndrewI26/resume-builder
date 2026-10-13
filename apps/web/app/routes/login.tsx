@@ -4,6 +4,11 @@ import { useForm } from "@tanstack/react-form";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "~/auth/auth-context";
+import {
+	GoogleSignInButton,
+	OrDivider,
+	useGoogleAuthError,
+} from "~/auth/google-sign-in";
 import { TextField } from "~/auth/text-field";
 
 type LoginError =
@@ -35,6 +40,7 @@ export default function Login() {
 	const { signIn, isAuthenticated, isLoading } = useAuth();
 	const navigate = useNavigate();
 	const [formError, setFormError] = useState<string | null>(null);
+	const googleError = useGoogleAuthError();
 
 	useEffect(() => {
 		if (!isLoading && isAuthenticated) {
@@ -61,8 +67,22 @@ export default function Login() {
 			<h1 className="text-4xl leading-heading tracking-decreased">Sign in</h1>
 			<p className="mt-2 text-ink-subtle">Welcome back.</p>
 
+			<div className="mt-8 flex flex-col gap-4">
+				<GoogleSignInButton />
+				{googleError && (
+					<p
+						className="rounded-xl bg-negative-bg px-4 py-2 text-sm text-negative"
+						role="alert"
+					>
+						{googleError}
+					</p>
+				)}
+			</div>
+
+			<OrDivider />
+
 			<form
-				className="mt-8 flex flex-col gap-4"
+				className="flex flex-col gap-4"
 				method="post"
 				noValidate
 				onSubmit={(event) => {

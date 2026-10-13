@@ -64,6 +64,9 @@ DEFAULT_REDIRECT_PATH = "/"
 # where the link flow returns to, and where its errors are reported
 LINK_REDIRECT_PATH = "/profile"
 
+# where a failed sign in is reported, so the person can try again
+LOGIN_PATH = "/login"
+
 
 @router.get(
     "/login",
@@ -77,12 +80,13 @@ def login(next: str = DEFAULT_REDIRECT_PATH) -> RedirectResponse:
 
     `next` is a path inside the frontend to land on afterwards, e.g.
     `/auth/google/login?next=/dashboard`.
+
+    This is a top level navigation from the sign in page, so a server without
+    Google set up sends the browser back there with an `auth_error` rather
+    than showing it a raw JSON error.
     """
     if not settings.google_oauth_configured:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Google sign in is not configured on this server",
-        )
+        return _frontend_redirect(LOGIN_PATH, auth_error="google_not_configured")
 
     state = secrets.token_urlsafe(32)
     nonce = secrets.token_urlsafe(32)
@@ -92,10 +96,8 @@ def login(next: str = DEFAULT_REDIRECT_PATH) -> RedirectResponse:
         authorization_url = build_authorization_url(
             state=state, nonce=nonce, code_challenge=code_challenge
         )
-    except GoogleOAuthError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
-        ) from exc
+    except GoogleOAuthError:
+        return _frontend_redirect(LOGIN_PATH, auth_error="google_not_configured")
 
     response = RedirectResponse(
         authorization_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT
@@ -262,12 +264,17 @@ def callback(
     # the redirect target was chosen before the handshake started; fall back to
     # the default if we can't read it back
     next_path = DEFAULT_REDIRECT_PATH
+    # a failed sign in goes back to the sign in page; a failed link goes back
+    # to where it started, which reports it
+    failure_path = LOGIN_PATH
     if stored is not None:
         next_path = _safe_redirect_path(stored.get("next"))
+        if stored.get("link_user_id") is not None:
+            failure_path = next_path
 
     if error is not None:
         # the user hit "cancel" on Google's consent screen, most likely
-        return _finish(auth_error=error)
+        return _finish(failure_path, auth_error=error)
 
     state_matches = (
         stored is not None
@@ -275,16 +282,16 @@ def callback(
         and secrets.compare_digest(str(stored.get("state", "")), str(state))
     )
     if stored is None or not state_matches:
-        return _finish(auth_error="invalid_state")
+        return _finish(failure_path, auth_error="invalid_state")
 
     if not code:
-        return _finish(auth_error="missing_code")
+        return _finish(failure_path, auth_error="missing_code")
 
     try:
         id_token = exchange_code_for_id_token(code, str(stored["code_verifier"]))
         profile = verify_id_token(id_token, expected_nonce=str(stored["nonce"]))
     except GoogleOAuthError:
-        return _finish(auth_error="google_auth_failed")
+        return _finish(failure_path, auth_error="google_auth_failed")
 
     link_user_id = stored.get("link_user_id")
     if link_user_id is not None:
