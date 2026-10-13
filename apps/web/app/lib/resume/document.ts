@@ -56,6 +56,8 @@ export const EMPTY_CATALOGS: Catalogs = {
  * and the preview redraws on a change of name the way it does on a drag.
  */
 export interface ResumeDraft {
+	/** The resume's own name in the app; it is not printed on the page. */
+	title: string;
 	order: SectionType[];
 	sections: SectionRef[];
 	fullName: string;
@@ -293,7 +295,18 @@ export function signature(draft: ResumeDraft): string {
 	return `${draft.order.join(",")}|${sections}|${draft.fullName}|${draft.personalInfoId ?? ""}`;
 }
 
+/**
+ * A value that changes exactly when there is something new to save.
+ *
+ * Everything `signature` covers plus the title, which is saved like any other
+ * edit but left out of `signature` because it never reaches the page: renaming
+ * a resume should not mark its PDF out of date.
+ */
+export function saveKey(draft: ResumeDraft): string {
+	return `${signature(draft)}|${draft.title}`;
+}
+
 /** True when the draft differs from what was loaded. */
 export function isDirty(draft: ResumeDraft, saved: ResumeDraft): boolean {
-	return signature(draft) !== signature(saved);
+	return saveKey(draft) !== saveKey(saved);
 }

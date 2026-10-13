@@ -10,6 +10,7 @@ import {
 	type ResumeDraft,
 	refsOfType,
 	setTypeOrder,
+	signature,
 	swap,
 } from "./document";
 import type { Education, Skill } from "./types";
@@ -37,6 +38,7 @@ const catalogs: Catalogs = {
 };
 
 const draft = (overrides: Partial<ResumeDraft> = {}): ResumeDraft => ({
+	title: "Backend",
 	order: ["education", "skill"],
 	sections: [
 		{ section_type: "education", section_id: "e1" },
@@ -268,6 +270,10 @@ describe("isDirty", () => {
 		expect(isDirty(draft({ personalInfoId: "p1" }), draft())).toBe(true);
 	});
 
+	test("notices a renamed resume", () => {
+		expect(isDirty(draft({ title: "Platform" }), draft())).toBe(true);
+	});
+
 	test("is false for an untouched draft", () => {
 		expect(isDirty(draft(), draft())).toBe(false);
 	});
@@ -291,5 +297,12 @@ describe("isDirty", () => {
 		expect(isDirty(moveWithinType(draft(), "education", 0, 1), draft())).toBe(
 			true,
 		);
+	});
+});
+
+describe("signature", () => {
+	// the title is never printed, so renaming must not make the PDF look stale
+	test("ignores the title", () => {
+		expect(signature(draft({ title: "Platform" }))).toBe(signature(draft()));
 	});
 });

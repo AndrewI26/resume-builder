@@ -11,6 +11,7 @@ import {
 	type Catalogs,
 	isDirty,
 	type ResumeDraft,
+	saveKey,
 	signature,
 } from "~/lib/resume/document";
 import type { SectionType } from "~/lib/resume/types";
@@ -128,6 +129,50 @@ function SaveStatus({
 	);
 }
 
+/**
+ * The resume's name, edited in place where it is shown.
+ *
+ * It is part of the draft, so it saves with the editor's autosave like any
+ * other change. Enter keeps the new name and Escape puts the saved one back;
+ * leaving it empty puts the saved one back too, since a resume needs a name.
+ */
+function TitleField({
+	value,
+	saved,
+	onChange,
+}: {
+	value: string;
+	saved: string;
+	onChange: (title: string) => void;
+}) {
+	return (
+		<h1 className="mr-auto min-w-0 flex-1">
+			<input
+				aria-label="Resume title"
+				className="w-full max-w-md rounded-lg border border-transparent bg-transparent px-2 py-1 font-semibold text-ink text-lg outline-none transition-colors hover:border-border focus:border-stroke focus:bg-field"
+				maxLength={255}
+				onBlur={() => {
+					if (value.trim() === "") {
+						onChange(saved);
+					}
+				}}
+				onChange={(event) => onChange(event.target.value)}
+				onKeyDown={(event) => {
+					if (event.key === "Enter") {
+						event.currentTarget.blur();
+					} else if (event.key === "Escape") {
+						onChange(saved);
+						event.currentTarget.blur();
+					}
+				}}
+				spellCheck={false}
+				title="Rename this resume"
+				value={value}
+			/>
+		</h1>
+	);
+}
+
 export default function ResumeRoute() {
 	const { resumeId = "" } = useParams();
 	const queryClient = useQueryClient();
@@ -157,6 +202,7 @@ export default function ResumeRoute() {
 		}
 
 		return {
+			title: resume.data.title,
 			order: (resume.data.section_order ?? []) as SectionType[],
 			sections: membership.data.sections,
 			fullName: resume.data.full_name ?? "",
@@ -210,7 +256,7 @@ export default function ResumeRoute() {
 			return;
 		}
 
-		if (submitted.current === signature(draft)) {
+		if (submitted.current === saveKey(draft)) {
 			return;
 		}
 
@@ -277,7 +323,7 @@ export default function ResumeRoute() {
 
 		setSaving(true);
 		setSaveError(false);
-		submitted.current = signature(draft);
+		submitted.current = saveKey(draft);
 
 		try {
 			// order lives on the resume, membership in the join table; both have to
@@ -285,7 +331,9 @@ export default function ResumeRoute() {
 			await saveResume({
 				params: { path: { resume_id: resumeId } },
 				body: {
-					title: resume.data.title,
+					// a cleared title is not a name; keep the last one until a new
+					// one is typed (the field puts it back on blur)
+					title: draft.title.trim() || resume.data.title,
 					template: resume.data.template,
 					full_name: draft.fullName.trim() || null,
 					personal_info_id: draft.personalInfoId,
@@ -429,7 +477,11 @@ export default function ResumeRoute() {
 					<span className="text-trim">Resumes</span>
 				</Link>
 
-				<h1 className="mr-auto font-semibold text-lg">{resume.data.title}</h1>
+				<TitleField
+					onChange={(title) => setDraft({ ...draft, title })}
+					saved={resume.data.title}
+					value={draft.title}
+				/>
 
 				<SaveStatus
 					dirty={dirty}
