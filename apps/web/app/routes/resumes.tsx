@@ -3,6 +3,7 @@ import type { components } from "@api/schema.d.ts";
 import { Button } from "@components/button";
 import { ConfirmDialog } from "@components/confirm-dialog";
 import { Dropdown, type DropdownOption } from "@components/dropdown";
+import { ExportPdfs } from "@components/export-pdfs";
 import { Table } from "@components/table";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -557,6 +558,8 @@ export default function Resumes() {
 					Couldn't load your resumes. Try refreshing the page.
 				</p>
 			)}
+
+			<ExportPdfs resumes={data ?? []} />
 
 			<Table
 				columns={[
