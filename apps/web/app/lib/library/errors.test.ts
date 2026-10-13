@@ -18,21 +18,18 @@ describe("importProblems", () => {
 		]);
 	});
 
-	test("splits the cross reference check into one line per problem", () => {
+	test("shows a problem with the whole file without a path", () => {
 		const problems = importProblems({
 			detail: [
 				{
 					loc: ["body"],
-					msg: "Value error, resumes[0].personal_info: no personal_info entry has key 'x'; resumes[0].sections.project[0]: no projects entry has key 'y'",
-					type: "value_error",
+					msg: "Input should be a valid dictionary",
+					type: "dict_type",
 				},
 			],
 		});
 
-		expect(problems).toEqual([
-			"resumes[0].personal_info: no personal_info entry has key 'x'",
-			"resumes[0].sections.project[0]: no projects entry has key 'y'",
-		]);
+		expect(problems).toEqual(["Input should be a valid dictionary"]);
 	});
 
 	test("passes a plain message through", () => {

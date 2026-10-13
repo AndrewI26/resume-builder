@@ -1,4 +1,4 @@
-"""Importing and exporting a whole library as one JSON document.
+"""Importing and exporting a library's sections as one JSON document.
 
 See ``schemas.portable`` for the format. ``/library/schema`` serves it as JSON
 Schema, which is the thing to hand a model asked to write one of these files.
@@ -26,9 +26,10 @@ def import_portable_library(
     db: Db,
     dry_run: bool = False,
 ) -> ImportSummary:
-    """Create every section and resume in the file, or nothing if any is invalid.
+    """Add every section in the file, or nothing if any of it is invalid.
 
-    Always adds: nothing already in the library is changed. With
+    Always adds: nothing already in the library is changed, and no resume is
+    made — people build those from the sections in the app. With
     `dry_run=true` the file is checked and the summary returned, but nothing is
     kept.
     """

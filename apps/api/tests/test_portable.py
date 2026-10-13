@@ -1,31 +1,27 @@
-"""Importing and exporting a library as one JSON document."""
+"""Importing and exporting a library's sections as one JSON document."""
 
 import copy
 from typing import Any
-from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from enums import OperationType, ResumeSectionType, SectionType
+from enums import OperationType
 from models.education import Education
 from models.expirence import Expirence
 from models.personal_info import PersonalInfo
 from models.project import Project
 from models.resume import Resume
-from models.resume_section import ResumeSection
 from models.section_version import SectionVersion
 from models.skill import Skill
 from models.user import User
+from services.bullet_points import bullet_points_by_id, hydrate
 
 LIBRARY: dict[str, Any] = {
-    "format": "resume-builder",
-    "version": 1,
     "personal_info": [
         {
-            "key": "main",
             "email": "ada@example.com",
             "phone_number": "+1 555 0100",
             "github": {"url": "https://github.com/ada", "label": "ada"},
@@ -33,7 +29,6 @@ LIBRARY: dict[str, Any] = {
     ],
     "education": [
         {
-            "key": "mcmaster",
             "name": "McMaster University",
             "subheading": "B.Eng. Software",
             "duration": "2019 - 2024",
@@ -42,7 +37,6 @@ LIBRARY: dict[str, Any] = {
     ],
     "experience": [
         {
-            "key": "acme",
             "company": "Acme",
             "position": "Engineer",
             "duration": "2024 - Present",
@@ -50,7 +44,7 @@ LIBRARY: dict[str, Any] = {
             "bullet_points": ["Shipped the thing", "Cut costs by 40%"],
         },
         {
-            "company": "Not on any resume",
+            "company": "Initech",
             "position": "Intern",
             "duration": "2023",
             "location": "Remote",
@@ -58,36 +52,23 @@ LIBRARY: dict[str, Any] = {
     ],
     "projects": [
         {
-            "key": "whiz",
             "name": "Whiz",
             "github": "https://github.com/ada/whiz",
             "technologies": ["Go"],
             "bullet_points": ["A web framework"],
         }
     ],
-    "skills": [{"key": "langs", "name": "Languages", "items": ["Python", "Go"]}],
-    "resumes": [
-        {
-            "title": "Backend",
-            "full_name": "Ada Lovelace",
-            "personal_info": "main",
-            "section_order": ["skill", "experience", "project", "education"],
-            "sections": {
-                "experience": ["acme"],
-                "project": ["whiz"],
-                "education": ["mcmaster"],
-                "skill": ["langs"],
-            },
-        }
-    ],
+    "skills": [{"name": "Languages", "items": ["Python", "Go"]}],
 }
+
+SECTION_MODELS = (PersonalInfo, Education, Expirence, Project, Skill)
 
 
 @pytest.fixture(autouse=True)
 def no_autoflush(db: Session) -> None:
     """Run these the way the app's sessions do (see ``deps.db``).
 
-    An import writes many records that refer to each other in one
+    An import writes many records and their history entries in one
     transaction, so whether pending rows are visible to its own queries is
     exactly the thing that differs between the test session and the real one.
     """
@@ -109,75 +90,60 @@ def count(db: Session, model: Any, user: User) -> int:
     )
 
 
-def total_records(db: Session, user: User) -> int:
-    models = (PersonalInfo, Education, Expirence, Project, Skill, Resume)
-    return sum(count(db, model, user) for model in models)
+def total_sections(db: Session, user: User) -> int:
+    return sum(count(db, model, user) for model in SECTION_MODELS)
 
 
 class TestImport:
-    def test_creates_every_section_and_resume(
-        self, auth, user: User, db: Session
-    ) -> None:
+    def test_adds_every_section(self, auth, user: User, db: Session) -> None:
         response = auth(user).post("/library/import", json=LIBRARY)
 
         assert response.status_code == 200
-        body = response.json()
-        assert body["dry_run"] is False
-        assert (
-            body["personal_info"],
-            body["education"],
-            body["experience"],
-            body["projects"],
-            body["skills"],
-        ) == (1, 1, 2, 1, 1)
-        assert [resume["title"] for resume in body["resumes"]] == ["Backend"]
-
+        assert response.json() == {
+            "dry_run": False,
+            "personal_info": 1,
+            "education": 1,
+            "experience": 2,
+            "projects": 1,
+            "skills": 1,
+        }
         assert count(db, Expirence, user) == 2
-        assert count(db, Resume, user) == 1
+        assert count(db, Project, user) == 1
 
-    def test_the_resume_contains_the_sections_it_named(
-        self, auth, user: User, db: Session
-    ) -> None:
-        body = auth(user).post("/library/import", json=LIBRARY).json()
-        resume = db.get(Resume, UUID(body["resumes"][0]["id"]))
-        assert resume is not None
+    def test_makes_no_resume(self, auth, user: User, db: Session) -> None:
+        auth(user).post("/library/import", json=LIBRARY)
+
+        assert count(db, Resume, user) == 0
+
+    def test_keeps_the_text_with_no_bold(self, auth, user: User, db: Session) -> None:
+        auth(user).post("/library/import", json=LIBRARY)
 
         acme = db.scalars(
             select(Expirence).where(
                 Expirence.user_id == user.id, Expirence.company == "Acme"
             )
         ).one()
-        info = db.scalars(
-            select(PersonalInfo).where(PersonalInfo.user_id == user.id)
-        ).one()
-
-        refs = {
-            (row.section_type, row.section_id)
-            for row in db.scalars(
-                select(ResumeSection).where(ResumeSection.resume_id == resume.id)
-            )
-        }
-        assert (ResumeSectionType.EXPERIENCE, acme.id) in refs
-        assert len(refs) == 4
-        assert resume.personal_info_id == info.id
-        assert resume.full_name == "Ada Lovelace"
-
-    def test_the_document_renders_the_imported_text(self, auth, user: User) -> None:
-        client = auth(user)
-        body = client.post("/library/import", json=LIBRARY).json()
-
-        document = client.get(f"/resumes/{body['resumes'][0]['id']}/document").json()
-
-        experience = next(
-            block for block in document["sections"] if block["type"] == "experience"
+        bullets = hydrate(
+            acme.bullet_points, bullet_points_by_id(db, acme.bullet_points)
         )
-        assert [b["text"] for b in experience["items"][0]["bullet_points"]] == [
+        assert [bullet.text for bullet in bullets] == [
             "Shipped the thing",
             "Cut costs by 40%",
         ]
-        assert all(b["bolded"] == [] for b in experience["items"][0]["bullet_points"])
+        assert all(bullet.bolded == [] for bullet in bullets)
 
-    def test_records_a_history_entry_for_every_record(
+    def test_the_sections_show_up_through_their_endpoints(
+        self, auth, user: User
+    ) -> None:
+        client = auth(user)
+        client.post("/library/import", json=LIBRARY)
+
+        projects = client.get("/project/").json()
+        assert [p["github"] for p in projects] == ["https://github.com/ada/whiz"]
+        info = client.get("/personal-info/").json()
+        assert info[0]["github"] == {"url": "https://github.com/ada", "label": "ada"}
+
+    def test_records_a_history_entry_for_every_section(
         self, auth, user: User, db: Session
     ) -> None:
         auth(user).post("/library/import", json=LIBRARY)
@@ -189,12 +155,9 @@ class TestImport:
                 .order_by(SectionVersion.seq)
             )
         )
-        assert len(entries) == total_records(db, user)
+        assert len(entries) == total_sections(db, user)
         assert {entry.operation for entry in entries} == {OperationType.CREATE}
         assert [entry.seq for entry in entries] == list(range(1, len(entries) + 1))
-
-        resume_entry = next(e for e in entries if e.section_type is SectionType.RESUME)
-        assert len(resume_entry.snapshot["sections"]) == 4
 
     def test_adds_to_what_is_already_there(
         self, auth, user: User, db: Session, make_expirence, make_skill
@@ -207,8 +170,8 @@ class TestImport:
         assert count(db, Expirence, user) == 3
         imported = db.scalars(
             select(Skill).where(Skill.user_id == user.id, Skill.name == "Languages")
-        ).all()
-        assert [skill.position for skill in imported] == [5]
+        ).one()
+        assert imported.position == 5
 
     def test_every_list_is_optional(self, auth, user: User, db: Session) -> None:
         response = auth(user).post(
@@ -218,16 +181,11 @@ class TestImport:
         assert response.status_code == 200
         assert count(db, Expirence, user) == 2
 
-    def test_a_section_type_left_out_of_the_order_is_appended(
-        self, auth, user: User, db: Session
-    ) -> None:
-        resume = dict(LIBRARY["resumes"][0], section_order=["experience"])
-        body = auth(user).post("/library/import", json=library(resumes=[resume])).json()
+    def test_an_empty_file_adds_nothing(self, auth, user: User, db: Session) -> None:
+        response = auth(user).post("/library/import", json={})
 
-        row = db.get(Resume, UUID(body["resumes"][0]["id"]))
-        assert row is not None
-        # in the order the file lists them under ``sections``
-        assert row.section_order == ["experience", "project", "education", "skill"]
+        assert response.status_code == 200
+        assert total_sections(db, user) == 0
 
 
 class TestDryRun:
@@ -237,7 +195,7 @@ class TestDryRun:
         assert response.status_code == 200
         assert response.json()["dry_run"] is True
         assert response.json()["experience"] == 2
-        assert total_records(db, user) == 0
+        assert total_sections(db, user) == 0
         assert (
             db.scalar(
                 select(func.count())
@@ -250,73 +208,54 @@ class TestDryRun:
 
 class TestRejection:
     @pytest.mark.parametrize(
-        ("body", "expected"),
+        ("body", "location"),
         [
             (
-                library(
-                    resumes=[
-                        dict(LIBRARY["resumes"][0], sections={"project": ["missing"]})
-                    ]
-                ),
-                "resumes[0].sections.project[0]: no projects entry has key 'missing'",
+                library(education=[dict(LIBRARY["education"][0], degree="BEng")]),
+                ["body", "education", 0, "degree"],
             ),
             (
-                library(resumes=[dict(LIBRARY["resumes"][0], personal_info="nobody")]),
-                "resumes[0].personal_info",
+                library(projects=[dict(LIBRARY["projects"][0], name="a" * 256)]),
+                ["body", "projects", 0, "name"],
             ),
             (
-                library(skills=[*LIBRARY["skills"], *LIBRARY["skills"]]),
-                "skills[1].key: 'langs' is used twice",
+                library(skills=[{"items": ["Go"]}]),
+                ["body", "skills", 0, "name"],
             ),
-            (library(version=2), None),
-            (library(education=[dict(LIBRARY["education"][0], degree="BEng")]), None),
-            (library(projects=[dict(LIBRARY["projects"][0], name="a" * 256)]), None),
             (
-                library(
-                    resumes=[
-                        dict(
-                            LIBRARY["resumes"][0],
-                            section_order=["skill", "skill"],
-                        )
-                    ]
-                ),
-                None,
+                library(experience=[dict(LIBRARY["experience"][0], key="acme")]),
+                ["body", "experience", 0, "key"],
             ),
+            (library(resumes=[]), ["body", "resumes"]),
+            (library(version=1), ["body", "version"]),
         ],
         ids=[
-            "unknown-section-key",
-            "unknown-personal-info-key",
-            "duplicate-key",
-            "unsupported-version",
             "unknown-field",
             "field-too-long",
-            "repeated-section-type",
+            "missing-field",
+            "keys-are-not-part-of-it",
+            "resumes-are-not-part-of-it",
+            "no-version-field",
         ],
     )
     def test_refuses_and_writes_nothing(
-        self, auth, user: User, db: Session, body, expected
+        self, auth, user: User, db: Session, body, location
     ) -> None:
         response = auth(user).post("/library/import", json=body)
 
         assert response.status_code == 422
-        if expected is not None:
-            assert expected in str(response.json()["detail"])
-        assert total_records(db, user) == 0
+        assert location in [error["loc"] for error in response.json()["detail"]]
+        assert total_sections(db, user) == 0
 
     def test_reports_every_problem_at_once(self, auth, user: User) -> None:
-        resume = dict(
-            LIBRARY["resumes"][0],
-            personal_info="nobody",
-            sections={"project": ["a", "b"]},
+        body = library(
+            education=[dict(LIBRARY["education"][0], degree="BEng")],
+            skills=[{"items": ["Go"]}],
         )
 
-        detail = str(
-            auth(user).post("/library/import", json=library(resumes=[resume])).json()
-        )
+        detail = auth(user).post("/library/import", json=body).json()["detail"]
 
-        assert "personal_info" in detail
-        assert "project[0]" in detail
-        assert "project[1]" in detail
+        assert len(detail) == 2
 
     def test_needs_a_signed_in_user(self, client: TestClient) -> None:
         assert client.post("/library/import", json=LIBRARY).status_code == 401
@@ -330,19 +269,22 @@ class TestExport:
         exported = auth(user).get("/library/export").json()
 
         auth(other_user).post("/library/import", json=exported)
-        again = auth(other_user).get("/library/export").json()
 
-        assert strip_keys(again) == strip_keys(exported)
-        assert total_records(db, other_user) == total_records(db, user)
+        assert auth(other_user).get("/library/export").json() == exported
+        assert total_sections(db, other_user) == total_sections(db, user)
 
-    def test_keeps_the_resumes_references(self, auth, user: User) -> None:
-        auth(user).post("/library/import", json=LIBRARY)
+    def test_writes_only_the_sections(self, auth, user: User, make_resume) -> None:
+        make_resume(user)
+
         exported = auth(user).get("/library/export").json()
 
-        resume = exported["resumes"][0]
-        acme = next(e for e in exported["experience"] if e["company"] == "Acme")
-        assert resume["sections"]["experience"] == [acme["key"]]
-        assert resume["personal_info"] == exported["personal_info"][0]["key"]
+        assert set(exported) == {
+            "personal_info",
+            "education",
+            "experience",
+            "projects",
+            "skills",
+        }
 
     def test_is_a_download(self, auth, user: User) -> None:
         response = auth(user).get("/library/export")
@@ -350,7 +292,7 @@ class TestExport:
         assert response.status_code == 200
         assert "attachment" in response.headers["content-disposition"]
 
-    def test_only_contains_the_callers_records(
+    def test_only_contains_the_callers_sections(
         self, auth, user: User, other_user: User
     ) -> None:
         auth(other_user).post("/library/import", json=LIBRARY)
@@ -358,7 +300,6 @@ class TestExport:
         exported = auth(user).get("/library/export").json()
 
         assert exported["experience"] == []
-        assert exported["resumes"] == []
 
 
 class TestSchema:
@@ -366,35 +307,10 @@ class TestSchema:
         schema = client.get("/library/schema").json()
 
         assert schema["title"] == "PortableLibrary"
-        assert set(schema["properties"]) >= {"experience", "projects", "resumes"}
-
-
-def strip_keys(exported: dict[str, Any]) -> dict[str, Any]:
-    """The library with its ids-as-keys replaced by each entry's position.
-
-    Keys are the records' ids, which differ between accounts by design; what
-    has to match is everything else, and which entry each reference points at.
-    """
-    result = copy.deepcopy(exported)
-    positions: dict[str, dict[str, int]] = {}
-    for list_name in ("personal_info", "education", "experience", "projects", "skills"):
-        positions[list_name] = {}
-        for index, item in enumerate(result[list_name]):
-            positions[list_name][item.pop("key")] = index
-
-    names = {
-        "education": "education",
-        "experience": "experience",
-        "project": "projects",
-        "skill": "skills",
-    }
-    for resume in result["resumes"]:
-        if resume["personal_info"] is not None:
-            resume["personal_info"] = positions["personal_info"][
-                resume["personal_info"]
-            ]
-        resume["sections"] = {
-            section_type: [positions[names[section_type]][key] for key in keys]
-            for section_type, keys in resume["sections"].items()
+        assert set(schema["properties"]) == {
+            "personal_info",
+            "education",
+            "experience",
+            "projects",
+            "skills",
         }
-    return result

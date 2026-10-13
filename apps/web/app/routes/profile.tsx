@@ -305,7 +305,7 @@ export default function Profile() {
 					Your data
 				</h2>
 				<p className="mt-2 text-ink-subtle">
-					Your sections and resumes as one JSON file.{" "}
+					Your sections as one JSON file.{" "}
 					<Link className="text-ink underline underline-offset-4" to="/import">
 						Import from JSON
 					</Link>
@@ -314,7 +314,7 @@ export default function Profile() {
 				<div className="mt-4 flex flex-col gap-4">
 					<SettingRow
 						action={<ExportLibraryButton />}
-						description="Download everything to back it up, or to edit and import again."
+						description="Download all your sections to back them up, or to edit and import again."
 						title="Export library"
 					/>
 				</div>

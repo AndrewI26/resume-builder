@@ -313,9 +313,10 @@ export interface paths {
 		put?: never;
 		/**
 		 * Import Portable Library
-		 * @description Create every section and resume in the file, or nothing if any is invalid.
+		 * @description Add every section in the file, or nothing if any of it is invalid.
 		 *
-		 *     Always adds: nothing already in the library is changed. With
+		 *     Always adds: nothing already in the library is changed, and no resume is
+		 *     made — people build those from the sections in the app. With
 		 *     `dry_run=true` the file is checked and the summary returned, but nothing is
 		 *     kept.
 		 */
@@ -956,7 +957,7 @@ export interface components {
 		};
 		/**
 		 * ImportSummary
-		 * @description What an import created, or on a dry run would have created.
+		 * @description What an import added, or on a dry run would have added.
 		 */
 		ImportSummary: {
 			/** Dry Run */
@@ -971,18 +972,6 @@ export interface components {
 			projects: number;
 			/** Skills */
 			skills: number;
-			/** Resumes */
-			resumes: components["schemas"]["ImportedResume"][];
-		};
-		/** ImportedResume */
-		ImportedResume: {
-			/**
-			 * Id
-			 * Format: uuid
-			 */
-			id: string;
-			/** Title */
-			title: string;
 		};
 		/**
 		 * Link
@@ -1040,8 +1029,6 @@ export interface components {
 		};
 		/** PortableEducation */
 		PortableEducation: {
-			/** Key */
-			key?: string | null;
 			/** Name */
 			name: string;
 			/** Subheading */
@@ -1053,8 +1040,6 @@ export interface components {
 		};
 		/** PortableExperience */
 		PortableExperience: {
-			/** Key */
-			key?: string | null;
 			/** Company */
 			company: string;
 			/** Position */
@@ -1071,21 +1056,9 @@ export interface components {
 		};
 		/**
 		 * PortableLibrary
-		 * @description A whole library: sections, and resumes made from them.
+		 * @description Every kind of section, each list optional.
 		 */
 		PortableLibrary: {
-			/**
-			 * Format
-			 * @default resume-builder
-			 * @constant
-			 */
-			format: "resume-builder";
-			/**
-			 * Version
-			 * @default 1
-			 * @constant
-			 */
-			version: 1;
 			/**
 			 * Personal Info
 			 * @default []
@@ -1111,11 +1084,6 @@ export interface components {
 			 * @default []
 			 */
 			skills: components["schemas"]["PortableSkill"][];
-			/**
-			 * Resumes
-			 * @default []
-			 */
-			resumes: components["schemas"]["PortableResume"][];
 		};
 		/** PortableLink */
 		PortableLink: {
@@ -1126,8 +1094,6 @@ export interface components {
 		};
 		/** PortablePersonalInfo */
 		PortablePersonalInfo: {
-			/** Key */
-			key?: string | null;
 			/** Email */
 			email?: string | null;
 			/** Phone Number */
@@ -1140,8 +1106,6 @@ export interface components {
 		};
 		/** PortableProject */
 		PortableProject: {
-			/** Key */
-			key?: string | null;
 			/** Name */
 			name: string;
 			/** Link */
@@ -1159,33 +1123,8 @@ export interface components {
 			 */
 			bullet_points: string[];
 		};
-		/** PortableResume */
-		PortableResume: {
-			/** Title */
-			title: string;
-			/**
-			 * Template
-			 * @default jakes
-			 */
-			template: string;
-			/** Full Name */
-			full_name?: string | null;
-			/** Personal Info */
-			personal_info?: string | null;
-			/** Section Order */
-			section_order?: components["schemas"]["ResumeSectionType"][];
-			/**
-			 * Sections
-			 * @default {}
-			 */
-			sections: {
-				[key: string]: string[];
-			};
-		};
 		/** PortableSkill */
 		PortableSkill: {
-			/** Key */
-			key?: string | null;
 			/** Name */
 			name: string;
 			/**

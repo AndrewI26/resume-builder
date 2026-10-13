@@ -6,8 +6,7 @@ type ValidationError = components["schemas"]["HTTPValidationError"];
  * One readable line per problem in a rejected import.
  *
  * Field errors carry their location, which reads as a path into the file
- * (`projects[0].name`). The cross reference check reports all of its problems
- * in one message, already prefixed with their paths, so that is split apart.
+ * (`projects[0].name`).
  */
 export function importProblems(error: unknown): string[] {
 	const detail = (error as Partial<ValidationError> | { detail?: string })
@@ -20,14 +19,9 @@ export function importProblems(error: unknown): string[] {
 		return ["Could not import that file. Try again."];
 	}
 
-	return detail.flatMap((item) => {
+	return detail.map((item) => {
 		const path = formatPath(item.loc);
-		const message = item.msg.replace(/^Value error, /, "");
-
-		if (path === "") {
-			return message.split("; ");
-		}
-		return [`${path}: ${message}`];
+		return path === "" ? item.msg : `${path}: ${item.msg}`;
 	});
 }
 

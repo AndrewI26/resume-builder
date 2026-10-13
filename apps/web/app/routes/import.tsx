@@ -17,11 +17,8 @@ export function meta() {
 }
 
 const EXAMPLE = `{
-  "format": "resume-builder",
-  "version": 1,
   "personal_info": [
     {
-      "key": "main",
       "email": "you@example.com",
       "phone_number": "+1 555 0100",
       "github": { "url": "https://github.com/you", "label": "you" }
@@ -29,7 +26,6 @@ const EXAMPLE = `{
   ],
   "experience": [
     {
-      "key": "acme",
       "company": "Acme",
       "position": "Software Engineer",
       "duration": "2024 - Present",
@@ -39,28 +35,22 @@ const EXAMPLE = `{
   ],
   "projects": [
     {
-      "key": "whiz",
       "name": "Whiz",
       "github": "https://github.com/you/whiz",
       "technologies": ["Go"],
       "bullet_points": ["A small web framework"]
     }
   ],
-  "skills": [
-    { "key": "langs", "name": "Languages", "items": ["Python", "Go"] }
-  ],
-  "education": [],
-  "resumes": [
+  "education": [
     {
-      "title": "Backend",
-      "full_name": "Your Name",
-      "personal_info": "main",
-      "sections": {
-        "experience": ["acme"],
-        "project": ["whiz"],
-        "skill": ["langs"]
-      }
+      "name": "McMaster University",
+      "subheading": "B.Eng. Software Engineering",
+      "duration": "2019 - 2024",
+      "location": "Hamilton, ON"
     }
+  ],
+  "skills": [
+    { "name": "Languages", "items": ["Python", "Go"] }
   ]
 }`;
 
@@ -69,7 +59,7 @@ const PROMPT = `Convert my resume into JSON for Resume Builder's import.
 Rules:
 - Output only the JSON, matching the JSON Schema below exactly. Do not add fields it doesn't define.
 - Put each job in "experience", each project in "projects", each school in "education", and each group of skills in "skills". Contact details go in "personal_info".
-- Give every entry a short unique "key", and add one resume to "resumes" that lists the keys of every entry under "sections".
+- Leave out any list that would be empty, and any optional field you don't have a value for.
 - Bullet points are plain strings. Keep my wording.
 
 JSON Schema:
@@ -77,7 +67,6 @@ JSON Schema:
 
 function summaryLine(summary: ImportSummary): string {
 	const parts: [number, string, string][] = [
-		[summary.resumes.length, "resume", "resumes"],
 		[summary.experience, "experience", "experiences"],
 		[summary.projects, "project", "projects"],
 		[summary.education, "education entry", "education entries"],
@@ -216,8 +205,9 @@ export default function ImportRoute() {
 				Import
 			</h1>
 			<p className="mt-2 text-ink-subtle leading-body">
-				Add sections and resumes from a JSON file. Nothing you already have is
-				changed, and if anything in the file is wrong, nothing is added.
+				Add sections from a JSON file, then build resumes from them as usual.
+				Nothing you already have is changed, and if anything in the file is
+				wrong, nothing is added.
 			</p>
 
 			<section className="mt-8 flex flex-col gap-4">
@@ -244,9 +234,7 @@ export default function ImportRoute() {
 					className="h-72 w-full resize-y rounded-xl border border-border bg-field px-4 py-3 font-mono text-ink text-sm outline-none transition-colors placeholder:text-ink-disabled focus:border-stroke"
 					id="import-json"
 					onChange={(event) => edit(event.target.value)}
-					placeholder={
-						'{\n  "format": "resume-builder",\n  "version": 1,\n  …\n}'
-					}
+					placeholder={'{\n  "experience": [ … ],\n  "projects": [ … ]\n}'}
 					spellCheck={false}
 					value={text}
 				/>
@@ -275,23 +263,17 @@ export default function ImportRoute() {
 				)}
 
 				{imported !== null && (
-					<div className="rounded-xl bg-field px-4 py-3 text-ink text-sm">
-						Imported {summaryLine(imported)}.
-						{imported.resumes.length > 0 && (
-							<ul className="mt-1 list-disc pl-5">
-								{imported.resumes.map((resume) => (
-									<li key={resume.id}>
-										<Link
-											className="underline underline-offset-4"
-											to={`/resumes/${resume.id}`}
-										>
-											{resume.title}
-										</Link>
-									</li>
-								))}
-							</ul>
-						)}
-					</div>
+					<p className="rounded-xl bg-field px-4 py-3 text-ink text-sm">
+						Imported {summaryLine(imported)}.{" "}
+						<Link className="underline underline-offset-4" to="/sections">
+							See your sections
+						</Link>{" "}
+						or{" "}
+						<Link className="underline underline-offset-4" to="/resumes">
+							build a resume
+						</Link>
+						.
+					</p>
 				)}
 
 				<div className="flex flex-wrap justify-end gap-2">
@@ -316,9 +298,9 @@ export default function ImportRoute() {
 					The format
 				</h2>
 				<p className="mt-2 text-ink-subtle leading-body">
-					One JSON object with lists of sections and resumes. Every list is
-					optional. A resume refers to its sections by the{" "}
-					<code className="font-mono text-sm">key</code> you give them.
+					One JSON object with a list for each kind of section. Every list is
+					optional, so a file can hold just your experience or just your
+					projects.
 				</p>
 
 				<Panel>
@@ -358,8 +340,8 @@ export default function ImportRoute() {
 			<section className="mt-12">
 				<h2 className="text-2xl leading-heading tracking-decreased">Export</h2>
 				<p className="mt-2 text-ink-subtle leading-body">
-					Download everything you have in the same format, to back it up or edit
-					it and import it again. Importing it again adds copies.
+					Download all your sections in the same format, to back them up or edit
+					them and import them again. Importing them again adds copies.
 				</p>
 				<div className="mt-4">
 					<ExportLibraryButton />

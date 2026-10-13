@@ -541,9 +541,9 @@ export default function Resumes() {
 				Resumes
 			</h1>
 			<p className="mt-2 text-ink-subtle">
-				Have one already?{" "}
+				Resumes are built from your sections.{" "}
 				<Link className="text-ink underline underline-offset-4" to="/import">
-					Import from JSON
+					Import sections from JSON
 				</Link>
 			</p>
 
