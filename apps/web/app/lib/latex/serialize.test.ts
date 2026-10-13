@@ -317,7 +317,7 @@ describe("projects", () => {
 		...overrides,
 	});
 
-	test("precedes a linked project name with a chain glyph", () => {
+	test("puts a linked project's chain glyph in the right column", () => {
 		const tex = serializeToTex(
 			document({
 				sections: [
@@ -330,11 +330,11 @@ describe("projects", () => {
 		);
 
 		expect(tex).toContain(
-			"{\\href{https://example.com/whiz}{\\faLink} \\textbf{Whiz}",
+			"{\\textbf{Whiz} $|$ \\emph{ Go }}{\\href{https://example.com/whiz}{\\faLink}}",
 		);
 	});
 
-	test("precedes a project name with a GitHub glyph for its repository", () => {
+	test("puts a GitHub glyph for the repository in the right column", () => {
 		const tex = serializeToTex(
 			document({
 				sections: [
@@ -347,7 +347,7 @@ describe("projects", () => {
 		);
 
 		expect(tex).toContain(
-			"{\\href{https://github.com/you/whiz}{\\faGithub} \\textbf{Whiz}",
+			"{\\textbf{Whiz} $|$ \\emph{ Go }}{\\href{https://github.com/you/whiz}{\\faGithub}}",
 		);
 		expect(body(tex)).not.toContain("\\faLink");
 	});
@@ -370,7 +370,7 @@ describe("projects", () => {
 		);
 
 		expect(tex).toContain(
-			"{\\href{https://example.com/whiz}{\\faLink} \\href{https://github.com/you/whiz}{\\faGithub} \\textbf{Whiz}",
+			"}{\\href{https://example.com/whiz}{\\faLink} \\href{https://github.com/you/whiz}{\\faGithub}}",
 		);
 	});
 
@@ -381,7 +381,7 @@ describe("projects", () => {
 
 		expect(body(tex)).not.toContain("\\faLink");
 		expect(body(tex)).not.toContain("\\faGithub");
-		expect(tex).toContain("{\\textbf{Whiz} $|$");
+		expect(tex).toContain("{\\textbf{Whiz} $|$ \\emph{ Go }}{}");
 	});
 
 	test("omits the technologies clause when the list is empty", () => {

@@ -175,15 +175,14 @@ def _render_experience(items: list[ExpirenceRead], is_last: bool) -> str:
 def _render_projects(items: list[ProjectRead], is_last: bool) -> str:
     entries: list[str] = []
     for index, project in enumerate(items):
-        name = rf"\textbf{{{escape_latex(project.name)}}}"
-        # a linked project gets a chain glyph before the name, and its
-        # repository a GitHub glyph after that
-        icons = [
+        title = rf"\textbf{{{escape_latex(project.name)}}}"
+        # the project's own link as a chain glyph, then its repository as a
+        # GitHub glyph, both in the heading's right-aligned column
+        icons = " ".join(
             _href(url, "\\" + icon)
             for url, icon in ((project.link, "faLink"), (project.github, "faGithub"))
             if url
-        ]
-        title = " ".join([*icons, name])
+        )
         technologies = (
             rf" $|$ \emph{{ {escape_latex(', '.join(project.technologies))} }}"
             if project.technologies
@@ -192,7 +191,7 @@ def _render_projects(items: list[ProjectRead], is_last: bool) -> str:
 
         entries += [
             r"      \resumeProjectHeading",
-            rf"          {{{title}{technologies}}}{{}}",
+            rf"          {{{title}{technologies}}}{{{icons}}}",
             *_render_bullets(project.bullet_points),
             # tightens the gap between entries, but not before the list ends
             *([] if index == len(items) - 1 else [r"          \vspace{-16pt}", ""]),

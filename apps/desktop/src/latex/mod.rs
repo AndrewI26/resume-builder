@@ -182,18 +182,17 @@ fn projects(items: &[Project], is_last: bool) -> String {
     ];
 
     for (index, project) in items.iter().enumerate() {
-        let name = format!("\\textbf{{{}}}", escape(&project.name));
-        // a linked project gets a chain glyph before its name, and its
-        // repository a GitHub glyph after that
-        let mut parts: Vec<String> = [
+        let title = format!("\\textbf{{{}}}", escape(&project.name));
+        // the project's own link as a chain glyph, then its repository as a
+        // GitHub glyph, both in the heading's right-aligned column
+        let icons = [
             (project.link.as_deref(), "\\faLink"),
             (project.github.as_deref(), "\\faGithub"),
         ]
         .into_iter()
         .filter_map(|(url, icon)| url.filter(|url| !url.is_empty()).map(|url| href(url, icon)))
-        .collect();
-        parts.push(name);
-        let title = parts.join(" ");
+        .collect::<Vec<_>>()
+        .join(" ");
         let technologies = if project.technologies.is_empty() {
             String::new()
         } else {
@@ -204,7 +203,7 @@ fn projects(items: &[Project], is_last: bool) -> String {
         };
 
         out.push("      \\resumeProjectHeading".into());
-        out.push(format!("          {{{title}{technologies}}}{{}}"));
+        out.push(format!("          {{{title}{technologies}}}{{{icons}}}"));
         out.extend(bullet_list(&project.bullet_points));
         // tightens the gap between entries, but not before the list ends
         if index != items.len() - 1 {

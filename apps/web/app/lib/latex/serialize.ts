@@ -169,21 +169,22 @@ function renderExperience(items: Experience[], isLast: boolean): string {
 
 function renderProjects(items: Project[], isLast: boolean): string {
 	const entries = items.flatMap((project, index) => {
-		const name = `\\textbf{${escapeLatex(project.name)}}`;
-		// a linked project gets a chain glyph before the name, and its
-		// repository a GitHub glyph after that
+		const title = `\\textbf{${escapeLatex(project.name)}}`;
+		// the project's own link as a chain glyph, then its repository as a
+		// GitHub glyph, both in the heading's right-aligned column
 		const icons = [
 			project.link ? href(project.link, "\\faLink") : null,
 			project.github ? href(project.github, "\\faGithub") : null,
-		].filter((icon) => icon !== null);
-		const title = [...icons, name].join(" ");
+		]
+			.filter((icon) => icon !== null)
+			.join(" ");
 		const technologies = project.technologies.length
 			? ` $|$ \\emph{ ${escapeLatex(project.technologies.join(", "))} }`
 			: "";
 
 		return [
 			"      \\resumeProjectHeading",
-			`          {${title}${technologies}}{}`,
+			`          {${title}${technologies}}{${icons}}`,
 			...renderBullets(project.bullet_points),
 			// tightens the gap between entries, but not before the list ends
 			...(index === items.length - 1 ? [] : ["          \\vspace{-16pt}", ""]),
