@@ -188,6 +188,7 @@
           "id": "30000000-0000-0000-0000-000000000001",
           "name": "CampusCart",
           "link": null,
+          "github": null,
           "technologies": [
             "React Router",
             "Vite",
@@ -232,7 +233,8 @@
         {
           "id": "30000000-0000-0000-0000-000000000002",
           "name": "Whiz Backend Framework",
-          "link": "https://github.com/AndrewI26/whiz",
+          "link": null,
+          "github": "https://github.com/AndrewI26/whiz",
           "technologies": [
             "Go"
           ],
@@ -269,6 +271,7 @@
           "id": "30000000-0000-0000-0000-000000000003",
           "name": "McMaster Trivia",
           "link": null,
+          "github": null,
           "technologies": [
             "Next.js",
             "Vercel"
@@ -310,6 +313,7 @@
           "id": "30000000-0000-0000-0000-000000000004",
           "name": "Keybindings Cheatsheet",
           "link": "https://marketplace.visualstudio.com/items?itemName=andrewi.keybindings-cheatsheet",
+          "github": "https://github.com/AndrewI26/keybindings-cheatsheet",
           "technologies": [
             "Typescript",
             "Handlebars",
@@ -338,7 +342,8 @@
         {
           "id": "30000000-0000-0000-0000-000000000005",
           "name": "Brain-rot Clips Generator",
-          "link": "https://github.com/AndrewI26/Youtube-Shorts-Creator",
+          "link": null,
+          "github": "https://github.com/AndrewI26/Youtube-Shorts-Creator",
           "technologies": [
             "Django",
             "React",

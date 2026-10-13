@@ -90,7 +90,8 @@ class ExperienceSeed:
 class ProjectSeed:
     key: str
     name: str
-    link: str
+    link: str | None = None
+    github: str | None = None
     technologies: list[str] = field(default_factory=list)
     bullets: list[Bullet] = field(default_factory=list)
 
@@ -192,7 +193,8 @@ PROJECTS = [
     ProjectSeed(
         key="project:resume-builder",
         name="Resume Builder",
-        link="https://github.com/demo-user/resume-builder",
+        link="https://resume-builder.example.com",
+        github="https://github.com/demo-user/resume-builder",
         technologies=["React", "FastAPI", "Postgres", "TypeScript"],
         bullets=[
             Bullet(
@@ -207,7 +209,7 @@ PROJECTS = [
     ProjectSeed(
         key="project:pathfinder",
         name="Pathfinder",
-        link="https://github.com/demo-user/pathfinder",
+        github="https://github.com/demo-user/pathfinder",
         technologies=["Go", "Redis"],
         bullets=[
             Bullet("Visualises shortest-path algorithms over user-drawn mazes"),
@@ -452,6 +454,7 @@ def insert_all(db: Session) -> None:
                 user_id=SEED_USER_ID,
                 name=project.name,
                 link=project.link,
+                github=project.github,
                 technologies=project.technologies,
                 bullet_points=ids,
             )

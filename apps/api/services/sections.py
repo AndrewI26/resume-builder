@@ -36,6 +36,7 @@ def project_to_read(project: Project, by_id: dict[UUID, BulletPoint]) -> Project
         id=project.id,
         name=project.name,
         link=project.link,
+        github=project.github,
         technologies=list(project.technologies),
         bullet_points=hydrate(project.bullet_points, by_id),
     )

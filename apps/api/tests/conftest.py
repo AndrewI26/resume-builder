@@ -272,6 +272,7 @@ def make_project(db: Session):
         *,
         name: str = "Resume Builder",
         link: str | None = "https://example.com/project",
+        github: str | None = None,
         technologies: Sequence[str] = ("Python", "FastAPI"),
         bullets: Sequence[str] = ("First bullet", "Second bullet"),
     ) -> Project:
@@ -283,6 +284,7 @@ def make_project(db: Session):
             user_id=user.id,
             name=name,
             link=link,
+            github=github,
             technologies=list(technologies),
             bullet_points=[bullet.id for bullet in bullet_rows],
         )

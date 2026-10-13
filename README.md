@@ -243,20 +243,33 @@ services and schemas are the same code either way.
 
 ## Getting started
 
-### Everything in one command
+### Deploying with Docker
+
+`docker-compose.yml` runs the whole application on a server, behind a reverse
+proxy on the host:
 
 ```bash
-docker compose up --build
+cp .env.prod.example .env   # then fill it in
+docker compose up --build -d
 ```
 
-That builds and starts the whole application — Postgres, the API, the PDF
-worker and the web app — and applies the migrations on the way up. The app
-is at http://localhost:5173 and the API at http://localhost:8000; create an
-account from the sign-in page.
+[`.env.prod.example`](.env.prod.example) lists every setting it reads. Three
+have no default and the stack refuses to start without them: `PUBLIC_URL`,
+the site's address (e.g. `https://resume.example.com`); `SECRET_KEY`; and
+`POSTGRES_PASSWORD`. `NODE_ENV` defaults to `production`, which makes cookies
+https only, so sign in needs the proxy's https in front of it.
 
-No `.env` is needed: `docker-compose.yml` defaults every setting. Drop one at
-the repo root (see `.env.example`) to change ports or the database credentials,
-or to fill in `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` for Google sign-in.
+That starts Postgres, the API and the PDF worker, applies the migrations on
+the way up, and builds the web app into `WEB_ROOT`. The proxy serves those
+files and passes `/api/*` on to the API;
+[`docker/caddy/Caddyfile.example`](docker/caddy/Caddyfile.example) is a
+ready-made Caddy site block. To use Google sign in, register
+`https://<your-domain>/api/auth/google/callback` as the redirect URI.
+
+Nothing in the stack faces the internet. Postgres and the worker sit on an
+internal Docker network the host cannot reach, and the API publishes its port
+on `127.0.0.1` only, for the proxy.
+
 The database lives in a named volume and survives `docker compose down`;
 `down -v` is what throws it away. The job queue is a table in that same
 database, so there is no second service to run.

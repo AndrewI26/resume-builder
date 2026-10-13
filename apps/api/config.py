@@ -18,7 +18,6 @@ CLOUD_REQUIRED = (
     "postgres_password",
     "postgres_db",
     "postgres_port",
-    "frontend_port",
     "backend_port",
     "secret_key",
 )
@@ -64,7 +63,9 @@ class Settings(BaseSettings):
     # The image a "docker" compile runs in. Built by ``bun run docker:latex``.
     latex_image: str = "resume-builder-latex"
 
-    frontend_port: str = "5173"
+    # Where people open the app: CORS lets it call the API, and sign in with
+    # Google lands back on it. The default is the vite dev server.
+    public_url: str = "http://localhost:5173"
     backend_port: int = 8000
 
     secret_key: str = ""
@@ -73,6 +74,11 @@ class Settings(BaseSettings):
 
     google_client_id: str | None = None
     google_client_secret: str | None = None
+
+    # Where a browser reaches the API, when that is not the backend port on
+    # localhost: behind docker-compose.yml's reverse proxy it is PUBLIC_URL's
+    # /api, and Google has to be sent back there.
+    public_api_url: str | None = None
 
     # Where the desktop app keeps its database. The shell passes its own
     # per-user application data directory; the default is only for running
@@ -123,11 +129,12 @@ class Settings(BaseSettings):
 
     @property
     def frontend_url(self) -> str:
-        return f"http://localhost:{self.frontend_port}"
+        return self.public_url.rstrip("/")
 
     @property
     def google_redirect_uri(self) -> str:
-        return f"http://localhost:{self.backend_port}/auth/google/callback"
+        base = self.public_api_url or f"http://localhost:{self.backend_port}"
+        return f"{base.rstrip('/')}/auth/google/callback"
 
     @property
     def database_path(self) -> Path:

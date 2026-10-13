@@ -1,5 +1,6 @@
 # Build context is the repo root, for the lockfile. The image is the SPA's
-# static bundle plus an nginx to serve it.
+# static bundle and nothing to serve it: running it copies the bundle into
+# /out for the host's reverse proxy to serve.
 
 FROM oven/bun:1-alpine AS dependencies
 WORKDIR /repo
@@ -21,15 +22,16 @@ COPY apps/web apps/web
 
 # vite reads its env from the repo root (see apps/web/vite.config.ts), and the
 # API URL is baked into the bundle at build time because the app is a SPA that
-# calls the API straight from the browser.
-ARG VITE_API_BASE_URL=http://localhost:8000
+# calls the API straight from the browser. The default is the reverse proxy's
+# route to the API, on the same origin as the page.
+ARG VITE_API_BASE_URL=/api
 RUN printf 'VITE_API_BASE_URL=%s\n' "$VITE_API_BASE_URL" > .env \
  && cd apps/web && ../../node_modules/.bin/react-router build
 
 
-# react-router.config.ts sets ssr: false, so the build is a static bundle and
-# nginx is all it takes to serve it.
-FROM nginx:1.29-alpine
-COPY docker/web/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /repo/apps/web/build/client /usr/share/nginx/html
-EXPOSE 80
+# react-router.config.ts sets ssr: false, so the build is a static bundle.
+# Files from earlier builds are left in place: their fingerprinted names never
+# collide, and a page still open from before the deploy keeps loading them.
+FROM alpine:3.22
+COPY --from=build /repo/apps/web/build/client /site
+CMD ["cp", "-R", "/site/.", "/out/"]

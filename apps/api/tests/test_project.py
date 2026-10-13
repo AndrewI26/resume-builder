@@ -13,6 +13,7 @@ def payload(**overrides):
     body = {
         "name": "Resume Builder",
         "link": "https://example.com/project",
+        "github": "https://github.com/you/project",
         "technologies": ["Python", "FastAPI"],
         "bullet_points": [
             {"text": "Shipped the thing", "bolded": [[0, 6]]},
@@ -145,6 +146,7 @@ class TestCreate:
         body = response.json()
         assert body["name"] == "Resume Builder"
         assert body["link"] == "https://example.com/project"
+        assert body["github"] == "https://github.com/you/project"
         assert body["technologies"] == ["Python", "FastAPI"]
 
         created = get_project(db, UUID(body["id"]))
@@ -189,6 +191,19 @@ class TestCreate:
         assert created is not None
         assert created.link is None
 
+    def test_github_is_optional(self, auth, user, db):
+        body = payload()
+        del body["github"]
+
+        response = auth(user).post("/project/", json=body)
+
+        assert response.status_code == 201
+        assert response.json()["github"] is None
+
+        created = get_project(db, UUID(response.json()["id"]))
+        assert created is not None
+        assert created.github is None
+
     def test_accepts_an_explicit_null_link(self, auth, user):
         response = auth(user).post("/project/", json=payload(link=None))
 
@@ -210,6 +225,7 @@ class TestCreate:
             payload(name="a" * 256),
             payload(technologies=["a" * 256]),
             payload(link="a" * 2049),
+            payload(github="a" * 2049),
             payload(bullet_points=[{"text": "Short", "bolded": [[0, 99]]}]),
         ],
     )
@@ -281,7 +297,7 @@ class TestEdit:
         assert response.json()["technologies"] == []
 
     def test_a_null_link_clears_it(self, auth, user, make_project, db):
-        """`link` is the one nullable column here, so null is a real value."""
+        """`link` and `github` are nullable columns, so null is a real value."""
         project = make_project(user, link="https://example.com/project")
 
         response = auth(user).put(f"/project/{project.id}", json=payload(link=None))
@@ -320,6 +336,32 @@ class TestEdit:
         updated = get_project(db, project.id)
         assert updated is not None
         assert updated.link == "https://example.com/new"
+
+    def test_a_null_github_clears_it(self, auth, user, make_project, db):
+        project = make_project(user, github="https://github.com/you/project")
+
+        response = auth(user).put(f"/project/{project.id}", json=payload(github=None))
+
+        assert response.status_code == 200
+        assert response.json()["github"] is None
+
+        updated = get_project(db, project.id)
+        assert updated is not None
+        assert updated.github is None
+
+    def test_updates_the_github_when_given_a_string(self, auth, user, make_project, db):
+        project = make_project(user, github="https://github.com/you/old")
+
+        response = auth(user).put(
+            f"/project/{project.id}", json=payload(github="https://github.com/you/new")
+        )
+
+        assert response.status_code == 200
+        assert response.json()["github"] == "https://github.com/you/new"
+
+        updated = get_project(db, project.id)
+        assert updated is not None
+        assert updated.github == "https://github.com/you/new"
 
     def test_replaces_bullet_points_and_removes_the_old_rows(
         self, auth, user, make_project, db

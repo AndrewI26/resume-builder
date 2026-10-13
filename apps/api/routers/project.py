@@ -55,6 +55,7 @@ def create_project(
             user_id=current_user.id,
             name=project.name,
             link=project.link,
+            github=project.github,
             technologies=project.technologies,
             bullet_points=bullet_ids,
         )
@@ -96,6 +97,7 @@ def edit_project(
         .values(
             name=project.name,
             link=project.link,
+            github=project.github,
             technologies=project.technologies,
             bullet_points=insert_bullet_points(db, project.bullet_points),
         )

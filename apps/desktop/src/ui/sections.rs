@@ -161,7 +161,7 @@ pub fn view(library: &Library) -> Element<'_, Message> {
 
     let projects = table(
         SectionKind::Project,
-        &["Name", "Technologies", "Link"],
+        &["Name", "Technologies", "Link", "GitHub"],
         catalogs
             .project
             .iter()
@@ -172,6 +172,7 @@ pub fn view(library: &Library) -> Element<'_, Message> {
                         row.name.clone(),
                         joined(&row.technologies),
                         or_dash(row.link.as_deref()),
+                        or_dash(row.github.as_deref()),
                     ],
                 )
             })

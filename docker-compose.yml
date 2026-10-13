@@ -1,21 +1,37 @@
 name: resume-builder
 
 x-api-env: &api-env
-  NODE_ENV: ${NODE_ENV:-development}
+  # production: secure (https only) cookies, CORS limited to PUBLIC_URL, and
+  # the demo seed refuses to run
+  NODE_ENV: ${NODE_ENV:-production}
 
   POSTGRES_HOST: postgres
   POSTGRES_PORT: 5432
   POSTGRES_USER: ${POSTGRES_USER:-resume_user}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-resume_pass}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD, see .env.prod.example}
   POSTGRES_DB: ${POSTGRES_DB:-resume_db}
 
-  SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me-bae47daada0725cf6676db3931c5fbb}
+  SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY, see .env.prod.example}
 
   BACKEND_PORT: ${BACKEND_PORT:-8000}
-  FRONTEND_PORT: ${FRONTEND_PORT:-5173}
 
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+
+  # The site's address, as the reverse proxy serves it. Sign in with Google
+  # lands back here, and the API answers under /api, so there is no default:
+  # a wrong one only shows up as a redirect to somewhere else.
+  PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL, see .env.prod.example}
+  PUBLIC_API_URL: ${PUBLIC_API_URL:-${PUBLIC_URL}/api}
+
+# Nothing here faces the internet: a reverse proxy on the host (Caddy) does.
+# Postgres and the worker talk on `internal`, which Docker does not route to
+# the host or the outside world. The API also joins `edge`, so it can publish
+# a port on the host's loopback for the proxy and reach Google during sign in.
+networks:
+  internal:
+    internal: true
+  edge:
 
 services:
   postgres:
@@ -23,10 +39,9 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-resume_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-resume_pass}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD, see .env.prod.example}
       POSTGRES_DB: ${POSTGRES_DB:-resume_db}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    networks: [internal]
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -43,6 +58,7 @@ services:
     environment: *api-env
     command: ["alembic", "upgrade", "head"]
     restart: "no"
+    networks: [internal]
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,8 +70,10 @@ services:
     environment:
       <<: *api-env
       PDF_WORKER_COUNT: 0
+    networks: [internal, edge]
+    # loopback only: the host's reverse proxy can reach it, nothing else can
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -79,22 +97,25 @@ services:
       LATEX_BACKEND: local
       PDF_WORKER_COUNT: ${PDF_WORKER_COUNT:-3}
     command: ["python", "worker.py"]
+    networks: [internal]
     depends_on:
       migrate:
         condition: service_completed_successfully
 
+  # Not a server. Builds the static bundle and copies it into WEB_ROOT on the
+  # host, where the reverse proxy serves it, then exits.
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}}
-    restart: unless-stopped
-    ports:
-      - "${FRONTEND_PORT:-5173}:80"
-    depends_on:
-      api:
-        condition: service_healthy
+        # fixed rather than read from .env, where the dev setting points the
+        # browser straight at the API's port; the proxy serves it at /api
+        VITE_API_BASE_URL: /api
+    restart: "no"
+    network_mode: none
+    volumes:
+      - ${WEB_ROOT:-./web-root}:/out
 
 volumes:
   postgres_data:

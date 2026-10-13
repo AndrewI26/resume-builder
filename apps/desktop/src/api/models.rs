@@ -100,6 +100,8 @@ pub struct Project {
     pub name: String,
     #[serde(default)]
     pub link: Option<String>,
+    #[serde(default)]
+    pub github: Option<String>,
     pub technologies: Vec<String>,
     pub bullet_points: Vec<BulletPoint>,
 }
@@ -108,6 +110,7 @@ pub struct Project {
 pub struct ProjectInput {
     pub name: String,
     pub link: Option<String>,
+    pub github: Option<String>,
     pub technologies: Vec<String>,
     pub bullet_points: Vec<BulletPoint>,
 }

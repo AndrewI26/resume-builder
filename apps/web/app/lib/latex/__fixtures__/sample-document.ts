@@ -157,6 +157,7 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 					id: "30000000-0000-0000-0000-000000000001",
 					name: "CampusCart",
 					link: null,
+					github: null,
 					technologies: [
 						"React Router",
 						"Vite",
@@ -182,7 +183,8 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 				{
 					id: "30000000-0000-0000-0000-000000000002",
 					name: "Whiz Backend Framework",
-					link: "https://github.com/AndrewI26/whiz",
+					link: null,
+					github: "https://github.com/AndrewI26/whiz",
 					technologies: ["Go"],
 					bullet_points: [
 						bold(
@@ -201,6 +203,7 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 					id: "30000000-0000-0000-0000-000000000003",
 					name: "McMaster Trivia",
 					link: null,
+					github: null,
 					technologies: ["Next.js", "Vercel"],
 					bullet_points: [
 						bold(
@@ -220,6 +223,7 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 					id: "30000000-0000-0000-0000-000000000004",
 					name: "Keybindings Cheatsheet",
 					link: "https://marketplace.visualstudio.com/items?itemName=andrewi.keybindings-cheatsheet",
+					github: "https://github.com/AndrewI26/keybindings-cheatsheet",
 					technologies: ["Typescript", "Handlebars", "esbuild"],
 					bullet_points: [
 						bold(
@@ -233,7 +237,8 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 				{
 					id: "30000000-0000-0000-0000-000000000005",
 					name: "Brain-rot Clips Generator",
-					link: "https://github.com/AndrewI26/Youtube-Shorts-Creator",
+					link: null,
+					github: "https://github.com/AndrewI26/Youtube-Shorts-Creator",
 					technologies: ["Django", "React", "Next.js"],
 					bullet_points: [
 						bold(

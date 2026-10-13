@@ -170,10 +170,13 @@ function renderExperience(items: Experience[], isLast: boolean): string {
 function renderProjects(items: Project[], isLast: boolean): string {
 	const entries = items.flatMap((project, index) => {
 		const name = `\\textbf{${escapeLatex(project.name)}}`;
-		// a linked project gets a chain glyph before the name
-		const title = project.link
-			? `${href(project.link, "\\faLink")} ${name}`
-			: name;
+		// a linked project gets a chain glyph before the name, and its
+		// repository a GitHub glyph after that
+		const icons = [
+			project.link ? href(project.link, "\\faLink") : null,
+			project.github ? href(project.github, "\\faGithub") : null,
+		].filter((icon) => icon !== null);
+		const title = [...icons, name].join(" ");
 		const technologies = project.technologies.length
 			? ` $|$ \\emph{ ${escapeLatex(project.technologies.join(", "))} }`
 			: "";

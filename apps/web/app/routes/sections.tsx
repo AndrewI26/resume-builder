@@ -230,6 +230,11 @@ export default function Sections() {
 						header: "Link",
 						render: (row) => row.link ?? "—",
 					},
+					{
+						key: "github",
+						header: "GitHub",
+						render: (row) => row.github ?? "—",
+					},
 				]}
 				data={project.data}
 				emptyMessage="No projects added yet."

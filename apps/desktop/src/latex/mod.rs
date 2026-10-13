@@ -183,11 +183,17 @@ fn projects(items: &[Project], is_last: bool) -> String {
 
     for (index, project) in items.iter().enumerate() {
         let name = format!("\\textbf{{{}}}", escape(&project.name));
-        // a linked project gets a chain glyph before its name
-        let title = match project.link.as_deref().filter(|link| !link.is_empty()) {
-            Some(link) => format!("{} {name}", href(link, "\\faLink")),
-            None => name,
-        };
+        // a linked project gets a chain glyph before its name, and its
+        // repository a GitHub glyph after that
+        let mut parts: Vec<String> = [
+            (project.link.as_deref(), "\\faLink"),
+            (project.github.as_deref(), "\\faGithub"),
+        ]
+        .into_iter()
+        .filter_map(|(url, icon)| url.filter(|url| !url.is_empty()).map(|url| href(url, icon)))
+        .collect();
+        parts.push(name);
+        let title = parts.join(" ");
         let technologies = if project.technologies.is_empty() {
             String::new()
         } else {

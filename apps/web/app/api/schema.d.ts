@@ -956,6 +956,8 @@ export interface components {
 			name: string;
 			/** Link */
 			link?: string | null;
+			/** Github */
+			github?: string | null;
 			/** Technologies */
 			technologies: string[];
 			/** Bullet Points */
@@ -967,6 +969,8 @@ export interface components {
 			name: string;
 			/** Link */
 			link?: string | null;
+			/** Github */
+			github?: string | null;
 			/** Technologies */
 			technologies: string[];
 			/** Bullet Points */

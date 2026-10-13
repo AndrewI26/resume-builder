@@ -7,6 +7,7 @@
 *.dylib
 /bin/
 /dist/
+/web-root/
 
 # Go build & test
 *.test

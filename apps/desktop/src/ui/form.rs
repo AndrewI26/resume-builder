@@ -285,9 +285,16 @@ impl State {
                     field_spec(
                         "link",
                         "Link",
-                        "https://github.com/you/project",
+                        "https://project.example.com",
                         None,
                         row.and_then(|r| r.link.clone()).unwrap_or_default(),
+                    ),
+                    field_spec(
+                        "github",
+                        "GitHub",
+                        "https://github.com/you/project",
+                        None,
+                        row.and_then(|r| r.github.clone()).unwrap_or_default(),
                     ),
                     field_spec(
                         "technologies",
@@ -466,6 +473,7 @@ impl State {
                 let body = ProjectInput {
                     name: text("name"),
                     link: optional(self.value("link")),
+                    github: optional(self.value("github")),
                     technologies: split_list(self.value("technologies")),
                     bullet_points: bullets,
                 };

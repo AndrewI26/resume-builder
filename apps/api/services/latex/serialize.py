@@ -176,12 +176,14 @@ def _render_projects(items: list[ProjectRead], is_last: bool) -> str:
     entries: list[str] = []
     for index, project in enumerate(items):
         name = rf"\textbf{{{escape_latex(project.name)}}}"
-        # a linked project gets a chain glyph before the name
-        title = (
-            f"{_href(project.link, chr(92) + 'faLink')} {name}"
-            if project.link
-            else name
-        )
+        # a linked project gets a chain glyph before the name, and its
+        # repository a GitHub glyph after that
+        icons = [
+            _href(url, "\\" + icon)
+            for url, icon in ((project.link, "faLink"), (project.github, "faGithub"))
+            if url
+        ]
+        title = " ".join([*icons, name])
         technologies = (
             rf" $|$ \emph{{ {escape_latex(', '.join(project.technologies))} }}"
             if project.technologies

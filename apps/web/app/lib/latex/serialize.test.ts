@@ -311,6 +311,7 @@ describe("projects", () => {
 		id: "1",
 		name: "Whiz",
 		link: null as string | null,
+		github: null as string | null,
 		technologies: ["Go"],
 		bullet_points: [],
 		...overrides,
@@ -333,12 +334,53 @@ describe("projects", () => {
 		);
 	});
 
+	test("precedes a project name with a GitHub glyph for its repository", () => {
+		const tex = serializeToTex(
+			document({
+				sections: [
+					{
+						type: "project",
+						items: [project({ github: "https://github.com/you/whiz" })],
+					},
+				],
+			}),
+		);
+
+		expect(tex).toContain(
+			"{\\href{https://github.com/you/whiz}{\\faGithub} \\textbf{Whiz}",
+		);
+		expect(body(tex)).not.toContain("\\faLink");
+	});
+
+	test("puts the chain glyph before the GitHub glyph when both are set", () => {
+		const tex = serializeToTex(
+			document({
+				sections: [
+					{
+						type: "project",
+						items: [
+							project({
+								link: "https://example.com/whiz",
+								github: "https://github.com/you/whiz",
+							}),
+						],
+					},
+				],
+			}),
+		);
+
+		expect(tex).toContain(
+			"{\\href{https://example.com/whiz}{\\faLink} \\href{https://github.com/you/whiz}{\\faGithub} \\textbf{Whiz}",
+		);
+	});
+
 	test("omits the glyph when there is no link", () => {
 		const tex = serializeToTex(
 			document({ sections: [{ type: "project", items: [project()] }] }),
 		);
 
 		expect(body(tex)).not.toContain("\\faLink");
+		expect(body(tex)).not.toContain("\\faGithub");
 		expect(tex).toContain("{\\textbf{Whiz} $|$");
 	});
 

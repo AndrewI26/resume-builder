@@ -61,6 +61,7 @@ function ProjectForm({
 		defaultValues: {
 			name: initialValue?.name ?? "",
 			link: initialValue?.link ?? "",
+			github: initialValue?.github ?? "",
 			technologiesText: initialValue
 				? initialValue.technologies.join(", ")
 				: "",
@@ -74,6 +75,7 @@ function ProjectForm({
 				const body = {
 					name: value.name,
 					link: value.link.trim() || undefined,
+					github: value.github.trim() || undefined,
 					technologies: splitList(value.technologiesText),
 					bullet_points: toApiBulletPoints(value.bulletPoints),
 				};
@@ -148,6 +150,17 @@ function ProjectForm({
 				{(field) => (
 					<TextInput
 						label="Link"
+						onChange={(event) => field.handleChange(event.target.value)}
+						placeholder="https://project.example.com"
+						value={field.state.value}
+					/>
+				)}
+			</form.Field>
+
+			<form.Field name="github">
+				{(field) => (
+					<TextInput
+						label="GitHub"
 						onChange={(event) => field.handleChange(event.target.value)}
 						placeholder="https://github.com/you/project"
 						value={field.state.value}

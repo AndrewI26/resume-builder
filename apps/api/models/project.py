@@ -16,6 +16,7 @@ class Project(Base):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     link: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    github: Mapped[str | None] = mapped_column(String(2048), nullable=True)
 
     technologies: Mapped[list[str]] = mapped_column(string_array(255), default=list)
     bullet_points: Mapped[list[uuid.UUID]] = mapped_column(UuidArray, default=list)
