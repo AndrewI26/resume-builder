@@ -1,0 +1,26 @@
+# A site block for Caddy on the host, in front of docker-compose.yml. Replace
+# the domain and the root with your own; the root is WEB_ROOT, where the web
+# container copies the built app.
+
+resume.example.com {
+	encode gzip
+
+	# The API, on its loopback port. handle_path strips /api before passing
+	# the request on: the API's own paths (/resume/..., /project/...) would
+	# otherwise collide with the app's routes.
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle {
+		root * /srv/resume-builder/web-root
+
+		# fingerprinted build output never changes under the same name
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+
+		# client-side routing: every unknown path is a route, not a missing file
+		try_files {path} /index.html
+		file_server
+	}
+}
