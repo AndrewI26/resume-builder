@@ -56,8 +56,9 @@ router = APIRouter(prefix="/auth/google", tags=["Auth"])
 
 settings = get_settings()
 
-# the state cookie is only ever read back by the callback below
-STATE_COOKIE_PATH = "/auth/google"
+# the state cookie is only ever read back by the callback below, at its path
+# as the browser sees it: behind the reverse proxy that includes its /api
+STATE_COOKIE_PATH = f"{settings.api_path_prefix}/auth/google"
 
 DEFAULT_REDIRECT_PATH = "/"
 

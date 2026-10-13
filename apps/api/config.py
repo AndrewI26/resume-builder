@@ -2,6 +2,7 @@ import secrets
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Self
+from urllib.parse import urlsplit
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -135,6 +136,18 @@ class Settings(BaseSettings):
     def google_redirect_uri(self) -> str:
         base = self.public_api_url or f"http://localhost:{self.backend_port}"
         return f"{base.rstrip('/')}/auth/google/callback"
+
+    @property
+    def api_path_prefix(self) -> str:
+        """The path the browser sees in front of the API's own routes.
+
+        Empty when the API is reached directly; ``/api`` behind the reverse
+        proxy, which strips it before the request arrives. Anything scoped to
+        a path in the browser, like a cookie, has to include it.
+        """
+        if self.public_api_url is None:
+            return ""
+        return urlsplit(self.public_api_url).path.rstrip("/")
 
     @property
     def database_path(self) -> Path:
