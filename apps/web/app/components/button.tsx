@@ -1,8 +1,10 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "tertiary" | "danger";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+	/** Sits before the label, outside its trimmed text box so both centre. */
+	icon?: ReactNode;
 	variant?: ButtonVariant;
 };
 
@@ -20,6 +22,7 @@ const variantClasses: Record<ButtonVariant, string> = {
 export function Button({
 	children,
 	className,
+	icon,
 	type = "button",
 	variant = "primary",
 	...rest
@@ -27,7 +30,7 @@ export function Button({
 	return (
 		<button
 			className={[
-				"inline-flex h-10 items-center justify-center rounded-button px-4 transition-opacity hover:opacity-90",
+				"inline-flex h-10 items-center justify-center gap-2 rounded-button px-4 transition-opacity hover:opacity-90",
 				variantClasses[variant],
 				className,
 			]
@@ -36,6 +39,7 @@ export function Button({
 			type={type}
 			{...rest}
 		>
+			{icon}
 			<span className="text-trim">{children}</span>
 		</button>
 	);

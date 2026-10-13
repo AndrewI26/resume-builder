@@ -56,6 +56,7 @@ export function GoogleSignInButton({ next = "/dashboard" }: { next?: string }) {
 	return (
 		<Button
 			className="w-full"
+			icon={<GoogleLogo />}
 			onClick={() => {
 				window.location.assign(
 					`${apiBaseUrl}/auth/google/login?${new URLSearchParams({ next })}`,
@@ -63,10 +64,7 @@ export function GoogleSignInButton({ next = "/dashboard" }: { next?: string }) {
 			}}
 			variant="secondary"
 		>
-			<span className="inline-flex items-center gap-2">
-				<GoogleLogo />
-				Continue with Google
-			</span>
+			Continue with Google
 		</Button>
 	);
 }
