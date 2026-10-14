@@ -21,6 +21,7 @@ const education = (id: string, name: string): Education => ({
 	subheading: "BSc",
 	duration: "2020 - 2024",
 	location: "Boston, MA",
+	coursework: [],
 });
 
 const skill = (id: string, name: string): Skill => ({

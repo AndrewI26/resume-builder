@@ -593,6 +593,11 @@ export interface components {
 			duration: string;
 			/** Location */
 			location: string;
+			/**
+			 * Coursework
+			 * @default []
+			 */
+			coursework: string[];
 		};
 		/** EducationRead */
 		EducationRead: {
@@ -604,6 +609,11 @@ export interface components {
 			duration: string;
 			/** Location */
 			location: string;
+			/**
+			 * Coursework
+			 * @default []
+			 */
+			coursework: string[];
 			/**
 			 * Id
 			 * Format: uuid
@@ -745,6 +755,11 @@ export interface components {
 			duration: string;
 			/** Location */
 			location: string;
+			/**
+			 * Coursework
+			 * @default []
+			 */
+			coursework: string[];
 		};
 		/** PortableExperience */
 		PortableExperience: {

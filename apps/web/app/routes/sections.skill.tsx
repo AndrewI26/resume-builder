@@ -9,12 +9,12 @@ import {
 	TextInput,
 } from "@components/section-form";
 import {
-	emptySkillItem,
-	fromApiSkillItems,
-	type SkillItemDraft,
-	SkillItemsField,
-	toApiSkillItems,
-} from "@components/skill-items-field";
+	emptyListItem,
+	fromApiListItems,
+	type ListItemDraft,
+	ListItemsField,
+	toApiListItems,
+} from "@components/list-items-field";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -54,13 +54,13 @@ function SkillForm({
 		defaultValues: {
 			name: initialValue?.name ?? "",
 			items: initialValue
-				? fromApiSkillItems(initialValue.items)
-				: ([emptySkillItem()] as SkillItemDraft[]),
+				? fromApiListItems(initialValue.items)
+				: ([emptyListItem()] as ListItemDraft[]),
 		},
 		onSubmit: async ({ value }) => {
 			setFormError(null);
 			try {
-				const items = toApiSkillItems(value.items);
+				const items = toApiListItems(value.items);
 
 				if (initialValue) {
 					await editSkill({
@@ -130,16 +130,18 @@ function SkillForm({
 				name="items"
 				validators={{
 					onSubmit: ({ value }) =>
-						toApiSkillItems(value).length > 0
+						toApiListItems(value).length > 0
 							? undefined
 							: "Enter at least one skill.",
 				}}
 			>
 				{(field) => (
-					<SkillItemsField
+					<ListItemsField
 						error={field.state.meta.errors[0]}
 						label="Skills"
+						noun="skill"
 						onChange={field.handleChange}
+						placeholder="Python"
 						value={field.state.value}
 					/>
 				)}

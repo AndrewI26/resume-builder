@@ -261,6 +261,7 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 					subheading: "Computer Science (B.A.Sc.) - 3.98/4.00 GPA (90.8% CAV)",
 					duration: "September 2025 - present",
 					location: "Waterloo, Ontario",
+					coursework: [],
 				},
 				{
 					id: "40000000-0000-0000-0000-000000000002",
@@ -269,6 +270,7 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 						"Computer Science (B.A.Sc.) - 4.00/4.00 GPA (completed first year then transferred)",
 					duration: "September 2024 - May 2025",
 					location: "Hamilton, Ontario",
+					coursework: [],
 				},
 				{
 					id: "40000000-0000-0000-0000-000000000003",
@@ -276,6 +278,7 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 					subheading: "High School - Grade 12 CAV of 99.0%",
 					duration: "September 2020 -- June 2024",
 					location: "Peterborough, Ontario",
+					coursework: [],
 				},
 			],
 		},

@@ -201,6 +201,20 @@ function renderProjects(items: Project[], isLast: boolean): string {
 	].join("\n");
 }
 
+function renderCoursework(coursework: string[]): string[] {
+	if (coursework.length === 0) {
+		return [];
+	}
+
+	return [
+		"      \\resumeItemListStart",
+		`         \\resumeItem{\\textbf{Relevant Coursework}: ${escapeLatex(
+			coursework.join(", "),
+		)}}`,
+		"      \\resumeItemListEnd",
+	];
+}
+
 function renderEducation(items: Education[], isLast: boolean): string {
 	const entries = items.flatMap((education) => [
 		"  \\resumeSubheading",
@@ -208,6 +222,7 @@ function renderEducation(items: Education[], isLast: boolean): string {
 		`      {${escapeLatex(education.subheading)}} {${escapeLatex(
 			education.location,
 		)}}`,
+		...renderCoursework(education.coursework),
 		"",
 	]);
 

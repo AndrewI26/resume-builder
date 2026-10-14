@@ -491,6 +491,42 @@ describe("experience", () => {
 	});
 });
 
+describe("education coursework", () => {
+	const withCoursework = (coursework: string[]) =>
+		serializeToTex(
+			document({
+				sections: [
+					{
+						type: "education",
+						items: [
+							{
+								id: "1",
+								name: "State University",
+								subheading: "BSc",
+								duration: "2016 - 2020",
+								location: "Boston, MA",
+								coursework,
+							},
+						],
+					},
+				],
+			}),
+		);
+
+	test("lists the courses in order under the education", () => {
+		expect(withCoursework(["Algorithms", "C++ & Systems"])).toContain(
+			"      {BSc} {Boston, MA}\n" +
+				"      \\resumeItemListStart\n" +
+				"         \\resumeItem{\\textbf{Relevant Coursework}: Algorithms, C++ \\& Systems}\n" +
+				"      \\resumeItemListEnd\n",
+		);
+	});
+
+	test("adds nothing when there is no coursework", () => {
+		expect(withCoursework([])).not.toContain("Relevant Coursework");
+	});
+});
+
 describe("section spacing", () => {
 	const edu = () => ({
 		type: "education" as const,

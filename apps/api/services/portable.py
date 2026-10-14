@@ -189,6 +189,7 @@ def export_library(db: Session, user_id: UUID) -> PortableLibrary:
                 subheading=row.subheading,
                 duration=row.duration,
                 location=row.location,
+                coursework=row.coursework,
             )
             for row in owned(Education)
         ],

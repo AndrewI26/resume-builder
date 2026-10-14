@@ -1,6 +1,11 @@
 import { $api } from "@api/api";
 import type { components } from "@api/schema.d.ts";
 import {
+	fromApiListItems,
+	ListItemsField,
+	toApiListItems,
+} from "@components/list-items-field";
+import {
 	FormActions,
 	FormError,
 	required,
@@ -52,17 +57,27 @@ function EducationForm({
 			subheading: initialValue?.subheading ?? "",
 			duration: initialValue?.duration ?? "",
 			location: initialValue?.location ?? "",
+			coursework: fromApiListItems(initialValue?.coursework ?? [], {
+				minItems: 0,
+			}),
 		},
 		onSubmit: async ({ value }) => {
 			setFormError(null);
 			try {
+				const body = {
+					name: value.name,
+					subheading: value.subheading,
+					duration: value.duration,
+					location: value.location,
+					coursework: toApiListItems(value.coursework),
+				};
 				if (initialValue) {
 					await editEducation({
-						body: value,
+						body,
 						params: { path: { education_id: initialValue.id } },
 					});
 				} else {
-					await createEducation({ body: value });
+					await createEducation({ body });
 				}
 				await invalidate();
 				onSaved();
@@ -162,6 +177,19 @@ function EducationForm({
 						label="Location"
 						onChange={(event) => field.handleChange(event.target.value)}
 						placeholder="Remote"
+						value={field.state.value}
+					/>
+				)}
+			</form.Field>
+
+			<form.Field name="coursework">
+				{(field) => (
+					<ListItemsField
+						label="Related coursework (optional)"
+						minItems={0}
+						noun="course"
+						onChange={field.handleChange}
+						placeholder="Data Structures"
 						value={field.state.value}
 					/>
 				)}

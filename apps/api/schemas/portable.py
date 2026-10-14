@@ -53,6 +53,8 @@ class PortableEducation(_Strict):
     duration: Text
     location: Text
 
+    coursework: list[Text] = Field(default=[], max_length=MAX_LIST_ENTRIES)
+
 
 class PortableExperience(_Strict):
     company: Text

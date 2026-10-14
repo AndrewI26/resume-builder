@@ -139,6 +139,27 @@ class TestCreate:
         assert created is not None
         assert created.user_id == user.id
 
+    def test_coursework_is_optional(self, auth, user):
+        response = auth(user).post("/education/", json=payload())
+
+        assert response.json()["coursework"] == []
+
+    def test_keeps_the_coursework_in_order(self, auth, user, db):
+        courses = ["Operating Systems", "Algorithms", "Databases"]
+
+        response = auth(user).post("/education/", json=payload(coursework=courses))
+
+        assert response.json()["coursework"] == courses
+        created = get_education(db, UUID(response.json()["id"]))
+        assert created is not None
+        assert created.coursework == courses
+
+    def test_rejects_an_overlong_course(self, auth, user, db):
+        response = auth(user).post("/education/", json=payload(coursework=["x" * 256]))
+
+        assert response.status_code == 422
+        assert education_count(db) == 0
+
     @pytest.mark.parametrize("field", FIELDS)
     def test_requires_every_field(self, auth, user, db, field):
         body = payload()
@@ -170,6 +191,22 @@ class TestCreate:
 
 
 class TestEdit:
+    def test_reorders_the_coursework(self, auth, user, make_education, db):
+        education = make_education(user)
+        client = auth(user)
+        client.put(
+            f"/education/{education.id}", json=payload(coursework=["A", "B", "C"])
+        )
+
+        response = client.put(
+            f"/education/{education.id}", json=payload(coursework=["C", "A"])
+        )
+
+        assert response.json()["coursework"] == ["C", "A"]
+        edited = get_education(db, education.id)
+        assert edited is not None
+        assert edited.coursework == ["C", "A"]
+
     """PUT replaces the whole row, so every field is required on every call."""
 
     def test_replaces_the_row(self, auth, user, make_education, db):

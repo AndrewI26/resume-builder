@@ -45,6 +45,7 @@ def create_education(
             subheading=education.subheading,
             duration=education.duration,
             location=education.location,
+            coursework=education.coursework,
         )
         .returning(Education)
     )

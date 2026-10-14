@@ -209,6 +209,20 @@ def _render_projects(items: list[ProjectRead], is_last: bool) -> str:
     )
 
 
+def _render_coursework(coursework: list[str]) -> list[str]:
+    if not coursework:
+        return []
+
+    return [
+        r"      \resumeItemListStart",
+        (
+            r"         \resumeItem{\textbf{Relevant Coursework}: "
+            rf"{escape_latex(', '.join(coursework))}}}"
+        ),
+        r"      \resumeItemListEnd",
+    ]
+
+
 def _render_education(items: list[EducationRead], is_last: bool) -> str:
     entries: list[str] = []
     for education in items:
@@ -222,6 +236,7 @@ def _render_education(items: list[EducationRead], is_last: bool) -> str:
                 rf"      {{{escape_latex(education.subheading)}}} "
                 rf"{{{escape_latex(education.location)}}}"
             ),
+            *_render_coursework(education.coursework),
             "",
         ]
 

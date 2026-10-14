@@ -46,7 +46,8 @@ const EXAMPLE = `{
       "name": "McMaster University",
       "subheading": "B.Eng. Software Engineering",
       "duration": "2019 - 2024",
-      "location": "Hamilton, ON"
+      "location": "Hamilton, ON",
+      "coursework": ["Data Structures", "Algorithms"]
     }
   ],
   "skills": [

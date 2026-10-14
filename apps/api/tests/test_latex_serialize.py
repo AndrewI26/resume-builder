@@ -129,6 +129,45 @@ class TestEscaping:
         assert "{\\Huge \\scshape Ada \\& Co}" in body(tex)
 
 
+class TestCoursework:
+    def education(self, coursework: list[str]) -> str:
+        return body(
+            serialize_to_tex(
+                document(
+                    sections=[
+                        {
+                            "type": "education",
+                            "items": [
+                                {
+                                    "id": "00000000-0000-0000-0000-000000000002",
+                                    "name": "State University",
+                                    "subheading": "BSc",
+                                    "duration": "2016 - 2020",
+                                    "location": "Boston, MA",
+                                    "coursework": coursework,
+                                }
+                            ],
+                        }
+                    ]
+                )
+            )
+        )
+
+    def test_lists_the_courses_in_order_under_the_education(self):
+        tex = self.education(["Algorithms", "C++ & Systems"])
+
+        assert (
+            "      {BSc} {Boston, MA}\n"
+            "      \\resumeItemListStart\n"
+            "         \\resumeItem{\\textbf{Relevant Coursework}: "
+            "Algorithms, C++ \\& Systems}\n"
+            "      \\resumeItemListEnd\n"
+        ) in tex
+
+    def test_adds_nothing_when_there_is_no_coursework(self):
+        assert "Relevant Coursework" not in self.education([])
+
+
 class TestBullets:
     def test_wraps_a_bolded_range(self):
         bullet = BulletPoint(text="Shipped it", bolded=[(0, 6)])

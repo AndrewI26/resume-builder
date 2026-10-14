@@ -74,6 +74,7 @@ class EducationSeed:
     subheading: str
     duration: str
     location: str
+    coursework: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -127,6 +128,12 @@ EDUCATIONS = [
         subheading="State University",
         duration="2016 – 2020",
         location="Boston, MA",
+        coursework=(
+            "Data Structures",
+            "Algorithms",
+            "Operating Systems",
+            "Databases",
+        ),
     ),
     EducationSeed(
         key="education:northside-college",
@@ -425,6 +432,7 @@ def insert_all(db: Session) -> None:
                 subheading=education.subheading,
                 duration=education.duration,
                 location=education.location,
+                coursework=list(education.coursework),
             )
         )
 

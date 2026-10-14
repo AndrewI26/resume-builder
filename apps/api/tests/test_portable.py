@@ -33,6 +33,7 @@ LIBRARY: dict[str, Any] = {
             "subheading": "B.Eng. Software",
             "duration": "2019 - 2024",
             "location": "Hamilton, ON",
+            "coursework": ["Data Structures", "Algorithms"],
         }
     ],
     "experience": [

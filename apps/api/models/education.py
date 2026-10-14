@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from db import Base
+from db import Base, string_array
 
 
 class Education(Base):
@@ -19,3 +19,6 @@ class Education(Base):
 
     duration: Mapped[str] = mapped_column(String(255), nullable=False)
     location: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    # optional, and in the order the person put them
+    coursework: Mapped[list[str]] = mapped_column(string_array(255), default=list)
