@@ -84,21 +84,6 @@ class CompilerUnavailable(CompilerError):
     """The engine is missing, or the run could not be started."""
 
 
-def _with_bundled_tex(path: str) -> str:
-    """``path``, preceded by the bundled TeX distribution if there is one.
-
-    A server has a TeX distribution installed where the process can already see
-    it — or runs the engine in a container that does. A desktop install has
-    neither: most people have never had a reason to install LaTeX, so the app
-    ships its own, and ``texlive_bin`` says where it ended up, which is inside
-    the application bundle and so different on every machine.
-    """
-    if settings.texlive_bin is None:
-        return path
-
-    return os.pathsep.join([str(settings.texlive_bin), path])
-
-
 def _lookup_path() -> str:
     """Where to look for the engine, which is the environment this runs in.
 
@@ -106,7 +91,7 @@ def _lookup_path() -> str:
     process' business and it may use everything it knows; what the engine then
     inherits is a different and much smaller question.
     """
-    return _with_bundled_tex(os.environ.get("PATH", os.defpath))
+    return os.environ.get("PATH", os.defpath)
 
 
 async def compile_to_pdf(
@@ -225,7 +210,7 @@ def _environment(directory: Path) -> dict[str, str]:
     one.
     """
     return {
-        "PATH": _with_bundled_tex(os.defpath),
+        "PATH": os.defpath,
         "HOME": str(directory),
         "TMPDIR": str(directory),
         # TeX wants somewhere writable for generated font files; pointing it at

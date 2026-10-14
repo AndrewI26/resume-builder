@@ -5,10 +5,9 @@ class SectionType(str, enum.Enum):
     """The kinds of record that carry version history.
 
     Mostly section kinds, plus the resume itself — a resume is not a section of
-    anything, but it is a thing a person edits and therefore a thing that has
-    to be carried between a desktop and an account, in the same order as
-    everything else. One history is what lets a sync read a user's changes as a
-    single sequence rather than merging several.
+    anything, but it is a thing a person edits and therefore a thing whose
+    changes belong in the same history as everything else, read as a single
+    sequence rather than merged from several.
 
     The member values are the stored labels in both Postgres and JSON: the
     column passes ``db.enum_values`` to ``values_callable`` so the type's

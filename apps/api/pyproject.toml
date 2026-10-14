@@ -23,7 +23,6 @@ dependencies = [
 dev = [
     "httpx2>=2.0.0",
     "mypy>=2.3.0",
-    "pyinstaller>=6.22.2",
     "pytest>=8.4.2",
 ]
 
@@ -38,10 +37,7 @@ markers = ["anyio"]
 explicit_package_bases = true
 mypy_path = "."
 plugins = ["pydantic.mypy"]
-# dist/ and build/ are PyInstaller's output: copies of this source tree with
-# a Python runtime around them, so checking them means checking everything
-# twice and reporting the same finding from a path nobody edits.
-exclude = ["^alembic/", "^dist/", "^build/"]
+exclude = ["^alembic/"]
 
 strict = true
 warn_unreachable = true

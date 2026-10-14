@@ -1,10 +1,9 @@
 """Importing sections from, and exporting them to, the portable JSON format.
 
 An import adds everything in one transaction, so a file either arrives whole
-or not at all. Each section goes through the same appliers a sync uses and
-gets the same history entry an endpoint would have written, which means a
-desktop syncing afterwards sees ordinary creates and nothing special about
-where they came from. Resumes are left alone: people build those in the app.
+or not at all. Each section goes through the snapshot appliers and gets the
+same history entry an endpoint would have written, so the history shows
+ordinary creates and nothing special about where they came from. Resumes are left alone: people build those in the app.
 """
 
 from typing import Any

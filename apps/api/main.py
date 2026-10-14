@@ -8,7 +8,6 @@ from fastapi.routing import APIRoute
 from config import get_settings
 from deps.notify import PdfNotifier
 from routers.auth import router as auth_router
-from routers.backup import router as backup_router
 from routers.education import router as education_router
 from routers.experience import router as experience_router
 from routers.google_auth import router as google_auth_router
@@ -17,9 +16,7 @@ from routers.portable import router as portable_router
 from routers.project import router as project_router
 from routers.resume import router as resume_router
 from routers.skill import router as skill_router
-from routers.sync import router as sync_router
 from services.pdf_worker import run_pool
-from services.sidecar_guard import sidecar_token_guard
 
 settings = get_settings()
 
@@ -30,28 +27,15 @@ def operation_id(route: APIRoute) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Prepare whatever this deployment needs before the first request.
+    """Bring up the PDF queue before the first request.
 
-    A hosted install brings up the PDF queue: the workers live in this process,
+    The API brings up the PDF queue: the workers live in this process,
     so how many there are is a property of how the API was started —
     ``PDF_WORKER_COUNT=6 bun run dev:api``. Zero is a real answer, and what the
     compose deployment sets, where a worker container claims the jobs instead;
     the listener still runs, because a request waiting here has to hear that
     its job finished wherever it ran.
-
-    A local install has neither a queue nor anyone to have started a database
-    for it, so it makes its own and compiles on the request itself.
     """
-    if settings.is_local:
-        # imported here rather than at module scope: it pulls in alembic, which
-        # the hosted API has no reason to load into every process
-        from deps.db import engine
-        from services.local_bootstrap import bootstrap_local_database
-
-        bootstrap_local_database(engine)
-        yield
-        return
-
     notifier = PdfNotifier()
     app.state.pdf_notifier = notifier
 
@@ -61,23 +45,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(generate_unique_id_function=operation_id, lifespan=lifespan)
 
-# Added before CORS so that CORS ends up the outer layer: middleware added
-# later wraps what came before it, and a preflight has to be answered by CORS
-# rather than turned away for carrying no token it was still asking to send.
-if settings.is_local and settings.sidecar_token:
-    app.middleware("http")(sidecar_token_guard(settings.sidecar_token))
-
 
 def _allowed_origins() -> list[str]:
-    """Who may call this API from a browser.
-
-    A local install is reached from the desktop app's own window, which is not
-    served over http and so has no origin the API could be told to expect. It
-    is also bound to loopback and gated by a secret the shell generates per
-    run, which is the actual boundary here — CORS is not what keeps anything
-    out on one person's machine.
-    """
-    if settings.is_local or settings.node_env == "development":
+    """Who may call this API from a browser."""
+    if settings.node_env == "development":
         return ["*"]
 
     return [settings.frontend_url]
@@ -100,11 +71,3 @@ app.include_router(portable_router)
 app.include_router(project_router)
 app.include_router(resume_router)
 app.include_router(skill_router)
-app.include_router(sync_router)
-
-# Local only. A desktop install's whole library is one file on one machine with
-# nobody else holding a copy, so it can ask for a snapshot of itself; the hosted
-# database is backed up with pg_dump by someone with credentials, and mounting
-# this there would be an endpoint that writes files on the server.
-if settings.is_local:
-    app.include_router(backup_router)

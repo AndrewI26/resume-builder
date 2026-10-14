@@ -57,10 +57,9 @@ function reportLine(report: Report): string {
 }
 
 /**
- * Compiles every resume and saves the PDFs together, like the desktop app's
- * export: into a folder the person picks, replacing the PDFs already in it,
- * where the browser can write to a folder (Chrome and Edge), and as one ZIP
- * download everywhere else.
+ * Compiles every resume and saves the PDFs together: into a folder the person
+ * picks, replacing the PDFs already in it, where the browser can write to a
+ * folder (Chrome and Edge), and as one ZIP download everywhere else.
  *
  * Resumes compile one at a time. Each is a LaTeX run on the server, and
  * several at once would only queue there.

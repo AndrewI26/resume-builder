@@ -1,10 +1,8 @@
 """Writing to the history every change goes into.
 
-The history is what a sync reads. A desktop that has been offline asks for
-everything after the last sequence number it saw, and gets each change in the
-order it happened, with the snapshot of what the record looked like — including
-for records that have since been deleted, which is why the log holds copies
-rather than pointers.
+Each change is numbered in the order it happened and keeps a snapshot of what
+the record looked like — including for records that have since been deleted,
+which is why the log holds copies rather than pointers.
 """
 
 from typing import Any
@@ -84,9 +82,8 @@ def record_version(
     the entry itself and rolling back to retry costs nothing else.
 
     Both counters are read and written without a lock, which two requests
-    arriving together could get away with — SQLite has no ``FOR UPDATE`` and
-    the desktop has no concurrency to speak of, so a unique constraint and a
-    retry is the portable way to be sure rather than the cheap one. The
+    arriving together could get away with — SQLite has no ``FOR UPDATE``, so a
+    unique constraint and a retry is the portable way to be sure rather than the cheap one. The
     constraint is what makes this correct; the retry only makes it quiet.
     """
     for attempt in range(MAX_ATTEMPTS):

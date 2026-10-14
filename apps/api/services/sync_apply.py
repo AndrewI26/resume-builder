@@ -6,11 +6,10 @@ was written — for whichever kind of record it describes.
 
 Two things make this less mechanical than it sounds.
 
-A record keeps its id. That is what makes a desktop library and an account the
-same library rather than two with matching contents: the same experience is the
-same UUID on both sides, and only its owner differs. So these write the id they
-are given instead of generating one, and an apply is an upsert — the record may
-or may not already be here.
+A record keeps its id: the same experience is the same UUID wherever its
+snapshot is applied. So these write the id they are given instead of
+generating one, and an apply is an upsert — the record may or may not already
+be here.
 
 And experiences and projects keep their bullet points in a separate table,
 referenced by an ordered array of ids. Those ids are local bookkeeping rather

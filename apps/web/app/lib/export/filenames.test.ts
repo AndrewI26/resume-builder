@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { filenames, isPdfName, slug } from "./filenames";
 
 describe("slug", () => {
-	// the same cases the desktop app's tests pin down
 	test("turns each character that isn't a letter or digit into a hyphen", () => {
 		expect(slug("C++ / Rust")).toBe("c-----rust");
 		expect(slug("Café Résumé")).toBe("café-résumé");

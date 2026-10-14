@@ -2,8 +2,7 @@
  * The file a resume is saved as.
  *
  * Mirrors `slug` / `filenames` in the export script
- * (apps/api/scripts/export_resumes.py) and the desktop app
- * (apps/desktop/src/export.rs), so a folder written by any of them has the
+ * (apps/api/scripts/export_resumes.py), so a folder written by either has the
  * same names in it: each character that isn't a letter or digit becomes a
  * hyphen, and a repeated name is numbered from 2.
  */

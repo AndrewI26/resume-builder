@@ -33,9 +33,9 @@ def enum_values(enum_cls: type[enum.Enum]) -> list[str]:
 # ---------------------------------------------------------------------------
 # Column types that work on both Postgres and SQLite.
 #
-# The same models back two deployments: the hosted API on Postgres, and the
-# desktop app's local database, which is a SQLite file with no server to talk
-# to. So no column may name a type only one of them has. Postgres keeps every
+# The API runs on Postgres, and the test suite runs the same models on a SQLite
+# file by default so it needs nothing running. So no column may name a type only
+# one of them has. Postgres keeps every
 # type it had — these are variants, not downgrades — and SQLite gets the
 # nearest thing it can store.
 #
@@ -103,7 +103,7 @@ class UtcDateTime(TypeDecorator[datetime]):
     SQLite has no notion of a timezone: it stores the string it is handed and
     gives back a naive datetime, so an aware value bound to it would quietly
     lose its offset — the kind of difference that surfaces much later as
-    timestamps sorting wrongly between a synced desktop and the server.
+    timestamps sorting wrongly.
 
     Both ends are therefore pinned here: anything aware is converted to UTC
     before it is stored, and everything read back is stamped as UTC. The

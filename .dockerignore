@@ -6,4 +6,3 @@ apps/api/__pycache__
 apps/web/build
 web-root
 apps/web/.react-router
-apps/desktop/target

@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.orm import Session
 
-from config import get_settings
 from deps.auth import CurrentUser
 from deps.db import Db
 from deps.notify import Notifier
@@ -26,13 +25,10 @@ from schemas.resume import (
 )
 from services import pdf_queue
 from services.compiler import CompilerUnavailable, DocumentRejected
-from services.local_compile import compile_resume_pdf_locally
 from services.pdf_queue import ResumeMissing
 from services.record_section import record_version
 from services.resume_document import SECTION_MODELS, build_resume_document
 from services.resume_snapshot import resume_snapshot, section_refs
-
-settings = get_settings()
 
 router = APIRouter(prefix="/resumes", tags=["Resume"])
 
@@ -344,47 +340,39 @@ async def compile_resume_pdf(
     The wait here is deliberate: the client asked for a file and gets one in
     the same response. The queue is not hiding the work, it is bounding how
     much of it runs at once — a compile is CPU-bound, and unbounded exports
-    would take the host down rather than merely queue. A local install has no
-    host to protect and no queue to reach, so it typesets in this process
-    instead; both paths raise the same failures, which is why only the call
-    differs and none of the handling below does.
+    would take the host down rather than merely queue.
     """
     try:
-        if settings.is_local:
-            # No queue, and nothing to protect a host from: one person, one
-            # compile, on the request they are waiting for.
-            pdf = await compile_resume_pdf_locally(db, current_user_resume)
-        else:
-            if notifier is None:
-                # the lifespan did not start one, so nothing would ever hear
-                # that the job finished
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="PDF export is unavailable",
-                )
+        if notifier is None:
+            # the lifespan did not start one, so nothing would ever hear
+            # that the job finished
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="PDF export is unavailable",
+            )
 
-            # a job per request rather than one per resume: a finished job is
-            # kept for a short while, and re-using an id would serve a stale
-            # PDF to someone who edited and exported again
-            job_id = uuid4()
+        # a job per request rather than one per resume: a finished job is
+        # kept for a short while, and re-using an id would serve a stale
+        # PDF to someone who edited and exported again
+        job_id = uuid4()
 
-            # registered before the job exists, so a compile that finishes
-            # immediately still finds someone listening
-            finished = notifier.expect(job_id)
+        # registered before the job exists, so a compile that finishes
+        # immediately still finds someone listening
+        finished = notifier.expect(job_id)
 
-            try:
-                # the session is the synchronous one, and this is an async
-                # endpoint; a blocking write here would stall the workers
-                # sharing this loop
-                await asyncio.to_thread(
-                    pdf_queue.enqueue, db, current_user_resume.id, job_id
-                )
-            except Exception:
-                notifier.forget(job_id)
-                raise
+        try:
+            # the session is the synchronous one, and this is an async
+            # endpoint; a blocking write here would stall the workers
+            # sharing this loop
+            await asyncio.to_thread(
+                pdf_queue.enqueue, db, current_user_resume.id, job_id
+            )
+        except Exception:
+            notifier.forget(job_id)
+            raise
 
-            await notifier.wait(job_id, finished, _RESULT_TIMEOUT)
-            pdf = await asyncio.to_thread(pdf_queue.result, db, job_id)
+        await notifier.wait(job_id, finished, _RESULT_TIMEOUT)
+        pdf = await asyncio.to_thread(pdf_queue.result, db, job_id)
     except TimeoutError:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,

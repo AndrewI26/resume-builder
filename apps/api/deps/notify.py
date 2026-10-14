@@ -142,9 +142,8 @@ class PdfNotifier:
 async def get_notifier(request: Request) -> AsyncGenerator[PdfNotifier | None, None]:
     """The process-wide notifier, put on app state by the lifespan.
 
-    None on a desktop install, which has no queue to be notified about. The
-    dependency is still resolved on the way into the endpoint, which then does
-    not use it, so this has to be absent rather than missing.
+    None when the lifespan did not start one, which the endpoint answers as
+    the export being unavailable rather than failing on a missing attribute.
     """
     yield getattr(request.app.state, "pdf_notifier", None)
 

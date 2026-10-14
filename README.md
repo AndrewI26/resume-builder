@@ -204,17 +204,12 @@ Relevant code:
 | | |
 | --- | --- |
 | Web | React 19, React Router 8, TanStack Query + Form, Tailwind 4, Vite |
-| Desktop | Rust, Iced 0.14, hayro (PDF preview), cargo-packager |
 | API | FastAPI, SQLAlchemy 2, Alembic, Pydantic v2 |
-| Data | Postgres 16 hosted, SQLite on the desktop |
+| Data | Postgres 16 |
 | Jobs | Postgres queue (LISTEN/NOTIFY, SKIP LOCKED), pdfTeX |
-| Tooling | Bun, Cargo, uv, Biome, Ruff, mypy, pytest |
+| Tooling | Bun, uv, Biome, Ruff, mypy, pytest |
 
-There are two clients over one API. The web app is a React Router SPA; the
-desktop app is a native Rust program written with Iced. They share no UI code
-— each is written for its platform — but they talk to the same API, and the
-LaTeX the desktop saves is checked against the same golden file as the web's
-and the API's.
+The web app is a React Router SPA over a FastAPI service.
 
 ```
 apps/
@@ -223,23 +218,12 @@ apps/
     app/components/ shared UI, and the landing page demos
     app/lib/        LaTeX serialization, resume documents
     app/api/        generated OpenAPI types + client
-  desktop/      the native app (Rust, Iced)
-    src/ui/         screens: dashboard, sections, forms, resumes, editor
-    src/api/        a typed client for the sidecar
-    src/latex/      the .tex serializer, ported from the web app
-    src/sidecar.rs  starting and stopping the bundled API
   api/          FastAPI service, worker, migrations
     routers/    HTTP endpoints
     services/   compile pipeline, LaTeX serialization, sections
     models/     SQLAlchemy tables
     schemas/    Pydantic request/response types
 ```
-
-The API is the same in both too. `MODE=cloud` is the hosted service — Postgres,
-a queue, accounts, and compiles fenced in a container. `MODE=local` is the copy
-the desktop app embeds: one SQLite file, nobody signed in, no queue, and
-typesetting done in this process with the TeX the app ships. The routers,
-services and schemas are the same code either way.
 
 ## Getting started
 
@@ -371,15 +355,10 @@ The output is a single file, `apps/web/app/api/schema.d.ts` — never edit it
 by hand, since the next codegen run overwrites it. The typed client built on
 top lives in `apps/web/app/api/api.ts`.
 
-The desktop app's types are written by hand in
-[`apps/desktop/src/api/models.rs`](apps/desktop/src/api/models.rs); when a
-schema changes, change them too. serde refuses a response that no longer fits,
-so a drift shows up as an error rather than as missing data.
-
 ## Checks
 
 ```bash
-bun run test              # pytest + bun test + cargo test
+bun run test              # pytest + bun test
 bun run verify            # format, lint and typecheck every app
 ```
 
@@ -395,67 +374,6 @@ them, so they skip rather than pretend:
 TEST_DATABASE_URL=postgresql+psycopg://resume_user:resume_pass@localhost:5432/resume_db_test \
   uv run --directory apps/api pytest
 ```
-
-## The desktop app
-
-A native Rust app, built with [Iced](https://iced.rs), with everything on your
-own machine. No account, no network: it starts the API as a child process
-against a SQLite file in your application data directory, and carries its own
-TeX distribution so a resume typesets to a real PDF on a computer that has
-never had LaTeX installed. The preview is that PDF, rasterised in-process by
-[hayro](https://github.com/LaurenzV/hayro), a pure-Rust renderer.
-
-```bash
-bun run dev:desktop     # cargo run: builds the app and opens it
-```
-
-In a checkout the API runs from source through `uv`, so an edit to a router
-shows up without rebuilding anything. The library lives where the Electron
-app kept it — `~/Library/Application Support/Resume Builder` on macOS,
-`%APPDATA%\Resume Builder` on Windows — so an existing library opens as it was.
-Set `RESUME_BUILDER_DATA_DIR` to point a development run at a scratch library
-instead.
-
-```bash
-bun run test:desktop                                                  # unit + headless UI tests
-cargo test --manifest-path apps/desktop/Cargo.toml -- --ignored       # end to end: real API, real pdfTeX
-SNAPSHOT_DIR=/tmp/shots bun run test:desktop                          # also writes every screen as a PNG
-```
-
-### Building installers
-
-```bash
-bun run package:desktop
-```
-
-This needs [cargo-packager](https://github.com/crabnebula-dev/cargo-packager)
-(`cargo install cargo-packager --locked`). Three things go in, and two of them
-cannot be cross-built — PyInstaller
-produces a binary for the machine it runs on, and the TeX distribution is
-per-platform. **So an installer can only be built on the kind of machine it is
-for.** Building an x64 installer on an Apple Silicon Mac produces a `.dmg` that
-fails on the first launch of the machine it was meant for.
-
-| | |
-| --- | --- |
-| [`resume-api.spec`](apps/api/resume-api.spec) | the API as a single binary |
-| [`bundle-texlive.sh`](apps/desktop/scripts/bundle-texlive.sh) | TinyTeX plus the packages the template needs |
-| [`Cargo.toml`](apps/desktop/Cargo.toml) | the app, and under `[package.metadata.packager]` what ships beside it |
-
-The TeX bundle is most of the download — around 235MB installed.
-
-### Releases
-
-The release workflow, [`release-desktop.yml`](.github/workflows/release-desktop.yml),
-is **disabled**: nothing triggers it, and its first job is switched off. Its
-build steps still describe the Electron app and need rewriting for
-cargo-packager before it is turned back on — the note at the top of the file
-says how.
-
-Nothing is notarised, so both systems warn on first launch. If a packaged
-macOS app is reported as *"damaged"*, ad-hoc sign it with
-[`adhoc-sign-mac.sh`](apps/desktop/scripts/adhoc-sign-mac.sh) before building
-the `.dmg`.
 
 ## Landing page screenshots
 
