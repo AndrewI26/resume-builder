@@ -17,6 +17,7 @@ from models.resume import Resume
 from models.section_version import SectionVersion
 from models.skill import Skill
 from models.user import User
+from schemas.portable import format_bold, parse_bold
 from services.bullet_points import bullet_points_by_id, hydrate
 
 LIBRARY: dict[str, Any] = {
@@ -42,7 +43,10 @@ LIBRARY: dict[str, Any] = {
             "position": "Engineer",
             "duration": "2024 - Present",
             "location": "Toronto, ON",
-            "bullet_points": ["Shipped the thing", "Cut costs by 40%"],
+            "bullet_points": [
+                "Shipped the thing",
+                "Cut costs by **40%** in **one** quarter",
+            ],
         },
         {
             "company": "Initech",
@@ -116,7 +120,7 @@ class TestImport:
 
         assert count(db, Resume, user) == 0
 
-    def test_keeps_the_text_with_no_bold(self, auth, user: User, db: Session) -> None:
+    def test_turns_markers_into_bold(self, auth, user: User, db: Session) -> None:
         auth(user).post("/library/import", json=LIBRARY)
 
         acme = db.scalars(
@@ -127,11 +131,10 @@ class TestImport:
         bullets = hydrate(
             acme.bullet_points, bullet_points_by_id(db, acme.bullet_points)
         )
-        assert [bullet.text for bullet in bullets] == [
-            "Shipped the thing",
-            "Cut costs by 40%",
+        assert [(bullet.text, bullet.bolded) for bullet in bullets] == [
+            ("Shipped the thing", []),
+            ("Cut costs by 40% in one quarter", [(13, 15), (20, 22)]),
         ]
-        assert all(bullet.bolded == [] for bullet in bullets)
 
     def test_the_sections_show_up_through_their_endpoints(
         self, auth, user: User
@@ -258,6 +261,24 @@ class TestRejection:
 
         assert len(detail) == 2
 
+    @pytest.mark.parametrize(
+        "bullet", ["Cut costs by **40%", "**Cut** costs **by 40%", "Cut **** costs"]
+    )
+    def test_refuses_markers_that_do_not_pair_up(
+        self, auth, user: User, db: Session, bullet: str
+    ) -> None:
+        body = library(
+            experience=[dict(LIBRARY["experience"][0], bullet_points=["Fine", bullet])]
+        )
+
+        response = auth(user).post("/library/import", json=body)
+
+        assert response.status_code == 422
+        [error] = response.json()["detail"]
+        assert error["loc"] == ["body", "experience", 0, "bullet_points", 1]
+        assert bullet in error["msg"]
+        assert total_sections(db, user) == 0
+
     def test_needs_a_signed_in_user(self, client: TestClient) -> None:
         assert client.post("/library/import", json=LIBRARY).status_code == 401
 
@@ -302,6 +323,42 @@ class TestExport:
 
         assert exported["experience"] == []
 
+    def test_marks_bold_with_asterisks(self, auth, user: User) -> None:
+        auth(user).post("/library/import", json=LIBRARY)
+
+        exported = auth(user).get("/library/export").json()
+
+        acme = next(e for e in exported["experience"] if e["company"] == "Acme")
+        assert acme["bullet_points"] == LIBRARY["experience"][0]["bullet_points"]
+
+
+class TestBoldMarkers:
+    @pytest.mark.parametrize(
+        ("marked", "text", "bolded"),
+        [
+            ("No bold here", "No bold here", []),
+            ("**Led** a team", "Led a team", [(0, 2)]),
+            ("Cut costs by **40%** fast", "Cut costs by 40% fast", [(13, 15)]),
+            ("Cut costs by **40%**", "Cut costs by 40%", [(13, 15)]),
+            ("**All of it**", "All of it", [(0, 8)]),
+            ("**a** and **b** and **c**", "a and b and c", [(0, 0), (6, 6), (12, 12)]),
+            ("Single * star stays", "Single * star stays", []),
+        ],
+        ids=["none", "start", "middle", "end", "whole", "several", "single-star"],
+    )
+    def test_parses_and_formats_back(
+        self, marked: str, text: str, bolded: list[tuple[int, int]]
+    ) -> None:
+        assert parse_bold(marked) == (text, bolded)
+        assert format_bold(text, bolded) == marked
+
+    @pytest.mark.parametrize(
+        "marked", ["**open", "close**", "**a** **b", "empty ****", "***"]
+    )
+    def test_refuses_unbalanced_or_empty_markers(self, marked: str) -> None:
+        with pytest.raises(ValueError, match="\\*\\*"):
+            parse_bold(marked)
+
 
 class TestSchema:
     def test_describes_the_format(self, client: TestClient) -> None:
@@ -315,3 +372,9 @@ class TestSchema:
             "projects",
             "skills",
         }
+
+    def test_explains_bold_markers(self, client: TestClient) -> None:
+        schema = client.get("/library/schema").json()
+
+        bullets = schema["$defs"]["PortableExperience"]["properties"]["bullet_points"]
+        assert "**" in bullets["items"]["description"]

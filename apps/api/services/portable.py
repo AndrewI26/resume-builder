@@ -29,6 +29,8 @@ from schemas.portable import (
     PortablePersonalInfo,
     PortableProject,
     PortableSkill,
+    format_bold,
+    parse_bold,
 )
 from services.bullet_points import bullet_points_by_id, hydrate
 from services.record_section import MAX_ATTEMPTS, stage_version
@@ -90,9 +92,13 @@ def _create(
     db.flush()
 
 
-def _bullets(texts: list[str]) -> list[dict[str, Any]]:
-    # the format carries no bold, so every bullet arrives plain
-    return [{"text": text, "bolded": []} for text in texts]
+def _bullets(marked: list[str]) -> list[dict[str, Any]]:
+    # validation already refused any bullet whose markers don't pair up
+    bullets = []
+    for bullet in marked:
+        text, bolded = parse_bold(bullet)
+        bullets.append({"text": text, "bolded": bolded})
+    return bullets
 
 
 def _write_library(
@@ -162,7 +168,10 @@ def export_library(db: Session, user_id: UUID) -> PortableLibrary:
     )
 
     def texts(bullet_ids: list[UUID]) -> list[str]:
-        return [bullet.text for bullet in hydrate(bullet_ids, by_id)]
+        return [
+            format_bold(bullet.text, bullet.bolded)
+            for bullet in hydrate(bullet_ids, by_id)
+        ]
 
     def link(value: Any) -> PortableLink | None:
         return None if value is None else PortableLink(url=value.url, label=value.label)

@@ -13,7 +13,7 @@ a typo it made should come back as an error instead of quietly vanishing.
 
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from schemas.project import Technology
 from schemas.skill import SkillItem
@@ -23,7 +23,63 @@ MAX_ITEMS = 200
 MAX_BULLETS = 50
 MAX_LIST_ENTRIES = 100
 
-BulletText = Annotated[str, Field(min_length=1, max_length=1000)]
+BOLD_MARKER = "**"
+
+
+def parse_bold(marked: str) -> tuple[str, list[tuple[int, int]]]:
+    """Split ``**bold**`` markers out of a bullet.
+
+    Returns the text without the markers and the bolded runs as the inclusive
+    ``(start, end)`` ranges a bullet point stores. Markers have to pair up and
+    enclose something, or the bullet is refused.
+    """
+    parts = marked.split(BOLD_MARKER)
+    if len(parts) % 2 == 0:
+        raise ValueError(f"has a {BOLD_MARKER} without a closing one: {marked!r}")
+
+    text = ""
+    bolded: list[tuple[int, int]] = []
+    # the parts alternate plain, bold, plain, ... starting and ending plain
+    for index, part in enumerate(parts):
+        if index % 2:
+            if not part:
+                raise ValueError(f"has an empty {BOLD_MARKER}{BOLD_MARKER}: {marked!r}")
+            bolded.append((len(text), len(text) + len(part) - 1))
+        text += part
+
+    return text, bolded
+
+
+def format_bold(text: str, bolded: list[tuple[int, int]]) -> str:
+    """Wrap each bolded run in ``**``, the inverse of ``parse_bold``."""
+    marked = ""
+    previous = 0
+    for start, end in bolded:
+        marked += (
+            f"{text[previous:start]}{BOLD_MARKER}{text[start : end + 1]}{BOLD_MARKER}"
+        )
+        previous = end + 1
+    return marked + text[previous:]
+
+
+def _check_bold(marked: str) -> str:
+    parse_bold(marked)
+    return marked
+
+
+BulletText = Annotated[
+    str,
+    Field(
+        min_length=1,
+        max_length=1000,
+        description=(
+            "One bullet point. Wrap any part that should be bold in double "
+            'asterisks, as in "Cut costs by **40%**". Every ** needs a closing '
+            "one, and nothing else is formatting."
+        ),
+    ),
+    AfterValidator(_check_bold),
+]
 Text = Annotated[str, Field(max_length=255)]
 Url = Annotated[str, Field(max_length=2048)]
 

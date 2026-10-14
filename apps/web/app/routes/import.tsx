@@ -30,7 +30,7 @@ const EXAMPLE = `{
       "position": "Software Engineer",
       "duration": "2024 - Present",
       "location": "Toronto, ON",
-      "bullet_points": ["Built the thing", "Cut costs by 40%"]
+      "bullet_points": ["Built the thing", "Cut costs by **40%**"]
     }
   ],
   "projects": [
@@ -61,7 +61,7 @@ Rules:
 - Output only the JSON, matching the JSON Schema below exactly. Do not add fields it doesn't define.
 - Put each job in "experience", each project in "projects", each school in "education", and each group of skills in "skills". Contact details go in "personal_info".
 - Leave out any list that would be empty, and any optional field you don't have a value for.
-- Bullet points are plain strings. Keep my wording.
+- Bullet points are strings. Keep my wording, and wrap any part I bolded in double asterisks, like **this**.
 
 JSON Schema:
 `;
