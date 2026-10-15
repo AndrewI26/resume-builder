@@ -158,10 +158,10 @@ class TestCoursework:
 
         assert (
             "      {BSc} {Boston, MA}\n"
-            "      \\resumeItemListStart\n"
+            "      \\begin{itemize}[leftmargin=0pt, label={}]\n"
             "         \\resumeItem{\\textbf{Relevant Coursework}: "
             "Algorithms, C++ \\& Systems}\n"
-            "      \\resumeItemListEnd\n"
+            "      \\end{itemize}\\vspace{-5pt}\n"
         ) in tex
 
     def test_adds_nothing_when_there_is_no_coursework(self):

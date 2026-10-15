@@ -207,11 +207,12 @@ function renderCoursework(coursework: string[]): string[] {
 	}
 
 	return [
-		"      \\resumeItemListStart",
+		// no bullet: the line sits flush under the school like its subheading
+		"      \\begin{itemize}[leftmargin=0pt, label={}]",
 		`         \\resumeItem{\\textbf{Relevant Coursework}: ${escapeLatex(
 			coursework.join(", "),
 		)}}`,
-		"      \\resumeItemListEnd",
+		"      \\end{itemize}\\vspace{-5pt}",
 	];
 }
 

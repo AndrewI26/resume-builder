@@ -21,9 +21,13 @@ RUN wget -qO- https://yihui.org/tinytex/install-bin-unix.sh | sh \
  && mv /root/.TinyTeX /opt/texlive \
  && rm -rf /root/bin
 ENV PATH=/opt/texlive/bin/aarch64-linux:/opt/texlive/bin/x86_64-linux:$PATH
+# cm-super is the outline version of the text-companion font that characters
+# like °, ×, €, ©, ™ and • are typeset in. Without it pdfTeX tries to draw a
+# bitmap with METAFONT, which can't write into this root-owned tree, and the
+# compile dies with "Font tcrm1095 at 600 not found".
 RUN tlmgr install \
       tools preprint titlesec marvosym enumitem fancyhdr babel-english \
-      fontawesome5 xcolor \
+      fontawesome5 xcolor cm-super \
  # nothing here runs tlmgr again, and pdfTeX reads none of this
  && rm -rf /opt/texlive/texmf-dist/doc \
            /opt/texlive/texmf-dist/source \
