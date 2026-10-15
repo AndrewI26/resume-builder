@@ -214,12 +214,13 @@ def _render_coursework(coursework: list[str]) -> list[str]:
         return []
 
     return [
-        r"      \resumeItemListStart",
+        # no bullet: the line sits flush under the school like its subheading
+        r"      \begin{itemize}[leftmargin=0pt, label={}]",
         (
             r"         \resumeItem{\textbf{Relevant Coursework}: "
             rf"{escape_latex(', '.join(coursework))}}}"
         ),
-        r"      \resumeItemListEnd",
+        r"      \end{itemize}\vspace{-5pt}",
     ]
 
 

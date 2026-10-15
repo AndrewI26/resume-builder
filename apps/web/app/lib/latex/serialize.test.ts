@@ -516,9 +516,9 @@ describe("education coursework", () => {
 	test("lists the courses in order under the education", () => {
 		expect(withCoursework(["Algorithms", "C++ & Systems"])).toContain(
 			"      {BSc} {Boston, MA}\n" +
-				"      \\resumeItemListStart\n" +
+				"      \\begin{itemize}[leftmargin=0pt, label={}]\n" +
 				"         \\resumeItem{\\textbf{Relevant Coursework}: Algorithms, C++ \\& Systems}\n" +
-				"      \\resumeItemListEnd\n",
+				"      \\end{itemize}\\vspace{-5pt}\n",
 		);
 	});
 
