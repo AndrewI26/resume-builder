@@ -25,7 +25,11 @@ ENV PATH=/opt/texlive/bin/aarch64-linux:/opt/texlive/bin/x86_64-linux:$PATH
 # like °, ×, €, ©, ™ and • are typeset in. Without it pdfTeX tries to draw a
 # bitmap with METAFONT, which can't write into this root-owned tree, and the
 # compile dies with "Font tcrm1095 at 600 not found".
-RUN tlmgr install \
+#
+# tlmgr updates itself first: a cached TinyTeX layer can be older than the
+# package repository, which then refuses every install until it does.
+RUN tlmgr update --self \
+ && tlmgr install \
       tools preprint titlesec marvosym enumitem fancyhdr babel-english \
       fontawesome5 xcolor cm-super \
  # nothing here runs tlmgr again, and pdfTeX reads none of this
