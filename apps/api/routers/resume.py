@@ -105,7 +105,7 @@ def create_resume(
             template=resume.template,
             full_name=resume.full_name,
             personal_info_id=resume.personal_info_id,
-            section_order=[section_type.value for section_type in resume.section_order],
+            section_order=resume.section_order,
         )
         .returning(Resume)
     )
@@ -145,7 +145,7 @@ def edit_resume(
             template=resume.template,
             full_name=resume.full_name,
             personal_info_id=resume.personal_info_id,
-            section_order=[section_type.value for section_type in resume.section_order],
+            section_order=resume.section_order,
         )
         .returning(Resume)
     )
@@ -249,9 +249,9 @@ def _write_sections(
     # a type that was attached but never ordered would render nowhere, so give
     # it a place at the end rather than silently dropping it
     missing = [
-        section_type.value
+        section_type
         for section_type in ids_by_type
-        if section_type.value not in resume.section_order
+        if section_type not in resume.section_order
     ]
     if missing:
         resume.section_order = list(resume.section_order) + missing

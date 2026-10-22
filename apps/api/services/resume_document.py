@@ -123,12 +123,12 @@ def build_resume_document(
             personal_info = PersonalInfoRead.model_validate(row)
 
     blocks: list[SectionBlock] = []
-    for value in resume.section_order:
-        ids = ids_by_type.get(ResumeSectionType(value), [])
+    for section_type in resume.section_order:
+        ids = ids_by_type.get(section_type, [])
         if not ids:
             continue
 
-        block = build_block(db, resume.user_id, ResumeSectionType(value), ids)
+        block = build_block(db, resume.user_id, section_type, ids)
         # a section whose rows were all deleted leaves stale ids behind; an
         # empty block would render as a bare heading, so drop it
         if block.items:

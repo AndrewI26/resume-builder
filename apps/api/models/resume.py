@@ -3,7 +3,8 @@ import uuid
 from sqlalchemy import ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from db import Base, string_array
+from db import Base, EnumArray
+from enums import ResumeSectionType
 
 
 class Resume(Base):
@@ -37,6 +38,6 @@ class Resume(Base):
     # the order section headings are laid out in, as ``ResumeSectionType``
     # values. A type left out of this list is not rendered at all, which is how
     # a section is hidden without being detached.
-    section_order: Mapped[list[str]] = mapped_column(
-        string_array(50), nullable=False, default=list
+    section_order: Mapped[list[ResumeSectionType]] = mapped_column(
+        EnumArray(ResumeSectionType, 50), nullable=False, default=list
     )

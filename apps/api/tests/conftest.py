@@ -395,7 +395,7 @@ def make_resume(db: Session):
             template=template,
             full_name=full_name,
             personal_info_id=None if personal_info is None else personal_info.id,
-            section_order=[section_type.value for section_type in order],
+            section_order=list(order),
         )
         db.add(resume)
         db.commit()

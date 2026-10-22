@@ -169,9 +169,7 @@ def _apply_resume(
             )
 
     values = fields.model_dump(exclude={"section_order"})
-    section_order = [
-        section_type.value for section_type in (fields.section_order or [])
-    ]
+    section_order = list(fields.section_order or [])
 
     row = db.get(Resume, record_id)
     if row is None:

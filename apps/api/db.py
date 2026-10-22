@@ -1,7 +1,7 @@
 import enum
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypeVar
 
 from sqlalchemy import (
     ARRAY,
@@ -60,6 +60,48 @@ def string_array(length: int) -> TypeEngine[Any]:
     and writes them whole, so the two representations are interchangeable.
     """
     return ARRAY(String(length)).with_variant(JSON(), "sqlite")
+
+
+E = TypeVar("E", bound=enum.Enum)
+
+
+class EnumArray(TypeDecorator[list[E]]):
+    """An ordered list of enum members, stored as their values.
+
+    The column is exactly what :func:`string_array` makes — ``VARCHAR[]`` on
+    Postgres, a JSON array on SQLite — so swapping one for the other needs no
+    migration. What this adds is the conversion at both ends: members go down
+    as their ``.value`` and come back up as members, so the model can be typed
+    with the enum instead of every caller converting by hand.
+
+    A value the enum does not know raises on load rather than passing through
+    as a bare string.
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def __init__(self, enum_cls: type[E], length: int) -> None:
+        super().__init__()
+        self.enum_cls = enum_cls
+        self.length = length
+
+    def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[Any]:
+        return dialect.type_descriptor(string_array(self.length))
+
+    def process_bind_param(
+        self, value: list[E] | None, dialect: Dialect
+    ) -> list[Any] | None:
+        if value is None:
+            return value
+        return [self.enum_cls(item).value for item in value]
+
+    def process_result_value(
+        self, value: list[Any] | None, dialect: Dialect
+    ) -> list[E] | None:
+        if value is None:
+            return value
+        return [self.enum_cls(item) for item in value]
 
 
 class UuidArray(TypeDecorator[list[uuid.UUID]]):

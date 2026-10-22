@@ -486,9 +486,7 @@ def insert_all(db: Session) -> None:
             title=resume.title,
             full_name=resume.full_name,
             personal_info_id=sid(PERSONAL_INFO_KEY),
-            section_order=[
-                section_type.value for section_type in DEFAULT_SECTION_ORDER
-            ],
+            section_order=list(DEFAULT_SECTION_ORDER),
         )
         db.add(new_resume)
         db.flush()
