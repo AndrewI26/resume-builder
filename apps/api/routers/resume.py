@@ -351,9 +351,6 @@ async def compile_resume_pdf(
                 detail="PDF export is unavailable",
             )
 
-        # a job per request rather than one per resume: a finished job is
-        # kept for a short while, and re-using an id would serve a stale
-        # PDF to someone who edited and exported again
         job_id = uuid4()
 
         # registered before the job exists, so a compile that finishes

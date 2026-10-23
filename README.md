@@ -89,116 +89,6 @@ stay in the library.
 The whole app reflows to a single column on small screens, and follows your
 system light/dark preference or an explicit toggle.
 
-## How the PDF gets made
-
-Typesetting is slow and bursty — a run is CPU-bound for a second or two — so it
-does not belong on the request path. The API writes a job into **Postgres** and
-a pool of **workers** claims it. There is no separate queue server: the table
-is the queue, `LISTEN`/`NOTIFY` is the doorbell, and `FOR UPDATE SKIP LOCKED`
-is what hands each job to exactly one worker.
-
-```mermaid
-sequenceDiagram
-    participant C as Browser
-    participant A as FastAPI
-    participant P as Postgres
-    participant W as Worker
-    participant T as pdfTeX
-
-    C->>A: POST /resumes/:id/pdf
-    A->>A: verify the resume belongs to the caller
-    A->>P: INSERT pdf_jobs + NOTIFY pdf_jobs
-    P->>W: notification wakes an idle worker
-    W->>P: claim with FOR UPDATE SKIP LOCKED
-    W->>P: load resume, sections, bullet points
-    W->>W: build document, serialize to LaTeX
-    W->>T: pdflatex in a sandbox, 20s cap
-    T-->>W: PDF bytes
-    W->>P: UPDATE pdf_jobs + NOTIFY pdf_jobs_done
-    P-->>A: notification, awaited up to 45s
-    A-->>C: 200 application/pdf
-```
-
-**The job carries a resume id and nothing else.** It re-reads the rows itself
-rather than trusting a document sent in from outside, so there is no
-caller-supplied LaTeX anywhere in the pipeline. Ownership is settled by the
-endpoint before the job is ever queued.
-
-**The queue bounds work rather than hiding it.** The request waits for its own
-result, because the client asked for a file and gets one in the same response.
-What the queue buys is a ceiling on how many compiles run at once: a compile is
-CPU-bound, so running more of them makes each one slower rather than finishing
-sooner, and unbounded exports would take the host down instead of merely
-queueing. Jobs run with `max_tries = 1` — the document is identical on a retry,
-so a retry cannot fix what failed.
-
-**How many workers is set when the API starts.** `PDF_WORKER_COUNT` defaults to
-3, and the API's lifespan starts that many:
-
-```bash
-PDF_WORKER_COUNT=6 bun run dev:api
-```
-
-Zero is a real answer, and it is what `docker-compose.yml` gives the API: there
-a separate `worker` container claims the jobs instead. Either way the API keeps
-one `LISTEN` connection open, because a request waiting here has to hear that
-its job finished wherever it ran.
-
-**The engine runs in a container.** A TeX document is a program, and the engine
-that runs it is the least trustworthy thing in the application. Which sandbox
-it gets depends on where the worker is:
-
-| `LATEX_BACKEND` | Used by | The fence |
-| --- | --- | --- |
-| `docker` (default) | the API on the host | a container per compile: `--network=none`, read-only root, `--cap-drop=ALL`, `--memory=512m`, `--pids-limit=128`, nothing mounted. The document goes in on stdin and the PDF comes back on stdout |
-| `local` | the `worker` container | the engine as a child process — that container is already the boundary, and starting containers from inside one would mean giving it a Docker socket, a far larger privilege than the one being contained |
-
-Both are fenced the same way from the engine's side:
-
-| Fence | Why |
-| --- | --- |
-| `openin_any=p`, `openout_any=p` | paranoid mode — `\input{/etc/passwd}` cannot reach the PDF |
-| `-no-shell-escape` | no `\write18`, whatever the document says |
-| a minimal environment | the engine inherits nothing the worker was started with, so a stray secret cannot leak into a document |
-| `-halt-on-error` | fail on the first error instead of cascading |
-| 20s timeout | a hung run is killed, container and all |
-| `SOURCE_DATE_EPOCH=0` | identical input produces an identical file |
-
-Build the compile image once before exporting on the host:
-
-```bash
-bun run docker:latex
-```
-
-**The engine has to be pdfTeX.** The template calls `\pdfgentounicode`, a pdfTeX
-primitive that emits the glyph-to-Unicode map making the PDF readable by
-applicant tracking systems — which for a resume is close to the whole point.
-XeTeX-based engines such as Tectonic reject it.
-
-Failures come back as themselves rather than a generic 500: a document the
-engine rejected returns `422` with the tail of the TeX log, a missing engine
-returns `503`, a compile that outlives the wait returns `504`, and a resume
-deleted between queueing and running returns `404`. The worker cannot throw
-across a table, so it records which failure it hit and the endpoint raises it
-again on the other side.
-
-Finished rows are deleted a minute after they are read, and a job whose worker
-died is failed rather than left running, both by a reaper that runs alongside
-the workers.
-
-Relevant code:
-
-| | |
-| --- | --- |
-| [`routers/resume.py`](apps/api/routers/resume.py) | the endpoint that queues and waits |
-| [`services/pdf_queue.py`](apps/api/services/pdf_queue.py) | the queue: enqueue, claim, result, reap |
-| [`services/pdf_worker.py`](apps/api/services/pdf_worker.py) | the worker loop and the pool |
-| [`deps/notify.py`](apps/api/deps/notify.py) | the one LISTEN connection everything waits on |
-| [`services/compiler.py`](apps/api/services/compiler.py) | the sandboxed pdfTeX run, both backends |
-| [`services/latex/`](apps/api/services/latex) | document → LaTeX source |
-| [`docker/latex/`](docker/latex) | the compile sandbox image |
-| [`worker.py`](apps/api/worker.py) | standalone worker, for the compose deployment |
-
 ## Stack
 
 | | |
@@ -211,20 +101,6 @@ Relevant code:
 
 The web app is a React Router SPA over a FastAPI service.
 
-```
-apps/
-  web/          the React Router SPA, plus its Dockerfile and screenshots
-    app/routes/     pages
-    app/components/ shared UI, and the landing page demos
-    app/lib/        LaTeX serialization, resume documents
-    app/api/        generated OpenAPI types + client
-  api/          FastAPI service, worker, migrations
-    routers/    HTTP endpoints
-    services/   compile pipeline, LaTeX serialization, sections
-    models/     SQLAlchemy tables
-    schemas/    Pydantic request/response types
-```
-
 ## Getting started
 
 ### Deploying with Docker
@@ -236,37 +112,6 @@ proxy on the host:
 cp .env.prod.example .env   # then fill it in
 docker compose up --build -d
 ```
-
-[`.env.prod.example`](.env.prod.example) lists every setting it reads. Three
-have no default and the stack refuses to start without them: `PUBLIC_URL`,
-the site's address (e.g. `https://resume.example.com`); `SECRET_KEY`; and
-`POSTGRES_PASSWORD`. `NODE_ENV` defaults to `production`, which makes cookies
-https only, so sign in needs the proxy's https in front of it.
-
-That starts Postgres, the API and the PDF worker, applies the migrations on
-the way up, and builds the web app into `WEB_ROOT`. The proxy serves those
-files and passes `/api/*` on to the API;
-[`docker/caddy/Caddyfile.example`](docker/caddy/Caddyfile.example) is a
-ready-made Caddy site block. To use Google sign in, register
-`https://<your-domain>/api/auth/google/callback` as the redirect URI.
-
-Nothing in the stack faces the internet. Postgres and the worker sit on an
-internal Docker network the host cannot reach, and the API publishes its port
-on `127.0.0.1` only, for the proxy.
-
-The database lives in a named volume and survives `docker compose down`;
-`down -v` is what throws it away. The job queue is a table in that same
-database, so there is no second service to run.
-
-The image the API and worker share carries a TinyTeX install with just the
-packages the resume template loads, so `pdflatex` is there without a TeX Live
-install on your machine. `PDF_WORKER_COUNT` sets how many compiles the worker
-container runs at once (default 3).
-
-> This runs the app, not a development loop: the web bundle is built into the
-> image and the API runs without `--reload`, so code changes need a rebuild.
-> For day-to-day work use the setup below, which runs only the backing services
-> in Docker.
 
 ### Running it for development
 
@@ -291,27 +136,11 @@ bun run dev:web           # http://localhost:5173
 
 Sign in at http://localhost:5173 as **demo@example.com** / **demo1234**.
 
-> There is no separate worker to start: the API runs its own, three by default.
-> `PDF_WORKER_COUNT=6 bun run dev:api` runs six instead, and `0` runs none —
-> useful if you want a standalone `uv run python worker.py` to do the work.
->
-> Each compile runs in the `resume-builder-latex` container, so `bun run
-> docker:latex` has to have been run at least once; the endpoint returns `503`
-> when the image or Docker itself is missing. Set `LATEX_BACKEND=local` to use
-> a `pdflatex` on your `PATH` instead.
-
 ### Sample data
 
 `bun run db:seed` fills the database with one demo user and a realistic spread
 of sections (personal info, educations, experiences with bolded bullet points,
 projects, skills) plus two resumes built from them.
-
-Every seeded row has a deterministic id, so re-running the seed deletes exactly
-the rows it owns and reinserts them — anything you created by hand is left
-alone. It is safe to re-run whenever you want a clean baseline, and it refuses
-to run unless `NODE_ENV=development`. The demo account's password is committed
-in the seed script; it is a development fixture and must never exist in a
-deployed environment.
 
 To change the sample data, edit `apps/api/scripts/seed.py` and re-run the seed.
 
@@ -321,22 +150,6 @@ CloudBeaver runs at http://localhost:8978 with the connection **Resume Builder
 (dev)** already created (see `docker/cloudbeaver/initial-data-sources.conf`).
 The username is filled in; enter `POSTGRES_PASSWORD` from your `.env` on first
 connect and CloudBeaver remembers it.
-
-The connection is created from the committed config only when the CloudBeaver
-workspace volume is empty, so it appears on a fresh clone and never overwrites
-connections you have saved. To get it back after changing that file:
-
-```bash
-docker compose -f docker-compose.dev.yml rm -sf cloudbeaver
-docker volume rm resume-builder_cloudbeaver_workspace
-bun run docker:dev
-```
-
-For a shell instead:
-
-```bash
-docker compose -f docker-compose.dev.yml exec postgres psql -U resume_user -d resume_db
-```
 
 ## API client
 
@@ -351,8 +164,7 @@ bun run codegen
 
 It reads `http://localhost:8000/openapi.json`, so the API must be running.
 
-The output is a single file, `apps/web/app/api/schema.d.ts` — never edit it
-by hand, since the next codegen run overwrites it. The typed client built on
+The output is a single file, `apps/web/app/api/schema.d.ts`. The typed client built on
 top lives in `apps/web/app/api/api.ts`.
 
 ## Checks
@@ -361,14 +173,6 @@ top lives in `apps/web/app/api/api.ts`.
 bun run test              # pytest + bun test
 bun run verify            # format, lint and typecheck every app
 ```
-
-The API tests run against a throwaway SQLite file and need nothing started.
-Set `TEST_DATABASE_URL` to run the same suite against a Postgres — the hosted
-app's database — which is worth doing before changing a model.
-
-The job queue's tests only run on that second pass. `FOR UPDATE SKIP LOCKED`
-and `LISTEN/NOTIFY` are the whole mechanism and SQLite has no stand-in for
-them, so they skip rather than pretend:
 
 ```bash
 TEST_DATABASE_URL=postgresql+psycopg://resume_user:resume_pass@localhost:5432/resume_db_test \
