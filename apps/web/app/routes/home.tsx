@@ -273,8 +273,8 @@ export default function Home() {
 				</h1>
 
 				<p className="mx-auto mt-6 max-w-xl text-ink-subtle text-lg leading-body sm:text-xl">
-					Keep every role, project and bullet point in one library, then tailor
-					a typeset resume for each application without losing the original.
+					Define every role, project and bullet point once, then create resumes
+					that point to these sections.
 				</p>
 
 				<div className="mt-9 flex justify-center">
@@ -297,7 +297,7 @@ export default function Home() {
 				demo={<ReuseDemo />}
 			>
 				Every role, project and skill lives in one library. A resume holds a
-				reference to an entry, not a copy of it — so a fix made once lands on
+				reference to an entry, not a copy of it. So a fix made once lands on
 				every resume that uses it.
 			</DemoSection>
 
@@ -338,74 +338,6 @@ export default function Home() {
 					resume follows the arrangement you can see.
 				</p>
 			</Feature>
-
-			{/* Smaller pair ----------------------------------------------------- */}
-			<section className="py-20 lg:py-28">
-				<h2 className="max-w-2xl text-4xl leading-heading tracking-decreased sm:text-5xl">
-					Careful where it counts
-				</h2>
-				<p className="mt-5 max-w-lg text-ink-subtle text-lg leading-body">
-					A resume is work you cannot get back by accident, so the destructive
-					paths ask first and the rest stay out of your way.
-				</p>
-
-				<div className="mt-12 grid gap-8 md:grid-cols-2">
-					<figure>
-						<Shot
-							alt="A confirmation dialog asking whether to delete a resume"
-							name="confirm"
-						/>
-						<figcaption className="mt-4 text-ink-subtle leading-body">
-							Deleting a resume names the one you picked and says what survives:
-							the sections it used stay in your library.
-						</figcaption>
-					</figure>
-
-					<figure>
-						<Shot
-							alt="The dashboard, showing counts of resumes and sections"
-							name="dashboard"
-						/>
-						<figcaption className="mt-4 text-ink-subtle leading-body">
-							The dashboard is a count and two doors — what you have, and where
-							to go next.
-						</figcaption>
-					</figure>
-				</div>
-			</section>
-
-			{/* Details ---------------------------------------------------------- */}
-			<section className="border-border border-t py-20 lg:py-28">
-				<h2 className="max-w-2xl text-4xl leading-heading tracking-decreased sm:text-5xl">
-					The rest of it
-				</h2>
-
-				<div className="mt-12 grid gap-x-12 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-					<Detail title="Real typesetting">
-						Resumes are compiled by a LaTeX engine from your saved sections, not
-						approximated in the browser.
-					</Detail>
-					<Detail title="PDF and source">
-						Download the finished PDF, or the .tex behind it if you would rather
-						keep going by hand.
-					</Detail>
-					<Detail title="Drag to reorder">
-						Sections within a resume, and bullet points within an entry, move by
-						dragging.
-					</Detail>
-					<Detail title="Saves as you go">
-						Edits to a resume save on their own — the editor tells you when
-						everything has landed.
-					</Detail>
-					<Detail title="Light and dark">
-						The whole app follows your system, or whichever you pick.
-					</Detail>
-					<Detail title="Your own header">
-						Each resume carries its own name and contact block, so a personal
-						address never leaks into a work application.
-					</Detail>
-				</div>
-			</section>
 
 			{/* Close ------------------------------------------------------------ */}
 			<section className="border-border border-t py-24 text-center lg:py-32">
