@@ -321,24 +321,6 @@ export default function Home() {
 				exactly as you left it.
 			</DemoSection>
 
-			{/* Features --------------------------------------------------------- */}
-			<Feature
-				alt="Editing an experience entry, with bullet points and a bold-formatting preview"
-				eyebrow="The writing"
-				shot="section-form"
-				title="Bullets worth reading"
-			>
-				<p>
-					Write bullet points with the emphasis where it belongs — select any
-					phrase and bold it with ⌘B, with a live preview of how it will
-					typeset.
-				</p>
-				<p className="mt-4">
-					Drag to reorder them, and drag whole sections to reorder those. The
-					resume follows the arrangement you can see.
-				</p>
-			</Feature>
-
 			{/* Close ------------------------------------------------------------ */}
 			<section className="border-border border-t py-24 text-center lg:py-32">
 				<h2 className="mx-auto max-w-2xl text-4xl leading-heading tracking-decreased sm:text-5xl">
