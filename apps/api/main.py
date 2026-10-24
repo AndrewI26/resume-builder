@@ -43,7 +43,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
 
 
-app = FastAPI(generate_unique_id_function=operation_id, lifespan=lifespan)
+# The interactive docs are a development tool. The schema itself stays up:
+# codegen reads it, and docker-compose.yml's healthcheck polls it.
+_docs_enabled = settings.node_env == "development"
+
+app = FastAPI(
+    generate_unique_id_function=operation_id,
+    lifespan=lifespan,
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+)
 
 
 def _allowed_origins() -> list[str]:
