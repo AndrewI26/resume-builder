@@ -269,7 +269,7 @@ export default function Home() {
 				</p>
 
 				<h1 className="mx-auto mt-6 max-w-3xl text-5xl leading-heading tracking-decreased sm:text-6xl lg:text-7xl">
-					Write it once. Version it forever.
+					Manage resumes with ease.
 				</h1>
 
 				<p className="mx-auto mt-6 max-w-xl text-ink-subtle text-lg leading-body sm:text-xl">
