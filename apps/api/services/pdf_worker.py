@@ -17,7 +17,7 @@ one, because a worker that exits is a queue that silently stops draining.
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from typing import TypeVar
 from uuid import UUID
@@ -174,7 +174,7 @@ async def reaper_loop() -> None:
 @asynccontextmanager
 async def run_pool(
     notifier: PdfNotifier, count: int, *, reap: bool = True
-) -> AsyncIterator[None]:
+) -> AsyncGenerator[None]:
     """Run the listener, ``count`` workers and the reaper for as long as the block.
 
     The listener runs even when ``count`` is zero: the API still has to hear

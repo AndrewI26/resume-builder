@@ -127,10 +127,11 @@ bun run db:upgrade        # apply migrations
 bun run db:seed           # sample data + demo account
 ```
 
-Then, in two more terminals:
+Then, in three more terminals:
 
 ```bash
 bun run dev:api           # http://localhost:8000
+bun run dev:worker        # compiles PDFs; exports time out without it
 bun run dev:web           # http://localhost:5173
 ```
 

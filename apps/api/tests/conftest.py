@@ -437,13 +437,12 @@ def anyio_backend() -> str:
 
 @pytest.fixture(autouse=True)
 def _no_pdf_queue(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep the real worker pool out of the tests.
+    """Keep the real PDF listener out of the tests.
 
-    ``TestClient`` runs the app's lifespan, which would otherwise start the
-    workers, the reaper and a ``LISTEN`` connection — all of them pointed at
-    the development database, because the worker opens its own sessions from
-    ``deps.db`` rather than the one the fixtures override. Those workers would
-    claim and compile real queued jobs.
+    ``TestClient`` runs the app's lifespan, which would otherwise open a
+    ``LISTEN`` connection to the development database, because the listener
+    connects from settings rather than through the session the fixtures
+    override.
 
     The tests that care about the queue drive it directly or override
     ``get_notifier``, so there is nothing here worth starting.

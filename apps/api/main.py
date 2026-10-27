@@ -27,19 +27,16 @@ def operation_id(route: APIRoute) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Bring up the PDF queue before the first request.
+    """Start the PDF listener before the first request.
 
-    The API brings up the PDF queue: the workers live in this process,
-    so how many there are is a property of how the API was started —
-    ``PDF_WORKER_COUNT=6 bun run dev:api``. Zero is a real answer, and what the
-    compose deployment sets, where a worker container claims the jobs instead;
-    the listener still runs, because a request waiting here has to hear that
-    its job finished wherever it ran.
+    The API never compiles: ``worker.py`` claims and runs the jobs, and reaps
+    the queue. What the API still needs is the listener, because a request
+    waiting here has to hear that its job finished in the worker process.
     """
     notifier = PdfNotifier()
     app.state.pdf_notifier = notifier
 
-    async with run_pool(notifier, settings.pdf_worker_count):
+    async with run_pool(notifier, 0, reap=False):
         yield
 
 

@@ -69,7 +69,6 @@ services:
     restart: unless-stopped
     environment:
       <<: *api-env
-      PDF_WORKER_COUNT: 0
     networks: [internal, edge]
     # loopback only: the host's reverse proxy can reach it, nothing else can
     ports:

@@ -37,9 +37,9 @@ class Settings(BaseSettings):
     postgres_db: str = ""
     postgres_port: int = 5432
 
-    # How many PDF compiles may run at once. The workers are started by the
-    # API itself, so this is set when the API starts:
-    # ``PDF_WORKER_COUNT=6 bun run dev:api``.
+    # How many PDF compiles one worker process runs at once. Read only by
+    # worker.py; the API never starts workers of its own:
+    # ``PDF_WORKER_COUNT=6 bun run dev:worker``.
     pdf_worker_count: int = 3
 
     # How the engine is fenced. "docker" gives each compile a container of its

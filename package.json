@@ -21,6 +21,7 @@
     "db:backup": "uv run --directory apps/api python -m scripts.backup_db",
     "resumes:export": "uv run --directory apps/api python -m scripts.export_resumes",
     "dev:api": "uv run --directory apps/api uvicorn main:app --reload",
+    "dev:worker": "uv run --directory apps/api python worker.py",
     "format:web": "bun run --filter apps-web format",
     "lint:web": "bun run --filter apps-web lint",
     "typecheck:web": "bun run --filter apps-web typecheck",
