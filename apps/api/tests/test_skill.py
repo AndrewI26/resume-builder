@@ -145,6 +145,23 @@ class TestCreate:
         assert created.user_id == user.id
         assert created.items == LANGUAGES
 
+    def test_nickname_defaults_to_none(self, auth, user):
+        response = auth(user).post("/skill/", json=payload())
+
+        assert response.json()["nickname"] is None
+
+    def test_lists_sharing_a_label_keep_their_own_nicknames(self, auth, user):
+        client = auth(user)
+        client.post("/skill/", json=payload(nickname="Languages — Quant"))
+        client.post("/skill/", json=payload(nickname="Languages — Full-stack"))
+
+        rows = client.get("/skill/").json()
+
+        assert [(row["name"], row["nickname"]) for row in rows] == [
+            ("Languages", "Languages — Quant"),
+            ("Languages", "Languages — Full-stack"),
+        ]
+
     def test_first_list_is_position_zero(self, auth, user):
         response = auth(user).post("/skill/", json=payload())
 

@@ -46,6 +46,7 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 				{
 					id: "10000000-0000-0000-0000-000000000001",
 					name: "Languages",
+					nickname: null,
 					position: 0,
 					items: [
 						"TypeScript/JavaScript",
@@ -62,6 +63,7 @@ export const SAMPLE_DOCUMENT: ResumeDocument = {
 				{
 					id: "10000000-0000-0000-0000-000000000002",
 					name: "Technologies/Frameworks",
+					nickname: null,
 					position: 1,
 					items: [
 						"React",

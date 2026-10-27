@@ -27,6 +27,7 @@ const education = (id: string, name: string): Education => ({
 const skill = (id: string, name: string): Skill => ({
 	id,
 	name,
+	nickname: null,
 	items: ["a", "b"],
 	position: 0,
 });

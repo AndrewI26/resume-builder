@@ -53,6 +53,7 @@ function SkillForm({
 	const form = useForm({
 		defaultValues: {
 			name: initialValue?.name ?? "",
+			nickname: initialValue?.nickname ?? "",
 			items: initialValue
 				? fromApiListItems(initialValue.items)
 				: ([emptyListItem()] as ListItemDraft[]),
@@ -61,14 +62,20 @@ function SkillForm({
 			setFormError(null);
 			try {
 				const items = toApiListItems(value.items);
+				const nickname = value.nickname.trim() || undefined;
 
 				if (initialValue) {
 					await editSkill({
-						body: { items, name: value.name, position: initialValue.position },
+						body: {
+							items,
+							name: value.name,
+							nickname,
+							position: initialValue.position,
+						},
 						params: { path: { skill_id: initialValue.id } },
 					});
 				} else {
-					await createSkill({ body: { items, name: value.name } });
+					await createSkill({ body: { items, name: value.name, nickname } });
 				}
 				await invalidate();
 				onSaved();
@@ -111,6 +118,17 @@ function SkillForm({
 				form.handleSubmit();
 			}}
 		>
+			<form.Field name="nickname">
+				{(field) => (
+					<TextInput
+						label="Nickname (only you see this)"
+						onChange={(event) => field.handleChange(event.target.value)}
+						placeholder="Languages — Quant"
+						value={field.state.value}
+					/>
+				)}
+			</form.Field>
+
 			<form.Field
 				name="name"
 				validators={{ onSubmit: required("Enter a name.") }}
@@ -118,7 +136,7 @@ function SkillForm({
 				{(field) => (
 					<TextInput
 						error={field.state.meta.errors[0]}
-						label="Name"
+						label="Label on resume"
 						onChange={(event) => field.handleChange(event.target.value)}
 						placeholder="Languages"
 						value={field.state.value}

@@ -57,6 +57,7 @@ def create_skill(skill: SkillCreate, current_user: CurrentUser, db: Db) -> Skill
         .values(
             user_id=current_user.id,
             name=skill.name,
+            nickname=skill.nickname,
             items=skill.items,
             position=position,
         )

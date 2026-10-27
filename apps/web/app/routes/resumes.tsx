@@ -106,7 +106,7 @@ function useSectionOptions(sectionType: SectionType | ""): {
 				return {
 					options: (skill.data ?? []).map((row) => ({
 						id: row.id,
-						label: row.name,
+						label: row.nickname ?? row.name,
 					})),
 					isLoading: skill.isPending,
 				};

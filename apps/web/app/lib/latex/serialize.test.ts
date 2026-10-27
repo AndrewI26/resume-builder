@@ -275,7 +275,13 @@ describe("skills", () => {
 					{
 						type: "skill",
 						items: [
-							{ id: "1", name: "Languages", items: ["Go", "SQL"], position: 0 },
+							{
+								id: "1",
+								name: "Languages",
+								nickname: null,
+								items: ["Go", "SQL"],
+								position: 0,
+							},
 						],
 					},
 				],
@@ -292,8 +298,8 @@ describe("skills", () => {
 					{
 						type: "skill",
 						items: [
-							{ id: "1", name: "A", items: ["x"], position: 0 },
-							{ id: "2", name: "B", items: ["y"], position: 1 },
+							{ id: "1", name: "A", nickname: null, items: ["x"], position: 0 },
+							{ id: "2", name: "B", nickname: null, items: ["y"], position: 1 },
 						],
 					},
 				],

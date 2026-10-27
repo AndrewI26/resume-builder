@@ -8,6 +8,7 @@ SkillItem = Annotated[str, Field(max_length=255)]
 
 class SkillCreate(BaseModel):
     name: str = Field(max_length=255)
+    nickname: str | None = Field(default=None, max_length=255)
     items: list[SkillItem]
 
     # Left out means "append after the caller's existing lists".
@@ -20,6 +21,7 @@ class SkillRead(BaseModel):
     id: UUID
 
     name: str
+    nickname: str | None
     items: list[str]
     position: int
 
@@ -32,5 +34,6 @@ class SkillEdit(BaseModel):
     """
 
     name: str = Field(max_length=255)
+    nickname: str | None = Field(default=None, max_length=255)
     items: list[SkillItem]
     position: int = Field(ge=0)

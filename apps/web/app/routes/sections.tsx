@@ -253,7 +253,12 @@ export default function Sections() {
 			<SectionTable
 				addHref="/sections/skill/new"
 				columns={[
-					{ key: "name", header: "Name", render: (row) => row.name },
+					{
+						key: "nickname",
+						header: "Nickname",
+						render: (row) => row.nickname ?? "—",
+					},
+					{ key: "name", header: "Label", render: (row) => row.name },
 					{
 						key: "items",
 						header: "Items",

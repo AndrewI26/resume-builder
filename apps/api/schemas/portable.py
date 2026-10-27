@@ -132,6 +132,7 @@ class PortableProject(_Strict):
 
 class PortableSkill(_Strict):
     name: Text
+    nickname: Text | None = None
     items: list[SkillItem] = Field(default=[], max_length=MAX_LIST_ENTRIES)
 
 

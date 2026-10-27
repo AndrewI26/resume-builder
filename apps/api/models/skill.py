@@ -12,6 +12,10 @@ class Skill(Base):
     Items are stored as an array so their order is the array's order —
     reordering is a rewrite of the whole list. ``position`` orders the lists
     themselves against each other within a user's resume.
+
+    ``name`` is the label printed on the resume; ``nickname`` is an optional
+    name only the library shows, so several lists can print as ``Languages``
+    and still be told apart (``Languages — Quant``, ``Languages — Full-stack``).
     """
 
     __tablename__ = "skills"
@@ -22,6 +26,7 @@ class Skill(Base):
     )
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    nickname: Mapped[str | None] = mapped_column(String(255), nullable=True)
     items: Mapped[list[str]] = mapped_column(string_array(255), default=list)
 
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

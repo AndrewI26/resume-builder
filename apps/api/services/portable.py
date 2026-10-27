@@ -223,7 +223,7 @@ def export_library(db: Session, user_id: UUID) -> PortableLibrary:
             for row in projects
         ],
         skills=[
-            PortableSkill(name=row.name, items=list(row.items))
+            PortableSkill(name=row.name, nickname=row.nickname, items=list(row.items))
             for row in owned(Skill, Skill.position)
         ],
     )

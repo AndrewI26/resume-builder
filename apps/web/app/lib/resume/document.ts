@@ -109,8 +109,10 @@ export function describe(
 		}
 		case "project":
 			return (row as Project).name;
-		case "skill":
-			return (row as Skill).name;
+		case "skill": {
+			const skill = row as Skill;
+			return skill.nickname ?? skill.name;
+		}
 	}
 }
 

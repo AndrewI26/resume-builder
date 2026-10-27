@@ -850,6 +850,8 @@ export interface components {
 		PortableSkill: {
 			/** Name */
 			name: string;
+			/** Nickname */
+			nickname?: string | null;
 			/**
 			 * Items
 			 * @default []
@@ -1048,6 +1050,8 @@ export interface components {
 		SkillCreate: {
 			/** Name */
 			name: string;
+			/** Nickname */
+			nickname?: string | null;
 			/** Items */
 			items: string[];
 			/** Position */
@@ -1063,6 +1067,8 @@ export interface components {
 		SkillEdit: {
 			/** Name */
 			name: string;
+			/** Nickname */
+			nickname?: string | null;
 			/** Items */
 			items: string[];
 			/** Position */
@@ -1077,6 +1083,8 @@ export interface components {
 			id: string;
 			/** Name */
 			name: string;
+			/** Nickname */
+			nickname: string | null;
 			/** Items */
 			items: string[];
 			/** Position */
