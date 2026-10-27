@@ -6,12 +6,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from config import get_settings
-from db import prepare_sqlite
 
 settings = get_settings()
 
 
-engine = prepare_sqlite(create_engine(settings.database_url))
+engine = create_engine(settings.database_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

@@ -63,10 +63,10 @@ def postgres_url() -> str:
     return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{name}_test"
 
 
-# Must be set before importing anything that reads settings: deps.db builds its
-# engine at import time, and security caches the signing key.
 TEST_DATABASE_URL = _test_database_url()
-os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+
+# Must be set before importing anything that reads settings: security caches
+# the signing key.
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 
 from fastapi.testclient import TestClient
